@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Node
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+
+# Data / secrets
+backend/.env
+backend/data/*.db
+backend/data/exports/
+backend/data/scenarios.json
+backend/static/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+
+# Examples (local screenshots — keep out of repo if large)
+пример работы ai агента/
