@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     cors_origins: list[str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "http://localhost:8001",
+        "http://127.0.0.1:8001",
     ]
 
     data_dir: Path = DATA_DIR
@@ -31,6 +33,8 @@ class Settings(BaseSettings):
 
     sql_row_limit: int = 500
     sql_timeout_sec: float = 8.0
+    # small ≈ быстрый cold start (HF Spaces); full ≈ плотнее данные локально
+    demo_scale: str = "small"
 
     openai_api_key: str | None = None
     anthropic_api_key: str | None = None

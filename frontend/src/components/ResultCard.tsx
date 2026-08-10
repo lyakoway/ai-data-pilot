@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { ChatResult } from '../lib/api'
@@ -12,6 +13,8 @@ export function ResultCard({
   onSaveScenario?: () => void
   lang: 'ru' | 'en'
 }) {
+  const [vote, setVote] = useState<'up' | 'down' | null>(null)
+
   return (
     <article className="result-card">
       <div className="result-md">
@@ -94,6 +97,29 @@ export function ResultCard({
             {lang === 'en' ? 'Save as scenario' : 'Сохранить как сценарий'}
           </button>
         )}
+        <div className="vote-row">
+          <button
+            type="button"
+            className={`icon-btn vote ${vote === 'up' ? 'active' : ''}`}
+            onClick={() => setVote('up')}
+            title="👍"
+          >
+            👍
+          </button>
+          <button
+            type="button"
+            className={`icon-btn vote ${vote === 'down' ? 'active' : ''}`}
+            onClick={() => setVote('down')}
+            title="👎"
+          >
+            👎
+          </button>
+          {vote && (
+            <span className="muted">
+              {lang === 'en' ? 'Thanks for the rating!' : 'Спасибо за оценку!'}
+            </span>
+          )}
+        </div>
       </div>
     </article>
   )

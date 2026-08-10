@@ -1,0 +1,17 @@
+**/__pycache__
+**/*.pyc
+.git
+.venv
+backend/.venv
+backend/.env
+backend/data/*.db
+backend/data/exports
+backend/data/scenarios.json
+backend/static
+frontend/node_modules
+frontend/dist
+пример работы ai агента
+.DS_Store
+ocr.swift
+ocr_bin
+ocr_out.txt

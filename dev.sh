@@ -10,8 +10,9 @@ if [ ! -d backend/.venv ]; then
   backend/.venv/bin/pip install -q -r backend/requirements.txt
 fi
 
-echo "▶ Запускаю backend на http://localhost:8000"
-( cd backend && .venv/bin/uvicorn app.main:app --reload --port 8000 ) &
+# 8001 — чтобы не конфликтовать с ai-RAG-chat на :8000
+echo "▶ Запускаю backend на http://localhost:8001"
+( cd backend && .venv/bin/uvicorn app.main:app --reload --port 8001 ) &
 BACK_PID=$!
 
 if [ ! -d frontend/node_modules ]; then
