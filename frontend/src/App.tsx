@@ -47,6 +47,8 @@ const COPY = {
     sendHint: 'Enter — отправить · Shift+Enter — новая строка',
     loading: 'Агент думает…',
     saveName: 'Название сценария',
+    menu: 'Меню',
+    newChat: 'Новый чат',
   },
   en: {
     title: 'AI Data Pilot',
@@ -67,6 +69,8 @@ const COPY = {
     sendHint: 'Enter to send · Shift+Enter for newline',
     loading: 'Agent is thinking…',
     saveName: 'Scenario name',
+    menu: 'Menu',
+    newChat: 'New chat',
   },
 } as const
 
@@ -84,6 +88,7 @@ export default function App() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [lastUserPrompt, setLastUserPrompt] = useState('')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -216,7 +221,15 @@ export default function App() {
 
   return (
     <div className="app">
-      <aside className="sidebar">
+      {sidebarOpen && (
+        <button
+          type="button"
+          className="sidebar-backdrop"
+          aria-label="Close menu"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="brand">
           <div className="brand-logo">DP</div>
           <div>
@@ -224,6 +237,17 @@ export default function App() {
             <p>RideGo · Oleg & Ksyusha</p>
           </div>
         </div>
+
+        <button
+          type="button"
+          className="btn btn-ghost new-chat-btn"
+          onClick={() => {
+            setTurns([])
+            setSidebarOpen(false)
+          }}
+        >
+          + {t.newChat}
+        </button>
 
         <div className="agent-switch">
           <button
@@ -251,7 +275,10 @@ export default function App() {
               key={sc.id}
               type="button"
               className="scenario-item"
-              onClick={() => runScenario(sc)}
+              onClick={() => {
+                setSidebarOpen(false)
+                void runScenario(sc)
+              }}
               disabled={loading}
             >
               <strong>{sc.name}</strong>
@@ -283,9 +310,19 @@ export default function App() {
 
       <main className="main">
         <header className="topbar">
-          <div>
-            <h2>{agent === 'oleg' ? 'Аналитик Олег' : 'Ксюша'}</h2>
-            <p className="sub">{agent === 'oleg' ? t.subtitleOleg : t.subtitleKsyusha}</p>
+          <div className="topbar-left">
+            <button
+              type="button"
+              className="icon-btn menu-btn"
+              onClick={() => setSidebarOpen(true)}
+              aria-label={t.menu}
+            >
+              ☰
+            </button>
+            <div>
+              <h2>{agent === 'oleg' ? 'Аналитик Олег' : 'Ксюша'}</h2>
+              <p className="sub">{agent === 'oleg' ? t.subtitleOleg : t.subtitleKsyusha}</p>
+            </div>
           </div>
           <select
             className="select"

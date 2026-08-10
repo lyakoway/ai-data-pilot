@@ -68,11 +68,30 @@ CREATE INDEX IF NOT EXISTS idx_subs_brand ON fact_subscriptions(brand);
 """
 
 
+def _scale_params(scale: str) -> tuple[date, date, dict[int, int], dict[int, int], float]:
+    """Return start, end, users_by_city, rides_base_by_city, ride_factor."""
+    if scale == "full":
+        return (
+            date(2026, 1, 1),
+            date(2026, 7, 15),
+            {1: 800, 2: 800, 3: 350, 4: 350, 5: 350, 6: 180, 7: 180, 8: 180},
+            {1: 220, 2: 160, 3: 90, 4: 85, 5: 70, 6: 55, 7: 40, 8: 35},
+            1.0,
+        )
+    # small — ~15–25k rides, cold start за секунды (HF Spaces)
+    return (
+        date(2026, 4, 1),
+        date(2026, 7, 15),
+        {1: 220, 2: 180, 3: 100, 4: 100, 5: 90, 6: 70, 7: 60, 8: 50},
+        {1: 55, 2: 40, 3: 22, 4: 20, 5: 18, 6: 14, 7: 10, 8: 9},
+        1.0,
+    )
+
+
 def seed_analytics_db(force: bool = False) -> Path:
     settings = get_settings()
     db_path = Path(settings.database_url.replace("sqlite:///", ""))
     if db_path.exists() and not force:
-        # Already seeded
         engine = create_engine(settings.database_url)
         with engine.connect() as conn:
             n = conn.execute(text("SELECT COUNT(*) FROM fact_rides")).scalar()
@@ -84,8 +103,7 @@ def seed_analytics_db(force: bool = False) -> Path:
 
     engine = create_engine(settings.database_url)
     rng = random.Random(42)
-    start = date(2026, 1, 1)
-    end = date(2026, 7, 15)
+    start, end, users_by_city, rides_base, _ = _scale_params(settings.demo_scale)
     days = (end - start).days
 
     with engine.begin() as conn:
@@ -113,9 +131,9 @@ def seed_analytics_db(force: bool = False) -> Path:
         users: list[tuple[int, int]] = []
         user_id = 1
         for city_id in range(1, len(CITIES) + 1):
-            n_users = 800 if city_id <= 2 else 350 if city_id <= 5 else 180
+            n_users = users_by_city[city_id]
             for _ in range(n_users):
-                reg = start + timedelta(days=rng.randint(0, days))
+                reg = start + timedelta(days=rng.randint(0, max(days, 1)))
                 phone = "RU" if rng.random() > 0.08 else "OTHER"
                 ver = rng.choice(["1.9.0", "2.0.0", "2.1.0", "2.2.0"])
                 conn.execute(
@@ -134,16 +152,20 @@ def seed_analytics_db(force: bool = False) -> Path:
                 users.append((user_id, city_id))
                 user_id += 1
 
+        # Pre-index users by city for O(1) sampling
+        users_by_c: dict[int, list[int]] = {i: [] for i in range(1, len(CITIES) + 1)}
+        for uid, cid in users:
+            users_by_c[cid].append(uid)
+
         ride_id = 1
         batch: list[dict] = []
         for day_offset in range(days + 1):
             d = start + timedelta(days=day_offset)
-            # Seasonality: more rides in warmer months
             season = 0.7 + 0.6 * (d.month / 7)
             for city_id in range(1, len(CITIES) + 1):
-                base = {1: 220, 2: 160, 3: 90, 4: 85, 5: 70, 6: 55, 7: 40, 8: 35}[city_id]
-                n_rides = int(base * season * rng.uniform(0.85, 1.15))
-                city_users = [u for u, c in users if c == city_id]
+                base = rides_base[city_id]
+                n_rides = max(1, int(base * season * rng.uniform(0.85, 1.15)))
+                city_users = users_by_c[city_id]
                 for _ in range(n_rides):
                     uid = rng.choice(city_users)
                     dist = round(rng.uniform(0.8, 12.0), 2)

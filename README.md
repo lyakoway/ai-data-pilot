@@ -1,13 +1,34 @@
-# AI Data Pilot
+---
+title: AI Data Pilot
+emoji: 📊
+colorFrom: indigo
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+---
 
-Аналитический дашборд с двумя AI-агентами в стиле корпоративного ChatOps:
+# 📊 AI Data Pilot — аналитические агенты Олег и Ксюша
 
-- **Аналитик Олег** — NL → SQL → таблица / график / Excel на демо-БД **RideGo** (микромобильность)
-- **Ксюша** — ответы по фейковой внутренней документации (метрики, lineage, backend)
+> Дашборд с двумя AI-агентами: **Олег** ходит в БД (NL → SQL → таблица / график / Excel),
+> **Ксюша** отвечает по внутренней документации. Сохранённые сценарии — в один клик.
 
-Стек совпадает с [RAG Chat](../ai-RAG-chat): FastAPI + React/Vite, те же design tokens, облачные LLM + **Ollama**.
+[![Demo](https://img.shields.io/badge/demo-🤗%20Hugging%20Face%20Spaces-ff9d00)](https://huggingface.co/spaces)
+![backend](https://img.shields.io/badge/backend-FastAPI-009688)
+![frontend](https://img.shields.io/badge/frontend-React%2019%20%2B%20Vite-61dafb)
+![sql](https://img.shields.io/badge/Text--to--SQL-ready-6366f1)
 
-## Быстрый старт
+<sub>Демо на бесплатном тарифе может «засыпать» — первый заход после простоя поднимается ~1 мин.</sub>
+
+## Возможности
+
+- 👤 **Аналитик Олег** — Text-to-SQL, KPI, Recharts, Excel, показ SQL и методологии
+- 👩‍💻 **Ксюша** — RAG по фейковой док-базе (метрики, lineage, backend)
+- ⚡ **Сценарии** — one-click отчёты + сохранение своих
+- 🤖 **Модели** — Demo (offline), OpenAI, Anthropic, Z.ai (GLM), Ollama
+- 🎨 UI в стиле RAG Chat — dark/light, RU/EN, мобильное меню
+
+## Быстрый старт (локально)
 
 ```bash
 chmod +x dev.sh
@@ -15,50 +36,53 @@ chmod +x dev.sh
 ```
 
 - UI: http://localhost:5173  
-- API: http://localhost:8000/docs  
+- API: http://localhost:8001/docs  (порт 8001, чтобы не пересекаться с RAG Chat на 8000)
 
-Без ключей работает **Demo (offline)** — детерминированный SQL и ответы по докам.
+Без ключей работает **Demo (offline)**.
 
 ### Ключи (опционально)
 
-Скопируйте `backend/.env.example` → `backend/.env`:
+`backend/.env` ← из `backend/.env.example`:
 
 ```env
 OPENAI_API_KEY=
 ANTHROPIC_API_KEY=
 ZAI_API_KEY=
 OLLAMA_BASE_URL=http://localhost:11434
+DEMO_SCALE=small   # или full для более плотных данных
 ```
 
-Локально: `ollama pull llama3.2:3b` (или другая модель из списка).
+## Архитектура
 
-## Что умеет
+```
+[React dashboard] ──/api──▶ [FastAPI]
+                              ├─ Oleg: schema → SQL → guard → SQLite → chart/xlsx
+                              └─ Ksyusha: keyword RAG over data/docs/*.md
+```
 
-| Фича | Описание |
-|------|----------|
-| Дашборд KPI | Поездки, выручка, пользователи, графики |
-| Сценарии | One-click отчёты, сохранение своих |
-| SQL-прозрачность | Показ запроса, как у «Олега» на скринах |
-| Excel | Выгрузка результата |
-| Два агента | Oleg (БД) / Ksyusha (docs RAG) |
-| Multi-model | OpenAI, Anthropic, Z.ai, Ollama, mock |
+Демо-домен: **RideGo** (микромобильность) — `dim_city`, `dim_user`, `fact_rides`, `fact_subscriptions`.
 
-## Данные
+## Деплой на Hugging Face Spaces
 
-Синтетическая SQLite-база `backend/data/ridego.db` (сиды при старте):
+1. Space → **Docker**, порт **7860** (см. YAML в начале README).
+2. Secrets (опционально): `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `ZAI_API_KEY`.
+3. Root `Dockerfile` собирает frontend и отдаёт его из FastAPI.
 
-- `dim_city`, `dim_user`, `fact_rides`, `fact_subscriptions`
+Локальная проверка образа:
 
-Доки Ксюши: `backend/data/docs/*.md` (можно править).
+```bash
+docker build -t ai-data-pilot .
+docker run --rm -p 7860:7860 ai-data-pilot
+# → http://localhost:7860
+```
 
-Для «боевых» открытых датасетов можно заменить сиды на выгрузки с [Kaggle](https://www.kaggle.com/datasets) или источников из [статьи «Код»](https://thecode.media/5-big-data/) — достаточно обновить схему в `schema_catalog.py` и сидер.
-
-## Портфолио
-
-Карточка добавляется в `lyako-way` как `/portfolio/ai-data-pilot` (по аналогии с `rag-chat`), категория **AI-агенты**.
-
-## Docker
+## Docker Compose (dev split)
 
 ```bash
 docker compose up --build
 ```
+
+## Портфолио
+
+Карточка: `/portfolio/ai-data-pilot` в `lyako-way` (категория AI-агенты).
+После публикации демо пропишите `hrefPortfolio` и добавьте скриншоты.
