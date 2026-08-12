@@ -2,6 +2,7 @@ import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { AnswerStatus, ChatResult } from '../lib/api'
+import { api } from '../lib/api'
 import { ChartBlock } from './ChartBlock'
 
 const STATUS_LABEL: Record<AnswerStatus, { ru: string; en: string }> = {
@@ -11,19 +12,51 @@ const STATUS_LABEL: Record<AnswerStatus, { ru: string; en: string }> = {
   error: { ru: 'Ошибка', en: 'Error' },
 }
 
+export type FeedbackContext = {
+  agent: 'oleg' | 'ksyusha'
+  message?: string
+  model?: string
+  datasource_id?: string
+}
+
 export function ResultCard({
   result,
   onSaveScenario,
   lang,
+  feedbackContext,
 }: {
   result: ChatResult
   onSaveScenario?: () => void
   lang: 'ru' | 'en'
+  feedbackContext?: FeedbackContext
 }) {
   const [vote, setVote] = useState<'up' | 'down' | null>(null)
+  const [voteSaved, setVoteSaved] = useState(false)
   const status = result.status ?? 'ok'
   const statusClass = `status-badge status-${status}`
   const warnings = result.warnings ?? []
+
+  async function handleVote(v: 'up' | 'down') {
+    const previous = vote
+    setVote(v)
+    setVoteSaved(false)
+    if (feedbackContext) {
+      try {
+        await api.feedback({
+          vote: v,
+          agent: feedbackContext.agent,
+          message: feedbackContext.message,
+          answer: result.answer,
+          datasource_id: feedbackContext.datasource_id,
+          model: feedbackContext.model,
+          lang,
+        })
+        setVoteSaved(true)
+      } catch {
+        // best-effort: keep the local UI state even if persisting fails
+      }
+    }
+  }
 
   return (
     <article className="result-card">
@@ -125,7 +158,7 @@ export function ResultCard({
           <button
             type="button"
             className={`icon-btn vote ${vote === 'up' ? 'active' : ''}`}
-            onClick={() => setVote('up')}
+            onClick={() => handleVote('up')}
             title="👍"
           >
             👍
@@ -133,14 +166,20 @@ export function ResultCard({
           <button
             type="button"
             className={`icon-btn vote ${vote === 'down' ? 'active' : ''}`}
-            onClick={() => setVote('down')}
+            onClick={() => handleVote('down')}
             title="👎"
           >
             👎
           </button>
           {vote && (
             <span className="muted">
-              {lang === 'en' ? 'Thanks for the rating!' : 'Спасибо за оценку!'}
+              {voteSaved
+                ? lang === 'en'
+                  ? 'Saved — thanks!'
+                  : 'Сохранено — спасибо!'
+                : lang === 'en'
+                  ? 'Thanks for the rating!'
+                  : 'Спасибо за оценку!'}
             </span>
           )}
         </div>

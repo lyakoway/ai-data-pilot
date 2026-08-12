@@ -6,7 +6,6 @@ keys or network are required.
 """
 from __future__ import annotations
 
-import importlib
 from pathlib import Path
 from typing import Any
 
@@ -19,12 +18,15 @@ from app.db import seed as seed_module
 
 @pytest.fixture()
 def tmp_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Point the app config at a temp SQLite file, seed it, and reload modules
-    that cached the old settings (``get_settings`` is lru-cached)."""
+    """Point the app config at temp SQLite files (analytics DB + app DB), seed
+    them, and reload modules that cached the old settings."""
     db_path = tmp_path / "test.db"
     db_url = f"sqlite:///{db_path}"
+    app_db_path = tmp_path / "test_app.db"
+    app_db_url = f"sqlite:///{app_db_path}"
+    csv_db_path = tmp_path / "test_csv.db"
 
-    # Clear the lru_cache so new settings are picked up, then patch database_url.
+    # Clear the lru_cache so new settings are picked up, then patch database urls.
     config_module.get_settings.cache_clear()
     monkeypatch.setattr(
         config_module.Settings,
@@ -32,12 +34,29 @@ def tmp_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         property(lambda self: db_url),
         raising=False,
     )
-    # Also force demo_scale small for fast seeding.
+    monkeypatch.setattr(
+        config_module.Settings,
+        "app_db_url",
+        property(lambda self: app_db_url),
+        raising=False,
+    )
     monkeypatch.setattr(config_module.Settings, "demo_scale", "small", raising=False)
-    # Re-seed into the temp location.
+
+    # Point CSV sources DB at the temp dir too.
+    from app.db import datasources as ds_module
+
+    monkeypatch.setattr(ds_module, "_csv_db_path", lambda: csv_db_path)
+
+    # Reset the cached app engine so it picks up the new app_db_url.
+    from app.db import app_db
+
+    app_db.reset_app_engine()
+
+    # Re-seed the analytics DB into the temp location.
     seed_module.seed_analytics_db(force=True)
     yield db_path
     config_module.get_settings.cache_clear()
+    app_db.reset_app_engine()
 
 
 @pytest.fixture()

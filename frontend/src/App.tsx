@@ -510,6 +510,12 @@ export default function App() {
                       result={turn.result}
                       lang={lang}
                       onSaveScenario={saveAsScenario}
+                      feedbackContext={{
+                        agent,
+                        message: lastUserPrompt,
+                        model,
+                        datasource_id: agent === 'oleg' ? datasourceId : undefined,
+                      }}
                     />
                   )}
                 </div>

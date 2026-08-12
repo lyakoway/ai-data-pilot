@@ -28,6 +28,7 @@ pinned: false
   - **Прозрачные статусы** — каждый ответ помечен: `Реальный ответ` / `Демо-режим` / `С коррекцией` / `Ошибка`
   - **Таймаут запросов** — долгие SQL не вешают endpoint
   - **Мульти-источники** — работайте со встроенной демо-БД RideGo **или загрузите свой CSV**: схема автогенерируется, и Олег строит SQL по вашим данным
+- 👍 **Голосовалка** — оценки 👍/👎 сохраняются на backend (для мониторинга качества ответов)
 - 👩‍💻 **Ксюша** — RAG по фейковой док-базе (метрики, lineage, backend)
 - ⚡ **Сценарии** — one-click отчёты + сохранение своих
 - 🤖 **Модели** — Demo (offline), OpenAI, Anthropic, Z.ai (GLM), Ollama
@@ -67,7 +68,12 @@ DEMO_SCALE=small   # или full для более плотных данных
                               │         ↑ deterministic insights (Python, not LLM math)
                               ├─ DataSources: RideGo (built-in) | user-uploaded CSV
                               └─ Ksyusha: keyword RAG over data/docs/*.md
+
+App DB (SQLite): scenarios · datasource metadata · feedback votes
+Analytics DB:    RideGo (seeded) · uploaded CSV tables
 ```
+
+**Хранилище:** Сценарии, метаданные источников и голоса (👍/👎) — в `app.db` (SQLite). Данные аналитики — в `ridego.db` (встроенный демо-домен) и `csv_sources.db` (загруженные CSV).
 
 **Источники данных:** RideGo (демо, ~21k поездок) — встроенный. CSV-файлы загружаются через UI → автодетекция типов колонок → SQLite-таблица → автогенерация схемы для промпта Олега. Сценарии привязаны к источнику.
 

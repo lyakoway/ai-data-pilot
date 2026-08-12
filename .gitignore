@@ -16,6 +16,7 @@ backend/.env
 backend/data/*.db
 backend/data/exports/
 backend/data/scenarios.json
+backend/data/datasources.json
 backend/static/
 
 # OS / IDE
