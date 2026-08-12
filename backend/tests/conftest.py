@@ -42,10 +42,10 @@ def tmp_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     )
     monkeypatch.setattr(config_module.Settings, "demo_scale", "small", raising=False)
 
-    # Point CSV sources DB at the temp dir too.
+    # Point the uploaded-data DB at the temp dir too (CSV + Excel sources).
     from app.db import datasources as ds_module
 
-    monkeypatch.setattr(ds_module, "_csv_db_path", lambda: csv_db_path)
+    monkeypatch.setattr(ds_module, "_uploaded_db_path", lambda: csv_db_path)
 
     # Reset the cached app engine so it picks up the new app_db_url.
     from app.db import app_db

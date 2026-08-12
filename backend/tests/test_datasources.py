@@ -88,9 +88,9 @@ def test_delete_source_removes_table_and_meta(csv_source):
     # meta gone
     assert all(s["id"] != sid for s in ds.list_sources())
     # table gone
-    from app.db.datasources import _csv_engine
+    from app.db.datasources import _uploaded_engine
 
-    with _csv_engine().connect() as c:
+    with _uploaded_engine().connect() as c:
         exists = c.execute(
             text(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table}'")
         ).fetchone()
@@ -172,3 +172,133 @@ async def test_ridego_source_still_uses_mock_plans(tmp_db, monkeypatch):
     r = await run_oleg("топ городов", model_id="mock", lang="ru")
     assert r["status"] == "demo"
     assert r["row_count"] > 0
+
+
+# --------------------------------------------------------------------------- #
+# Excel (.xlsx) ingestion — each sheet becomes its own source
+# --------------------------------------------------------------------------- #
+
+
+def _make_xlsx_bytes(sheets: dict[str, list[list]]) -> bytes:
+    """Build an in-memory .xlsx workbook from {sheet_title: rows}."""
+    import io
+
+    from openpyxl import Workbook
+
+    wb = Workbook()
+    first = True
+    for title, rows in sheets.items():
+        ws = wb.active if first else wb.create_sheet()
+        ws.title = title
+        for row in rows:
+            ws.append(row)
+        first = False
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+@pytest.fixture()
+def xlsx_sources(tmp_db):
+    """A 2-sheet workbook (Sales + Customers); yields the created metas."""
+    from datetime import date
+
+    payload = {
+        "Sales": [
+            ["region", "revenue", "date"],
+            ["Центр", 150000, date(2026, 7, 1)],
+            ["Урал", 80000, date(2026, 7, 2)],
+            ["Сибирь", 45000, date(2026, 7, 3)],
+        ],
+        "Customers": [
+            ["name", "age", "score"],
+            ["Анна", 34, 4.8],
+            ["Иван", 28, 3.9],
+        ],
+    }
+    metas = ds.ingest_xlsx("report_q3.xlsx", _make_xlsx_bytes(payload))
+    yield metas
+    for m in metas:
+        try:
+            ds.delete_source(m["id"])
+        except KeyError:
+            pass
+
+
+def test_xlsx_creates_one_source_per_sheet(xlsx_sources):
+    metas = xlsx_sources
+    assert len(metas) == 2
+    names = {m["name"] for m in metas}
+    assert "Report Q3 · Sales" in names
+    assert "Report Q3 · Customers" in names
+
+
+def test_xlsx_types_are_inferred_from_native_types(xlsx_sources):
+    metas = {m["name"]: m for m in xlsx_sources}
+    sales = metas["Report Q3 · Sales"]
+    sales_types = {c["name"]: c["type"] for c in sales["columns"]}
+    # revenue came as int → integer; date → text (ISO); region → text.
+    assert sales_types["revenue"] == "integer"
+    assert sales_types["date"] == "text"
+    assert sales_types["region"] == "text"
+
+    cust = metas["Report Q3 · Customers"]
+    cust_types = {c["name"]: c["type"] for c in cust["columns"]}
+    # age int → integer; score float → real.
+    assert cust_types["age"] == "integer"
+    assert cust_types["score"] == "real"
+
+
+def test_xlsx_each_source_is_queryable(xlsx_sources):
+    for m in xlsx_sources:
+        eng = ds.get_engine_for(m["id"])
+        with eng.connect() as c:
+            n = c.execute(text(f'SELECT COUNT(*) FROM "{m["table_name"]}"')).scalar()
+        assert n == m["row_count"]
+
+
+def test_xlsx_dates_stored_as_iso(xlsx_sources):
+    sales = next(m for m in xlsx_sources if "Sales" in m["name"])
+    eng = ds.get_engine_for(sales["id"])
+    with eng.connect() as c:
+        d = c.execute(text(f'SELECT "date" FROM "{sales["table_name"]}" LIMIT 1')).scalar()
+    assert d == "2026-07-01"  # ISO, not an Excel serial number
+
+
+def test_xlsx_empty_sheets_are_skipped(tmp_db):
+    payload = {
+        "Data": [["x", "y"], [1, 2]],
+        "Empty": [],  # no rows at all
+    }
+    metas = ds.ingest_xlsx("mixed.xlsx", _make_xlsx_bytes(payload))
+    assert len(metas) == 1
+    assert "Data" in metas[0]["name"]
+    ds.delete_source(metas[0]["id"])
+
+
+def test_xlsx_all_empty_raises(tmp_db):
+    payload = {"Empty1": [], "Empty2": [[]]}  # all sheets empty
+    with pytest.raises(ValueError, match="no data"):
+        ds.ingest_xlsx("empty.xlsx", _make_xlsx_bytes(payload))
+
+
+def test_xlsx_garbage_bytes_raises(tmp_db):
+    with pytest.raises(ValueError):
+        ds.ingest_xlsx("bad.xlsx", b"this is not a valid xlsx file")
+
+
+def test_xlsx_schema_catalog_describes_each_sheet(xlsx_sources):
+    for m in xlsx_sources:
+        catalog = ds.get_schema_catalog(m["id"])
+        assert m["table_name"] in catalog
+        # a column name should appear with its type
+        first_col = m["columns"][0]["name"]
+        assert first_col in catalog
+
+
+def test_xlsx_source_deletable(xlsx_sources):
+    target = xlsx_sources[0]
+    ds.delete_source(target["id"])
+    assert ds.get_source_meta(target["id"]) is None
+    # mutate the list so the fixture cleanup doesn't double-delete
+    xlsx_sources[:] = xlsx_sources[1:]

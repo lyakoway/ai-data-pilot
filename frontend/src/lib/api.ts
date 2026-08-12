@@ -31,6 +31,11 @@ export type CsvUploadResult = DataSourceInfo & {
   columns: { name: string; type: string; sqlite_type: string }[]
 }
 
+export type UploadResponse = {
+  sources: CsvUploadResult[]
+  count: number
+}
+
 export type ChartPayload = {
   type: 'bar' | 'line' | 'pie'
   x_key: string
@@ -115,10 +120,10 @@ export const api = {
       body: JSON.stringify(body),
     }),
   datasources: () => json<DataSourceInfo[]>('/api/datasources'),
-  uploadCsv: (file: File) => {
+  uploadFile: (file: File) => {
     const form = new FormData()
     form.append('file', file)
-    return json<CsvUploadResult>('/api/datasources/upload', { method: 'POST', body: form })
+    return json<UploadResponse>('/api/datasources/upload', { method: 'POST', body: form })
   },
   deleteDatasource: (id: string) =>
     json<{ ok: boolean }>(`/api/datasources/${id}`, { method: 'DELETE' }),
