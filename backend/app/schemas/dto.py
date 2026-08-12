@@ -57,6 +57,7 @@ class ChatResponse(BaseModel):
     status: Literal["ok", "demo", "partial", "error"] = "ok"
     warnings: list[str] = []
     insights: dict[str, Any] = {}
+    steps: list[dict[str, Any]] = []
     sql: str | None = None
     explanation: str | None = None
     columns: list[str] = []

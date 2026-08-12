@@ -358,6 +358,86 @@ th { background: var(--bg-soft); color: var(--text-soft); font-weight: 600; }
 }
 .warnings-box p { margin: 2px 0; }
 
+/* Agent execution trace (streaming steps) */
+.trace-box {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-soft);
+  font-size: 13px;
+  overflow: hidden;
+}
+.trace-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-soft);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.trace-toggle { font-size: 10px; }
+.trace-label { flex: 1; text-align: left; }
+.trace-count { color: var(--text-muted); font-weight: 400; }
+.trace-spinner {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.trace-list { margin: 0; padding: 0 12px 8px; list-style: none; }
+.trace-item { padding: 5px 0; border-top: 1px solid var(--border); }
+.trace-item:first-child { border-top: none; }
+.trace-row { display: flex; align-items: center; gap: 7px; }
+.trace-row.clickable { cursor: pointer; }
+.trace-row.clickable:hover .trace-title { color: var(--accent); }
+.trace-status { font-size: 12px; width: 14px; }
+.trace-done .trace-status { color: #16a34a; }
+.trace-error .trace-status { color: #dc2626; }
+.trace-running .trace-status { color: var(--text-muted); }
+.trace-running .trace-title { color: var(--text-muted); }
+[data-theme='dark'] .trace-done .trace-status { color: #4ade80; }
+[data-theme='dark'] .trace-error .trace-status { color: #f87171; }
+.trace-tool-icon { font-size: 12px; }
+.trace-title { color: var(--text-soft); }
+.trace-summary {
+  color: var(--text-muted);
+  font-size: 11px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 280px;
+}
+.trace-dur { color: var(--text-muted); font-size: 10px; }
+.trace-detail {
+  margin: 6px 0 2px 21px;
+  padding: 8px 10px;
+  border-left: 2px solid var(--accent);
+  background: var(--bubble-ai);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+}
+.trace-sql {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: pre-wrap;
+  margin: 0;
+  color: var(--text);
+}
+.trace-highlights { margin: 0; padding-left: 16px; font-size: 11px; }
+.trace-highlights li { color: var(--text-soft); margin: 2px 0; }
+.trace-logic { margin: 0; font-size: 11px; color: var(--text-soft); }
+
 /* Data source selector + CSV upload (Phase 2 multi-source) */
 .topbar-selects { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .btn-sm { padding: 7px 11px; font-size: 12px; }

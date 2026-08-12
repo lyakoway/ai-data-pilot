@@ -23,6 +23,7 @@ pinned: false
 ## Возможности
 
 - 👤 **Аналитик Олег** — Text-to-SQL, KPI, Recharts, Excel, показ SQL и методологии
+  - **Execution trace (SSE)** — пользователь видит пошаговую работу агента в реальном времени: «Анализирую запрос ✓ → Получаю данные ✓ (6 строк) → Считаю метрики ✓ → Готовлю визуализацию ✓ → Формирую ответ ✓». Каждый шаг раскрывается (SQL, инсайты, row_count). Self-correction виден как отдельный шаг «Исправляю запрос»
   - **Self-correction** — если SQL упал, агент видит ошибку и переписывает запрос (до 2 попыток) вместо молчаливой подмены данных
   - **Детерминированная аналитика** — тренды, топ-N, аномалии (z-score) считает Python; LLM только оформляет текст. Цифры в ответе всегда точные
   - **Прозрачные статусы** — каждый ответ помечен: `Реальный ответ` / `Демо-режим` / `С коррекцией` / `Ошибка`
@@ -33,7 +34,7 @@ pinned: false
 - ⚡ **Сценарии** — one-click отчёты + сохранение своих
 - 🤖 **Модели** — Demo (offline), OpenAI, Anthropic, Z.ai (GLM), Ollama
 - 🎨 UI в стиле RAG Chat — dark/light, RU/EN, мобильное меню
-- 🧪 **Тесты** — pytest (70 тестов) покрывает аналитический слой, SQL guard, self-correction loop, мульти-источники (CSV + Excel) и app-БД
+- 🧪 **Тесты** — pytest (76 тестов) покрывает аналитический слой, SQL guard, self-correction loop, execution trace, мульти-источники (CSV + Excel) и app-БД
 
 ## Быстрый старт (локально)
 
@@ -66,11 +67,12 @@ DEMO_SCALE=small   # или full для более плотных данных
                               ├─ Oleg: schema → SQL → guard → analytics → chart/xlsx
                               │         ↑ self-correction (2 retry rounds)
                               │         ↑ deterministic insights (Python, not LLM math)
-                              ├─ DataSources: RideGo (built-in) | user-uploaded CSV
+                              │         ↑ execution trace streamed via SSE (step events)
+                              ├─ DataSources: RideGo (built-in) | user-uploaded CSV / Excel
                               └─ Ksyusha: keyword RAG over data/docs/*.md
 
 App DB (SQLite): scenarios · datasource metadata · feedback votes
-Analytics DB:    RideGo (seeded) · uploaded CSV tables
+Analytics DB:    RideGo (seeded) · uploaded CSV/Excel tables
 ```
 
 **Хранилище:** Сценарии, метаданные источников и голоса (👍/👎) — в `app.db` (SQLite). Данные аналитики — в `ridego.db` (встроенный демо-домен) и `csv_sources.db` (загруженные CSV).

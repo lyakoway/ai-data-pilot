@@ -11,7 +11,7 @@ import json
 import pytest
 
 from app.agents import oleg as oleg_module
-from app.agents.oleg import run_oleg
+from app.agents.oleg import run_oleg, run_oleg_streaming
 
 
 def _plan(sql: str, **extra) -> str:
@@ -210,3 +210,108 @@ async def test_force_excel_overrides_plan(tmp_db, monkeypatch, fake_provider_fac
 
     r = await run_oleg("x", model_id="openai:gpt-4o", lang="ru", force_excel=True)
     assert r["excel_url"] is not None  # force_excel won
+
+
+# --------------------------------------------------------------------------- #
+# Execution-trace steps (streaming)
+# --------------------------------------------------------------------------- #
+
+
+def _step_tools(result: dict) -> list[str]:
+    return [s["tool"] for s in result.get("steps", [])]
+
+
+@pytest.mark.asyncio
+async def test_steps_present_in_demo_mode(tmp_db, monkeypatch):
+    from app.llm.providers import MockProvider
+
+    _patch_provider(monkeypatch, MockProvider())
+    r = await run_oleg("выручка по регионам", model_id="mock", lang="ru")
+    tools = _step_tools(r)
+    # planner → database_query → analyze → chart → answer
+    assert tools == ["planner", "database_query", "analyze", "chart", "answer"]
+    assert all(s["status"] == "done" for s in r["steps"])
+    assert all(s["duration_ms"] is not None for s in r["steps"])
+
+
+@pytest.mark.asyncio
+async def test_step_database_query_has_sql_and_row_count(tmp_db, monkeypatch):
+    from app.llm.providers import MockProvider
+
+    _patch_provider(monkeypatch, MockProvider())
+    r = await run_oleg("топ городов", model_id="mock", lang="ru")
+    db_step = next(s for s in r["steps"] if s["tool"] == "database_query")
+    assert db_step["detail"]["sql"]
+    assert db_step["detail"]["row_count"] == r["row_count"]
+    assert "строк" in db_step["summary"]  # "8 строк"
+
+
+@pytest.mark.asyncio
+async def test_step_analyze_has_highlights(tmp_db, monkeypatch):
+    from app.llm.providers import MockProvider
+
+    _patch_provider(monkeypatch, MockProvider())
+    r = await run_oleg("выручка по регионам", model_id="mock", lang="ru")
+    analyze_step = next(s for s in r["steps"] if s["tool"] == "analyze")
+    assert isinstance(analyze_step["detail"]["highlights"], list)
+    assert len(analyze_step["detail"]["highlights"]) > 0
+
+
+@pytest.mark.asyncio
+async def test_streaming_callback_receives_running_then_done(tmp_db, monkeypatch):
+    from app.llm.providers import MockProvider
+
+    _patch_provider(monkeypatch, MockProvider())
+    seen: list[tuple[str, str]] = []
+
+    async def on_step(step):
+        seen.append((step["status"], step["tool"]))
+
+    await run_oleg_streaming("топ", model_id="mock", lang="ru", on_step=on_step)
+    # Every step emits running then done → pairs must alternate.
+    statuses = [s for s, _ in seen]
+    assert statuses[0] == "running"
+    assert statuses[1] == "done"
+    assert statuses.count("running") == statuses.count("done")
+
+
+@pytest.mark.asyncio
+async def test_self_correction_produces_repair_step(tmp_db, monkeypatch, fake_provider_factory):
+    fake = fake_provider_factory(
+        responses=[
+            _plan("SELECT bad_col FROM fact_rides LIMIT 5"),
+            _plan(
+                "SELECT city_id, COUNT(*) AS rides FROM fact_rides GROUP BY city_id ORDER BY rides DESC LIMIT 5",
+                chart_type="bar",
+                logic="fixed",
+            ),
+            "Готово.",
+        ],
+        provider="openai",
+    )
+    _patch_provider(monkeypatch, fake)
+
+    r = await run_oleg("test", model_id="openai:gpt-4o-mini", lang="ru")
+    db_steps = [s for s in r["steps"] if s["tool"] == "database_query"]
+    # Initial attempt failed (error) + repair succeeded (done) → at least 2 db steps.
+    assert len(db_steps) >= 2
+    assert any(s["status"] == "error" for s in db_steps)
+    assert any(s["status"] == "done" for s in db_steps)
+
+
+@pytest.mark.asyncio
+async def test_steps_absent_for_error_response(tmp_db, monkeypatch):
+    from app.llm.providers import MockProvider
+
+    # CSV source + mock → honest error (steps still present up to the failure point).
+    from app.db import datasources as ds
+
+    meta = ds.ingest_csv("x.csv", "a,b\n1,2\n")
+    try:
+        _patch_provider(monkeypatch, MockProvider())
+        r = await run_oleg("test", model_id="mock", lang="ru", datasource_id=meta["id"])
+        assert r["status"] == "error"
+        # The planner step ran and errored.
+        assert any(s["tool"] == "planner" and s["status"] == "error" for s in r["steps"])
+    finally:
+        ds.delete_source(meta["id"])
