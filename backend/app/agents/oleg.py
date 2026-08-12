@@ -15,7 +15,8 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any
+import time
+from typing import Any, Awaitable, Callable
 
 from app.core.analytics import compute_insights
 from app.core.export_xlsx import export_rows
@@ -241,6 +242,7 @@ def _ok_response(
     status: str,
     warnings: list[str] | None = None,
     force_excel: bool = False,
+    steps: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     wants_excel = bool(plan.get("wants_excel")) or force_excel or len(rows) >= 15
     excel_url = None
@@ -252,6 +254,7 @@ def _ok_response(
         "agent": "oleg",
         "status": status,
         "warnings": warnings or [],
+        "steps": steps or [],
         "answer": answer,
         "sql": plan.get("sql"),
         "explanation": plan.get("logic"),
@@ -277,6 +280,7 @@ def _error_response(
     lang: str,
     status: str = "error",
     warnings: list[str] | None = None,
+    steps: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     if lang == "en":
         answer = f"I couldn't run the query. {message}"
@@ -286,6 +290,7 @@ def _error_response(
         "agent": "oleg",
         "status": status,
         "warnings": warnings or [],
+        "steps": steps or [],
         "answer": answer,
         "sql": plan.get("sql") if plan else None,
         "explanation": plan.get("logic") if plan else None,
@@ -347,25 +352,95 @@ async def run_oleg(
     force_excel: bool = False,
     datasource_id: str = RIDEGO_SOURCE_ID,
 ) -> dict[str, Any]:
+    """Run Oleg synchronously and return the final result (with ``steps`` list).
+
+    Thin wrapper over :func:`run_oleg_streaming` with a no-op step callback.
+    """
+    return await run_oleg_streaming(
+        question=question,
+        model_id=model_id,
+        lang=lang,
+        force_excel=force_excel,
+        datasource_id=datasource_id,
+        on_step=_noop_step,
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Streaming variant with execution-trace steps (foundation for the agent loop)
+# --------------------------------------------------------------------------- #
+
+# A callback the caller passes to receive trace steps as they happen.
+# ``on_step`` is awaited with a step dict (see _new_step) on every step
+# transition. Implementations may forward it over SSE, accumulate it, or ignore.
+StepCallback = Callable[[dict[str, Any]], Awaitable[None]]
+
+
+async def _noop_step(_step: dict[str, Any]) -> None:
+    """Default no-op callback (used by the non-streaming ``run_oleg`` wrapper)."""
+    return None
+
+
+def _new_step(index: int, tool: str, title: str) -> dict[str, Any]:
+    return {
+        "id": f"step_{index}",
+        "title": title,
+        "tool": tool,
+        "status": "running",
+        "summary": None,
+        "detail": None,
+        "duration_ms": None,
+    }
+
+
+async def run_oleg_streaming(
+    question: str,
+    model_id: str = "mock",
+    lang: str = "ru",
+    force_excel: bool = False,
+    datasource_id: str = RIDEGO_SOURCE_ID,
+    on_step: StepCallback = _noop_step,
+) -> dict[str, Any]:
+    """Run Oleg and emit execution-trace steps via ``on_step`` as work proceeds.
+
+    This is the canonical implementation; :func:`run_oleg` delegates here with a
+    no-op callback. Each step is a dict shaped like a future tool-call so the UI
+    contract stays stable when a real agent loop lands.
+    """
     provider = get_provider(model_id)
     is_mock = provider.provider == "mock"
+    steps: list[dict[str, Any]] = []
 
-    # Resolve the active data source: schema text + engine. Falls back to RideGo.
+    async def emit(step: dict[str, Any]) -> None:
+        """Notify the SSE listener of a step transition and, on completion/error,
+        freeze a copy into the final ``steps`` list. A snapshot is sent so later
+        mutations of the same dict don't retroactively change the frame."""
+        await on_step(dict(step))
+        if step["status"] in ("done", "error"):
+            steps.append(dict(step))
+
+    # Resolve the active data source.
     schema_catalog = get_schema_catalog(datasource_id) if datasource_id else SCHEMA_CATALOG
     try:
         engine = get_engine_for(datasource_id) if datasource_id else _legacy_engine()
     except KeyError:
-        # Unknown source id — fall back to the default RideGo engine and note it.
         schema_catalog = SCHEMA_CATALOG
         engine = _legacy_engine()
-
-    # Mock plans are RideGo-specific; only allow them for the built-in source.
     is_ridego = datasource_id == RIDEGO_SOURCE_ID
+
+    # --- Step 1: planning -------------------------------------------------
+    step = _new_step(1, "planner", "Анализирую запрос" if lang != "en" else "Analysing request")
+    await emit(step)
+    t0 = time.perf_counter()
     plan = await _generate_plan(provider, question, lang, schema_catalog, allow_mock=is_ridego)
+    step["duration_ms"] = int((time.perf_counter() - t0) * 1000)
     if not plan or not plan.get("sql"):
         if is_mock and is_ridego:
             plan = _mock_plan(question)
         else:
+            step["status"] = "error"
+            step["summary"] = "Модель не вернула SQL" if lang != "en" else "No SQL returned"
+            await emit(step)
             return _error_response(
                 plan=plan,
                 message=(
@@ -375,63 +450,112 @@ async def run_oleg(
                     else "Demo mode can't query uploaded data. Connect a real model."
                 ),
                 lang=lang,
+                steps=steps,
             )
+    step["status"] = "done"
+    logic = plan.get("logic") or ""
+    step["summary"] = (logic[:140] + "…") if len(logic) > 140 else logic or "План готов"
+    step["detail"] = {"logic": logic, "tables_used": plan.get("tables_used") or []}
+    await emit(step)
 
     warnings: list[str] = []
 
-    # --- Self-correction loop: try, and on runtime errors ask the LLM to repair ---
+    # --- Step 2: database query (+ optional self-correction) -------------
     result: dict[str, Any] | None = None
-    attempts_made = 1
+    step_index = 2
     for attempt in range(MAX_SQL_ATTEMPTS):
+        title = "Получаю данные из БД" if lang != "en" else "Querying the database"
+        if attempt > 0:
+            title = "Исправляю запрос" if lang != "en" else "Repairing the query"
+        step = _new_step(step_index, "database_query", title)
+        await emit(step)
+        t0 = time.perf_counter()
         try:
             result = run_sql(engine, plan["sql"])
+            step["duration_ms"] = int((time.perf_counter() - t0) * 1000)
+            step["status"] = "done"
+            rc = result["row_count"]
+            step["summary"] = f"{rc} строк" if lang != "en" else f"{rc} rows"
+            step["detail"] = {"sql": plan["sql"], "row_count": rc}
+            await emit(step)
             break
-        except SqlGuardError as e:
-            # Static validation failure — never worth retrying; surface to the user.
-            return _error_response(plan=plan, message=str(e), lang=lang)
-        except SqlTimeoutError as e:
-            return _error_response(plan=plan, message=str(e), lang=lang)
+        except (SqlGuardError, SqlTimeoutError) as e:
+            step["duration_ms"] = int((time.perf_counter() - t0) * 1000)
+            step["status"] = "error"
+            step["summary"] = str(e)[:140]
+            await emit(step)
+            return _error_response(plan=plan, message=str(e), lang=lang, steps=steps)
         except SqlExecutionError as e:
-            if is_mock:
-                # In demo mode the plans are hand-written and must succeed. If one
-                # fails we surface it rather than fabricate data.
-                return _error_response(plan=plan, message=str(e), lang=lang)
-            if attempt >= MAX_SQL_REPAIR_ROUNDS:
-                msg = (
-                    f"SQL не выполнился после {MAX_SQL_ATTEMPTS} попыток. Последняя ошибка: {e}"
-                    if lang != "en"
-                    else f"SQL failed after {MAX_SQL_ATTEMPTS} attempts. Last error: {e}"
-                )
-                return _error_response(plan=plan, message=msg, lang=lang, warnings=[str(e)])
+            step["duration_ms"] = int((time.perf_counter() - t0) * 1000)
+            if is_mock or attempt >= MAX_SQL_REPAIR_ROUNDS:
+                step["status"] = "error"
+                step["summary"] = str(e)[:140]
+                await emit(step)
+                if attempt >= MAX_SQL_REPAIR_ROUNDS:
+                    msg = (
+                        f"SQL не выполнился после {MAX_SQL_ATTEMPTS} попыток. Последняя ошибка: {e}"
+                        if lang != "en"
+                        else f"SQL failed after {MAX_SQL_ATTEMPTS} attempts. Last error: {e}"
+                    )
+                    return _error_response(plan=plan, message=msg, lang=lang, warnings=[str(e)], steps=steps)
+                return _error_response(plan=plan, message=str(e), lang=lang, steps=steps)
+            step["status"] = "error"
+            step["summary"] = f"Ошибка: {str(e)[:100]}"
+            await emit(step)
             repaired = await _repair_plan(provider, question, plan["sql"], str(e), lang, schema_catalog)
-            attempts_made += 1
             if repaired and repaired.get("sql") and repaired["sql"] != plan["sql"]:
                 plan = repaired
                 warnings.append(
-                    f"Самокоррекция: переписал запрос (попытка {attempts_made})."
+                    f"Самокоррекция: переписал запрос (попытка {attempt + 2})."
                     if lang != "en"
-                    else f"Self-correction: rewrote query (attempt {attempts_made})."
+                    else f"Self-correction: rewrote query (attempt {attempt + 2})."
                 )
+                step_index += 1
                 continue
-            # Model couldn't produce a different query — give up honestly.
             return _error_response(
                 plan=plan,
-                message=(
-                    "Не удалось исправить SQL автоматически."
-                    if lang != "en"
-                    else "Could not repair the SQL automatically."
-                ),
+                message=("Не удалось исправить SQL автоматически." if lang != "en"
+                         else "Could not repair the SQL automatically."),
                 lang=lang,
                 warnings=[str(e)],
+                steps=steps,
             )
 
-    assert result is not None  # loop only exits cleanly with a result
+    assert result is not None
     columns, rows = result["columns"], result["rows"]
 
-    # --- Deterministic analytics layer (no LLM math) ---
+    # --- Step 3: deterministic analytics ---------------------------------
+    step_index += 1
+    step = _new_step(step_index, "analyze", "Считаю метрики" if lang != "en" else "Computing metrics")
+    await emit(step)
+    t0 = time.perf_counter()
     insights = compute_insights(columns, rows, question=question, lang=lang)
+    step["duration_ms"] = int((time.perf_counter() - t0) * 1000)
+    step["status"] = "done"
+    n_hl = len(insights.get("highlights", []))
+    step["summary"] = f"{n_hl} инсайт(ов)" if lang != "en" else f"{n_hl} insight(s)"
+    step["detail"] = {"highlights": insights.get("highlights", [])}
+    await emit(step)
 
-    # --- Answer: LLM renders insights into prose, or mock fallback ---
+    # --- Step 4 (optional): chart ---------------------------------------
+    chart_type = plan.get("chart_type")
+    if chart_type in {"bar", "line", "pie"}:
+        step_index += 1
+        step = _new_step(step_index, "chart", "Готовлю визуализацию" if lang != "en" else "Building chart")
+        await emit(step)
+        t0 = time.perf_counter()
+        chart = _build_chart(plan, columns, rows)
+        step["duration_ms"] = int((time.perf_counter() - t0) * 1000)
+        step["status"] = "done"
+        step["summary"] = chart_type
+        step["detail"] = {"chart_type": chart_type, "points": len(chart["points"]) if chart else 0}
+        await emit(step)
+
+    # --- Step 5: answer --------------------------------------------------
+    step_index += 1
+    step = _new_step(step_index, "answer", "Формирую ответ" if lang != "en" else "Composing answer")
+    await emit(step)
+    t0 = time.perf_counter()
     answer = ""
     if not is_mock:
         table_preview = {
@@ -456,6 +580,10 @@ async def run_oleg(
         )
     if not answer.strip():
         answer = _mock_answer(question, columns, rows, lang)
+    step["duration_ms"] = int((time.perf_counter() - t0) * 1000)
+    step["status"] = "done"
+    step["summary"] = (answer[:140] + "…") if len(answer) > 140 else answer
+    await emit(step)
 
     status = "demo" if is_mock else "ok"
     return _ok_response(
@@ -468,4 +596,6 @@ async def run_oleg(
         status=status,
         warnings=warnings or None,
         force_excel=force_excel,
+        steps=steps,
     )
+

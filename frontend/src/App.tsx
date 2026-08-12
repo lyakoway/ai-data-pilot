@@ -8,6 +8,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { AgentTrace } from './components/AgentTrace'
 import { ResultCard } from './components/ResultCard'
 import {
   api,
@@ -17,6 +18,7 @@ import {
   type Kpis,
   type ModelInfo,
   type Scenario,
+  type Step,
 } from './lib/api'
 import { loadLang, loadTheme, saveLang, saveTheme, type Lang, type Theme } from './lib/prefs'
 import './App.css'
@@ -26,6 +28,7 @@ type Turn = {
   role: 'user' | 'assistant'
   text?: string
   result?: ChatResult
+  liveSteps?: Step[]  // streaming steps shown before the final result arrives
 }
 
 const COPY = {
@@ -142,19 +145,77 @@ export default function App() {
     setLastUserPrompt(msg)
     const userTurn: Turn = { id: crypto.randomUUID(), role: 'user', text: msg }
     setTurns((prev) => [...prev, userTurn])
+
+    // For Олег we stream execution-trace steps in real time.
+    if (agent === 'oleg') {
+      const assistantId = crypto.randomUUID()
+      // Placeholder assistant turn that grows as steps arrive.
+      setTurns((prev) => [...prev, { id: assistantId, role: 'assistant', liveSteps: [] }])
+      await api.chatStream(
+        {
+          message: msg,
+          agent,
+          model,
+          lang,
+          force_excel: forceExcel,
+          datasource_id: datasourceId,
+        },
+        {
+          onStep: (step) => {
+            setTurns((prev) =>
+              prev.map((t) => {
+                if (t.id !== assistantId) return t
+                const existing = t.liveSteps ?? []
+                // Replace if a step with this id already exists (running→done update),
+                // otherwise append.
+                const idx = existing.findIndex((s) => s.id === step.id)
+                const next = idx >= 0
+                  ? existing.map((s, i) => (i === idx ? step : s))
+                  : [...existing, step]
+                return { ...t, liveSteps: next }
+              }),
+            )
+          },
+          onDone: (result) => {
+            setTurns((prev) =>
+              prev.map((t) => (t.id === assistantId ? { ...t, result, liveSteps: undefined } : t)),
+            )
+            setLoading(false)
+          },
+          onError: (errMsg) => {
+            setTurns((prev) =>
+              prev.map((t) =>
+                t.id === assistantId
+                  ? {
+                      ...t,
+                      liveSteps: undefined,
+                      result: {
+                        agent,
+                        answer: errMsg,
+                        sql: null,
+                        explanation: null,
+                        columns: [],
+                        rows: [],
+                        chart: null,
+                        excel_url: null,
+                        tables_used: [],
+                        suggestions: [],
+                      },
+                    }
+                  : t,
+              ),
+            )
+            setLoading(false)
+          },
+        },
+      )
+      return
+    }
+
+    // Ксюша — synchronous path (no streaming yet).
     try {
-      const result = await api.chat({
-        message: msg,
-        agent,
-        model,
-        lang,
-        force_excel: forceExcel,
-        datasource_id: agent === 'oleg' ? datasourceId : undefined,
-      })
-      setTurns((prev) => [
-        ...prev,
-        { id: crypto.randomUUID(), role: 'assistant', result },
-      ])
+      const result = await api.chat({ message: msg, agent, model, lang, force_excel: forceExcel })
+      setTurns((prev) => [...prev, { id: crypto.randomUUID(), role: 'assistant', result }])
     } catch (e) {
       setTurns((prev) => [
         ...prev,
@@ -529,6 +590,11 @@ export default function App() {
                         datasource_id: agent === 'oleg' ? datasourceId : undefined,
                       }}
                     />
+                  )}
+                  {!turn.result && turn.liveSteps && turn.liveSteps.length > 0 && (
+                    <div className="result-card live-card">
+                      <AgentTrace steps={turn.liveSteps} lang={lang} />
+                    </div>
                   )}
                 </div>
               ),

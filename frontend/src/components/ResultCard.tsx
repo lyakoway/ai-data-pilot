@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { AnswerStatus, ChatResult } from '../lib/api'
 import { api } from '../lib/api'
+import { AgentTrace } from './AgentTrace'
 import { ChartBlock } from './ChartBlock'
 
 const STATUS_LABEL: Record<AnswerStatus, { ru: string; en: string }> = {
@@ -72,6 +73,10 @@ export function ResultCard({
             <p key={i}>⚠ {w}</p>
           ))}
         </div>
+      )}
+
+      {result.steps && result.steps.length > 0 && (
+        <AgentTrace steps={result.steps} lang={lang} />
       )}
 
       <div className="result-md">

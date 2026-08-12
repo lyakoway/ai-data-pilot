@@ -45,6 +45,16 @@ export type ChartPayload = {
 
 export type AnswerStatus = 'ok' | 'demo' | 'partial' | 'error'
 
+export type Step = {
+  id: string
+  title: string
+  tool: 'planner' | 'database_query' | 'analyze' | 'chart' | 'answer' | string
+  status: 'running' | 'done' | 'error'
+  summary: string | null
+  detail: Record<string, unknown> | null
+  duration_ms: number | null
+}
+
 export type Insights = {
   is_timeseries?: boolean
   trend?: { direction: 'up' | 'down' | 'flat'; pct: number } | null
@@ -60,6 +70,7 @@ export type ChatResult = {
   status?: AnswerStatus
   warnings?: string[]
   insights?: Insights
+  steps?: Step[]
   sql: string | null
   explanation: string | null
   columns: string[]
@@ -119,6 +130,65 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     }),
+  chatStream: async (
+    body: {
+      message: string
+      agent: AgentId
+      model: string
+      lang: string
+      force_excel?: boolean
+      datasource_id?: string
+    },
+    handlers: {
+      onStep: (step: Step) => void
+      onDone: (result: ChatResult) => void
+      onError: (message: string) => void
+    },
+  ): Promise<void> => {
+    const res = await fetch('/api/chat/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    if (!res.ok || !res.body) {
+      handlers.onError(`HTTP ${res.status}`)
+      return
+    }
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let currentEvent = 'message'
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      // SSE frames are separated by a blank line.
+      const frames = buffer.split('\n\n')
+      buffer = frames.pop() ?? ''
+      for (const frame of frames) {
+        const lines = frame.split('\n')
+        let dataLine = ''
+        for (const line of lines) {
+          if (line.startsWith('event:')) currentEvent = line.slice(6).trim()
+          else if (line.startsWith('data:')) dataLine += line.slice(5).trim()
+        }
+        if (!dataLine) continue
+        try {
+          const payload = JSON.parse(dataLine)
+          if (currentEvent === 'step') handlers.onStep(payload as Step)
+          else if (currentEvent === 'done') {
+            handlers.onDone(payload as ChatResult)
+            return
+          } else if (currentEvent === 'error') {
+            handlers.onError(payload.message ?? 'Stream error')
+            return
+          }
+        } catch {
+          // ignore malformed frames
+        }
+      }
+    }
+  },
   datasources: () => json<DataSourceInfo[]>('/api/datasources'),
   uploadFile: (file: File) => {
     const form = new FormData()
