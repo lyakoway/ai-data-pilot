@@ -23,6 +23,21 @@ class ScenarioCreate(BaseModel):
     datasource_id: str | None = None
 
 
+class FeedbackCreate(BaseModel):
+    vote: Literal["up", "down"]
+    agent: Literal["oleg", "ksyusha"] = "oleg"
+    message: str | None = None
+    answer: str | None = None
+    datasource_id: str | None = None
+    model: str | None = None
+    lang: Literal["ru", "en"] = "ru"
+
+
+class FeedbackOut(BaseModel):
+    id: int
+    ok: bool = True
+
+
 class ScenarioOut(BaseModel):
     id: str
     name: str

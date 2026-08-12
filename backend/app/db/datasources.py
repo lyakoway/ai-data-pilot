@@ -10,13 +10,12 @@ DB. User-uploaded CSVs are stored as tables in a separate SQLite database
 (``data/csv_sources.db``) and registered here so Oleg can query them with the
 same machinery.
 
-Persistence: source metadata lives in ``data/datasources.json`` (same JSON-file
-pattern as scenarios). The CSV data itself lives in SQLite.
+Persistence: source metadata lives in the app database (``app.db``) alongside
+scenarios and feedback. The CSV data itself lives in ``csv_sources.db``.
 """
 from __future__ import annotations
 
 import csv
-import json
 import re
 import uuid
 from datetime import datetime
@@ -27,6 +26,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
 from app.config import get_settings
+from app.db import app_db
 from app.db.schema_catalog import SCHEMA_CATALOG as RIDEGO_CATALOG
 from app.db.seed import get_engine as get_ridego_engine
 
@@ -42,53 +42,14 @@ _SQLITE_TYPE = {
 
 
 # --------------------------------------------------------------------------- #
-# Metadata store (JSON file, same pattern as scenarios.json)
-# --------------------------------------------------------------------------- #
-
-
-def _store_path() -> Path:
-    return get_settings().data_dir / "datasources.json"
-
-
-def _default_meta() -> list[dict[str, Any]]:
-    return [
-        {
-            "id": RIDEGO_SOURCE_ID,
-            "name": "RideGo (демо)",
-            "kind": "ridego",
-            "description": "Встроенная демо-БД микромобильности: города, поездки, подписки.",
-            "table_name": None,  # RideGo spans multiple tables; schema is fixed.
-            "columns": None,  # not used for ridego.
-            "row_count": None,
-            "created_at": None,
-        }
-    ]
-
-
-def _load_meta() -> list[dict[str, Any]]:
-    path = _store_path()
-    if not path.exists():
-        path.write_text(json.dumps(_default_meta(), ensure_ascii=False, indent=2), encoding="utf-8")
-    data = json.loads(path.read_text(encoding="utf-8"))
-    # Guarantee the ridego source is always present even if the file predates it.
-    if not any(s["id"] == RIDEGO_SOURCE_ID for s in data):
-        data.insert(0, _default_meta()[0])
-    return data
-
-
-def _save_meta(items: list[dict[str, Any]]) -> None:
-    _store_path().write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
-
-
-# --------------------------------------------------------------------------- #
-# Public API
+# Public API — metadata is persisted in app.db (see app_db module)
 # --------------------------------------------------------------------------- #
 
 
 def list_sources() -> list[dict[str, Any]]:
     """Return metadata for all known sources (for the UI selector)."""
     out = []
-    for s in _load_meta():
+    for s in app_db.list_datasources():
         out.append(
             {
                 "id": s["id"],
@@ -103,10 +64,7 @@ def list_sources() -> list[dict[str, Any]]:
 
 
 def get_source_meta(source_id: str) -> dict[str, Any] | None:
-    for s in _load_meta():
-        if s["id"] == source_id:
-            return s
-    return None
+    return app_db.get_datasource(source_id)
 
 
 def get_engine_for(source_id: str) -> Engine:
@@ -137,19 +95,18 @@ def delete_source(source_id: str) -> None:
     """Delete a user source. The built-in ``ridego`` source cannot be removed."""
     if source_id == RIDEGO_SOURCE_ID:
         raise ValueError("The built-in RideGo source cannot be deleted.")
-    items = _load_meta()
-    target = next((s for s in items if s["id"] == source_id), None)
-    if target is None:
+    meta = get_source_meta(source_id)
+    if meta is None:
         raise KeyError(f"Unknown data source: {source_id!r}")
-    if target.get("table_name"):
+    if meta.get("table_name"):
         # Best-effort table drop; ignore failures (table may already be gone).
         try:
             eng = _csv_engine()
             with eng.begin() as conn:
-                conn.execute(text(f'DROP TABLE IF EXISTS "{target["table_name"]}"'))
+                conn.execute(text(f'DROP TABLE IF EXISTS "{meta["table_name"]}"'))
         except Exception:  # noqa: BLE001
             pass
-    _save_meta([s for s in items if s["id"] != source_id])
+    app_db.delete_datasource_row(source_id)
 
 
 # --------------------------------------------------------------------------- #
@@ -233,9 +190,7 @@ def ingest_csv(
         "created_at": datetime.utcnow().isoformat(timespec="seconds"),
     }
 
-    items = _load_meta()
-    items.append(meta_entry)
-    _save_meta(items)
+    app_db.save_datasource(meta_entry)
     return meta_entry
 
 

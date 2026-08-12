@@ -88,7 +88,6 @@ def test_delete_source_removes_table_and_meta(csv_source):
     # meta gone
     assert all(s["id"] != sid for s in ds.list_sources())
     # table gone
-    eng = ds.get_engine_for.__wrapped__ if hasattr(ds.get_engine_for, "__wrapped__") else None
     from app.db.datasources import _csv_engine
 
     with _csv_engine().connect() as c:

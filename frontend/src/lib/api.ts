@@ -122,4 +122,18 @@ export const api = {
   },
   deleteDatasource: (id: string) =>
     json<{ ok: boolean }>(`/api/datasources/${id}`, { method: 'DELETE' }),
+  feedback: (body: {
+    vote: 'up' | 'down'
+    agent: AgentId
+    message?: string
+    answer?: string
+    datasource_id?: string
+    model?: string
+    lang?: 'ru' | 'en'
+  }) =>
+    json<{ id: number; ok: boolean }>('/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
 }
