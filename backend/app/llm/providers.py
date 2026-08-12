@@ -17,6 +17,16 @@ def _tokenize(text: str) -> list[str]:
     return re.findall(r"\S+\s*", text) or [text]
 
 
+def _norm_role(role: str) -> str:
+    """Normalise a ChatMessage role for provider payloads.
+
+    The agent loop uses role ``"tool"`` to carry tool results. Provider chat APIs
+    only accept ``"tool"`` alongside their native function-calling schema, so in
+    our prompt-based flow we fold tool results into the ``"user"`` turn.
+    """
+    return "user" if role == "tool" else role
+
+
 class MockProvider:
     provider = "mock"
 
@@ -73,7 +83,7 @@ class OpenAIProvider:
 
         client = AsyncOpenAI(api_key=self._api_key(), base_url=self.base_url)
         payload = [{"role": "system", "content": system}] + [
-            {"role": m.role, "content": m.content} for m in messages
+            {"role": _norm_role(m.role), "content": m.content} for m in messages
         ]
         stream = await client.chat.completions.create(
             model=self.model, messages=payload, stream=True, temperature=0.2
@@ -90,7 +100,7 @@ class OpenAIProvider:
 
         client = AsyncOpenAI(api_key=self._api_key(), base_url=self.base_url)
         payload = [{"role": "system", "content": system}] + [
-            {"role": m.role, "content": m.content} for m in messages
+            {"role": _norm_role(m.role), "content": m.content} for m in messages
         ]
         resp = await client.chat.completions.create(
             model=self.model, messages=payload, temperature=0.1
@@ -124,7 +134,7 @@ class AnthropicProvider:
         from anthropic import AsyncAnthropic
 
         client = AsyncAnthropic(api_key=settings.anthropic_api_key)
-        payload = [{"role": m.role, "content": m.content} for m in messages if m.role != "system"]
+        payload = [{"role": _norm_role(m.role), "content": m.content} for m in messages if m.role != "system"]
         async with client.messages.stream(
             model=self.model,
             system=system,
@@ -141,7 +151,7 @@ class AnthropicProvider:
         from anthropic import AsyncAnthropic
 
         client = AsyncAnthropic(api_key=settings.anthropic_api_key)
-        payload = [{"role": m.role, "content": m.content} for m in messages if m.role != "system"]
+        payload = [{"role": _norm_role(m.role), "content": m.content} for m in messages if m.role != "system"]
         resp = await client.messages.create(
             model=self.model,
             system=system,
@@ -178,7 +188,7 @@ class OllamaProvider:
             "model": self.model,
             "stream": True,
             "messages": [{"role": "system", "content": system}]
-            + [{"role": m.role, "content": m.content} for m in messages],
+            + [{"role": _norm_role(m.role), "content": m.content} for m in messages],
         }
         if settings.ollama_num_gpu is not None:
             payload["options"] = {"num_gpu": settings.ollama_num_gpu}
