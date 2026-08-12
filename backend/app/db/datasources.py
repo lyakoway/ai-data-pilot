@@ -6,19 +6,25 @@ A *data source* bundles together everything Oleg needs to answer questions:
   - a SQLAlchemy engine pointing at the actual database
 
 The built-in ``ridego`` source is always available and backed by the seeded demo
-DB. User-uploaded CSVs are stored as tables in a separate SQLite database
-(``data/csv_sources.db``) and registered here so Oleg can query them with the
-same machinery.
+DB. User-uploaded files (CSV or Excel) are stored as tables in a separate SQLite
+database (``data/csv_sources.db``) and registered here so Oleg can query them
+with the same machinery.
+
+Excel specifics: each **sheet** of a ``.xlsx`` workbook becomes its own data
+source (e.g. a workbook with sheets "Sales" and "Customers" yields two sources).
+Excel-native types (int/float/datetime) are mapped directly to SQLite affinity
+instead of being guessed from strings.
 
 Persistence: source metadata lives in the app database (``app.db``) alongside
-scenarios and feedback. The CSV data itself lives in ``csv_sources.db``.
+scenarios and feedback. The uploaded data itself lives in ``csv_sources.db``.
 """
 from __future__ import annotations
 
 import csv
+import io
 import re
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +45,9 @@ _SQLITE_TYPE = {
     "real": "REAL",
     "text": "TEXT",
 }
+
+# Cap on uploaded file size and ingested rows per source.
+_MAX_ROWS = 50_000
 
 
 # --------------------------------------------------------------------------- #
@@ -75,7 +84,7 @@ def get_engine_for(source_id: str) -> Engine:
     if meta["kind"] == "ridego":
         return get_ridego_engine()
     if meta["kind"] == "csv":
-        return _csv_engine()
+        return _uploaded_engine()
     raise ValueError(f"Unsupported source kind: {meta['kind']!r}")
 
 
@@ -87,7 +96,7 @@ def get_schema_catalog(source_id: str) -> str:
     if meta["kind"] == "ridego":
         return RIDEGO_CATALOG
     if meta["kind"] == "csv":
-        return _build_csv_catalog(meta)
+        return _build_uploaded_catalog(meta)
     raise ValueError(f"Unsupported source kind: {meta['kind']!r}")
 
 
@@ -101,7 +110,7 @@ def delete_source(source_id: str) -> None:
     if meta.get("table_name"):
         # Best-effort table drop; ignore failures (table may already be gone).
         try:
-            eng = _csv_engine()
+            eng = _uploaded_engine()
             with eng.begin() as conn:
                 conn.execute(text(f'DROP TABLE IF EXISTS "{meta["table_name"]}"'))
         except Exception:  # noqa: BLE001
@@ -110,16 +119,94 @@ def delete_source(source_id: str) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# CSV ingestion
+# Uploaded-data SQLite engine (shared by CSV and Excel sources)
 # --------------------------------------------------------------------------- #
 
 
-def _csv_db_path() -> Path:
+def _uploaded_db_path() -> Path:
     return get_settings().data_dir / "csv_sources.db"
 
 
-def _csv_engine() -> Engine:
-    return create_engine(f"sqlite:///{_csv_db_path()}")
+def _uploaded_engine() -> Engine:
+    return create_engine(f"sqlite:///{_uploaded_db_path()}")
+
+
+# --------------------------------------------------------------------------- #
+# Ingestion core — format-agnostic
+# --------------------------------------------------------------------------- #
+
+
+def ingest_rows(
+    display_name: str,
+    header: list[str],
+    rows: list[list[Any]],
+    *,
+    description: str | None = None,
+) -> dict[str, Any]:
+    """Create a SQLite table from already-parsed ``header`` and ``rows`` and
+    register a data source. This is the shared core used by both CSV and Excel
+    adapters. Returns the new source's metadata.
+
+    ``rows`` may contain typed values (int/float/datetime/str from Excel) or
+    strings (from CSV); :func:`_infer_col_kind` handles both.
+    """
+    if not display_name:
+        raise ValueError("Display name is required.")
+    header = [h.strip() for h in header]
+    if not header or any(not h for h in header):
+        raise ValueError("Header contains empty column names.")
+    header = [_sanitize_col(h, i) for i, h in enumerate(header)]
+
+    rows = rows[:_MAX_ROWS]
+    # Normalise row widths to match the header.
+    normalised: list[list[Any]] = []
+    for r in rows:
+        if len(r) < len(header):
+            r = list(r) + [None] * (len(header) - len(r))
+        elif len(r) > len(header):
+            r = list(r)[: len(header)]
+        normalised.append(r)
+
+    if not normalised:
+        raise ValueError("No data rows found.")
+
+    col_types = [
+        _infer_col_kind([row[i] for row in normalised]) for i in range(len(header))
+    ]
+    sql_types = [_SQLITE_TYPE[t] for t in col_types]
+
+    source_id = f"csv_{uuid.uuid4().hex[:10]}"
+    table_name = f"src_{source_id}"
+
+    eng = _uploaded_engine()
+    with eng.begin() as conn:
+        cols_sql = ", ".join(f'"{h}" {sql_types[i]}' for i, h in enumerate(header))
+        conn.execute(text(f'CREATE TABLE "{table_name}" ({cols_sql})'))
+        placeholders = ", ".join(f":c{i}" for i in range(len(header)))
+        insert_sql = f'INSERT INTO "{table_name}" VALUES ({placeholders})'
+        batch = [_make_param_dict(header, col_types, row) for row in normalised]
+        conn.execute(text(insert_sql), batch)
+
+    meta_entry = {
+        "id": source_id,
+        "name": display_name,
+        "kind": "csv",
+        "description": description or f"Загружен источник: {len(header)} колонок, {len(normalised)} строк.",
+        "table_name": table_name,
+        "columns": [
+            {"name": header[i], "type": col_types[i], "sqlite_type": sql_types[i]}
+            for i in range(len(header))
+        ],
+        "row_count": len(normalised),
+        "created_at": datetime.utcnow().isoformat(timespec="seconds"),
+    }
+    app_db.save_datasource(meta_entry)
+    return meta_entry
+
+
+# --------------------------------------------------------------------------- #
+# CSV adapter
+# --------------------------------------------------------------------------- #
 
 
 def ingest_csv(
@@ -127,14 +214,8 @@ def ingest_csv(
     rows_text: str,
     *,
     delimiter: str = ",",
-    max_rows: int = 50_000,
 ) -> dict[str, Any]:
-    """Parse CSV text, infer column types, create a SQLite table, and register
-    a new data source. Returns the source metadata dict.
-
-    ``rows_text`` is the full CSV file content (decoded). ``max_rows`` caps the
-    number of data rows ingested to keep the demo snappy.
-    """
+    """Parse CSV text and ingest it as a single data source."""
     if not raw_name:
         raise ValueError("File name is required.")
     reader = csv.reader(rows_text.splitlines(), delimiter=delimiter)
@@ -143,59 +224,101 @@ def ingest_csv(
     except StopIteration as e:
         raise ValueError("CSV file is empty (no header row).") from e
 
-    header = [h.strip() for h in header]
-    if not header or any(not h for h in header):
-        raise ValueError("CSV header contains empty column names.")
-    header = [_sanitize_col(h, i) for i, h in enumerate(header)]
-
-    data_rows: list[list[str]] = []
-    for r in reader:
-        if len(data_rows) >= max_rows:
-            break
-        if len(r) < len(header):
-            r = r + [""] * (len(header) - len(r))
-        elif len(r) > len(header):
-            r = r[: len(header)]
-        data_rows.append(r)
-
-    if not data_rows:
-        raise ValueError("CSV file has a header but no data rows.")
-
-    col_types = [_infer_col_kind([row[i] for row in data_rows]) for i in range(len(header))]
-    sql_types = [_SQLITE_TYPE[t] for t in col_types]
-
-    source_id = f"csv_{uuid.uuid4().hex[:10]}"
-    table_name = f"src_{source_id}"
-
-    eng = _csv_engine()
-    with eng.begin() as conn:
-        cols_sql = ", ".join(f'"{h}" {sql_types[i]}' for i, h in enumerate(header))
-        conn.execute(text(f'CREATE TABLE "{table_name}" ({cols_sql})'))
-        placeholders = ", ".join(f":c{i}" for i in range(len(header)))
-        insert_sql = f'INSERT INTO "{table_name}" VALUES ({placeholders})'
-        batch = [_make_param_dict(header, col_types, row) for row in data_rows]
-        conn.execute(text(insert_sql), batch)
-
-    meta_entry = {
-        "id": source_id,
-        "name": _human_name(raw_name),
-        "kind": "csv",
-        "description": f"Загружен CSV: {len(header)} колонок, {len(data_rows)} строк.",
-        "table_name": table_name,
-        "columns": [
-            {"name": header[i], "type": col_types[i], "sqlite_type": sql_types[i]}
-            for i in range(len(header))
-        ],
-        "row_count": len(data_rows),
-        "created_at": datetime.utcnow().isoformat(timespec="seconds"),
-    }
-
-    app_db.save_datasource(meta_entry)
-    return meta_entry
+    data_rows: list[list[str]] = list(reader)
+    return ingest_rows(_human_name(raw_name), header, data_rows)
 
 
 # --------------------------------------------------------------------------- #
-# CSV helpers
+# Excel (.xlsx) adapter — each sheet becomes its own data source
+# --------------------------------------------------------------------------- #
+
+
+def ingest_xlsx(raw_name: str, file_bytes: bytes) -> list[dict[str, Any]]:
+    """Parse an ``.xlsx`` workbook and ingest every non-empty sheet as its own
+    data source. Returns a list of metadata dicts (one per sheet ingested).
+
+    Raises ``ValueError`` if the file is unreadable or contains no data on any
+    sheet.
+    """
+    from openpyxl import load_workbook
+
+    if not raw_name:
+        raise ValueError("File name is required.")
+
+    try:
+        wb = load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
+    except Exception as e:  # openpyxl raises a variety of error types
+        raise ValueError(f"Could not read .xlsx file: {e}") from e
+
+    file_stem = _human_name(raw_name)
+    created: list[dict[str, Any]] = []
+    try:
+        for sheet in wb.worksheets:
+            header, rows = _read_sheet(sheet)
+            if header is None or not rows:
+                # Skip empty sheets (no header or header-only).
+                continue
+            display_name = f"{file_stem} · {sheet.title}" if sheet.title else file_stem
+            meta = ingest_rows(
+                display_name,
+                header,
+                rows,
+                description=f"Лист «{sheet.title}» из {raw_name}: {len(rows)} строк.",
+            )
+            created.append(meta)
+    finally:
+        wb.close()
+
+    if not created:
+        raise ValueError("The workbook contains no data on any sheet.")
+    return created
+
+
+def _read_sheet(sheet) -> tuple[list[str] | None, list[list[Any]]]:
+    """Read a worksheet as (header, rows). Returns (None, []) for empty sheets.
+
+    Uses ``iter_rows(values_only=True)`` so cells arrive as native Python types
+    (int/float/datetime/str). Datetimes are normalised to ISO strings so the
+    schema-catalog and SQL round-trip cleanly.
+    """
+    all_rows = list(sheet.iter_rows(values_only=True))
+    if not all_rows:
+        return None, []
+    header = [("" if v is None else str(v)) for v in all_rows[0]]
+    if not any(header):
+        return None, []
+
+    data: list[list[Any]] = []
+    for raw_row in all_rows[1:]:
+        if raw_row is None:
+            continue
+        # A row is "empty" only if every cell is None/blank.
+        if all(v is None or (isinstance(v, str) and v.strip() == "") for v in raw_row):
+            continue
+        data.append([_normalise_cell(v) for v in raw_row])
+    return header, data
+
+
+def _normalise_cell(v: Any) -> Any:
+    """Normalise an openpyxl cell value for SQLite storage."""
+    if v is None:
+        return None
+    if isinstance(v, bool):
+        # bool is a subclass of int in Python — keep it as text to avoid surprises.
+        return str(v)
+    if isinstance(v, datetime):
+        # openpyxl returns date-only cells as datetime with a 00:00:00 time part;
+        # store those as plain ISO dates to avoid the noisy T00:00:00 suffix.
+        if v.hour == 0 and v.minute == 0 and v.second == 0 and v.microsecond == 0:
+            return v.date().isoformat()
+        return v.isoformat()
+    if isinstance(v, date):
+        return v.isoformat()
+    return v
+
+
+# --------------------------------------------------------------------------- #
+# Helpers — naming, column sanitising, type inference
 # --------------------------------------------------------------------------- #
 
 _INT_RE = re.compile(r"^-?\d+$")
@@ -217,52 +340,76 @@ def _human_name(raw_name: str) -> str:
     return base.replace("_", " ").replace("-", " ").title() or raw_name
 
 
-def _infer_col_kind(values: list[str]) -> str:
-    """Infer a column kind from its string sample. Empty strings are ignored;
-    if ALL values are empty the column defaults to text."""
-    non_empty = [v for v in values if v != ""]
+def _infer_col_kind(values: list[Any]) -> str:
+    """Infer a column kind from its sample.
+
+    Values may be typed (int/float/str from Excel) or strings (from CSV). Typed
+    values are trusted directly; strings fall back to regex heuristics. Empty
+    values (None/"") are ignored when deciding; if ALL values are empty the
+    column defaults to text.
+    """
+    non_empty = [v for v in values if v is not None and v != ""]
     if not non_empty:
         return "text"
-    if all(_ISO_DATE_RE.match(v) for v in non_empty):
-        return "text"  # keep dates as text to preserve formatting
-    if all(_INT_RE.match(v) for v in non_empty):
+
+    # If every non-empty value is already a Python number, trust the runtime type.
+    if all(isinstance(v, int) and not isinstance(v, bool) for v in non_empty):
         return "integer"
-    if all(_INT_RE.match(v) or _FLOAT_RE.match(v) for v in non_empty):
+    if all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in non_empty):
+        return "real"
+
+    # Otherwise (strings, or mixed) — apply string heuristics on stringified values.
+    str_values = [str(v) for v in non_empty]
+    if all(_ISO_DATE_RE.match(v) for v in str_values):
+        return "text"  # keep dates as text to preserve formatting
+    if all(_INT_RE.match(v) for v in str_values):
+        return "integer"
+    if all(_INT_RE.match(v) or _FLOAT_RE.match(v) for v in str_values):
         return "real"
     return "text"
 
 
-def _coerce_value(kind: str, raw: str) -> Any:
-    if raw == "":
+def _coerce_value(kind: str, raw: Any) -> Any:
+    """Coerce a raw cell value into the target column kind for SQLite."""
+    if raw is None or raw == "":
         return None
+    # If the value is already typed (from Excel), keep numbers as-is.
+    if isinstance(raw, bool):
+        return str(raw)
     if kind == "integer":
+        if isinstance(raw, int):
+            return raw
+        if isinstance(raw, float):
+            return int(raw) if raw.is_integer() else raw
         try:
-            return int(raw)
+            return int(str(raw))
         except ValueError:
             return raw
     if kind == "real":
+        if isinstance(raw, (int, float)):
+            return float(raw)
         try:
-            return float(raw.replace(",", "."))
+            return float(str(raw).replace(",", "."))
         except ValueError:
             return raw
     return raw
 
 
-def _make_param_dict(header: list[str], col_types: list[str], row: list[str]) -> dict[str, Any]:
+def _make_param_dict(header: list[str], col_types: list[str], row: list[Any]) -> dict[str, Any]:
     out: dict[str, Any] = {}
-    for i, name in enumerate(header):
-        out[f"c{i}"] = _coerce_value(col_types[i], row[i])
+    for i in range(len(header)):
+        out[f"c{i}"] = _coerce_value(col_types[i], row[i] if i < len(row) else None)
     return out
 
 
-def _build_csv_catalog(meta: dict[str, Any]) -> str:
-    """Compose a schema-catalog text for a CSV source, describing its single
-    table and columns with inferred types. This is what Oleg sees in its prompt."""
+def _build_uploaded_catalog(meta: dict[str, Any]) -> str:
+    """Compose a schema-catalog text for an uploaded source, describing its
+    single table and columns with inferred types. This is what Oleg sees."""
     table = meta["table_name"]
     cols = meta.get("columns") or []
-    lines = [f"# User-uploaded CSV source: {meta['name']}", ""]
+    lines = [f"# Uploaded data source: {meta['name']}", ""]
     lines.append(f"## {table}")
-    lines.append(f"Rows: {meta.get('row_count', '?')}. Inferred column types below.")
+    lines.append(f"Rows: {meta.get('row_count', '?')}. Column types below.")
     for c in cols:
         kind = c.get("type", "text")
         lines.append(f"- {c['name']} {kind.upper()}")

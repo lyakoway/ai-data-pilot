@@ -42,10 +42,10 @@ const COPY = {
     placeholderKsyusha: 'Спросите про utilization, Redis, anti-fraud…',
     emptyTitle: 'Дашборд аналитических агентов',
     dataSource: 'Источник данных',
-    uploadCsv: 'Загрузить CSV',
+    uploadCsv: 'Загрузить файл',
     uploading: 'Загрузка…',
-    uploadHint: 'CSV с заголовком. Максимум 25 МБ.',
-    uploadError: 'Не удалось загрузить CSV',
+    uploadHint: 'CSV или Excel (.xlsx) с заголовком. Максимум 25 МБ.',
+    uploadError: 'Не удалось загрузить файл',
     emptyOleg:
       'Олег ходит в демо-БД RideGo: строит SQL, таблицу, график и Excel. Запустите сценарий слева или задайте вопрос.',
     emptyKsyusha:
@@ -69,10 +69,10 @@ const COPY = {
     placeholderKsyusha: 'Ask about utilization, Redis, anti-fraud…',
     emptyTitle: 'Analytical agents dashboard',
     dataSource: 'Data source',
-    uploadCsv: 'Upload CSV',
+    uploadCsv: 'Upload file',
     uploading: 'Uploading…',
-    uploadHint: 'CSV with a header row. Max 25 MB.',
-    uploadError: 'Failed to upload CSV',
+    uploadHint: 'CSV or Excel (.xlsx) with a header row. Max 25 MB.',
+    uploadError: 'Failed to upload file',
     emptyOleg:
       'Oleg queries the RideGo demo DB: SQL, table, chart, Excel. Run a scenario or ask a question.',
     emptyKsyusha:
@@ -234,14 +234,26 @@ export default function App() {
     setScenarios((prev) => [...prev, created])
   }
 
-  async function handleCsvUpload(file: File) {
+  async function handleFileUpload(file: File) {
     setUploading(true)
     try {
-      const created = await api.uploadCsv(file)
-      setDatasources((prev) => [...prev, created])
-      setDatasourceId(created.id)
-      // KPIs are RideGo-specific; switch them off for non-RideGo sources.
-      if (created.id !== 'ridego') setKpis(null)
+      const result = await api.uploadFile(file)
+      const summaries = result.sources.map((s) => ({
+        id: s.id,
+        name: s.name,
+        kind: s.kind,
+        description: s.description,
+        row_count: s.row_count,
+        created_at: s.created_at,
+      }))
+      setDatasources((prev) => [...prev, ...summaries])
+      // Select the first created source (CSV → one, Excel → first sheet).
+      const first = result.sources[0]
+      if (first) {
+        setDatasourceId(first.id)
+        // KPIs are RideGo-specific; switch them off for non-RideGo sources.
+        if (first.id !== 'ridego') setKpis(null)
+      }
     } catch (e) {
       window.alert(`${t.uploadError}: ${e instanceof Error ? e.message : ''}`)
     } finally {
@@ -387,11 +399,11 @@ export default function App() {
                 <input
                   ref={csvInputRef}
                   type="file"
-                  accept=".csv"
+                  accept=".csv,.xlsx"
                   className="csv-input-hidden"
                   onChange={(e) => {
                     const f = e.target.files?.[0]
-                    if (f) void handleCsvUpload(f)
+                    if (f) void handleFileUpload(f)
                     e.target.value = ''
                   }}
                 />
