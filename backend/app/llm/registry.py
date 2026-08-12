@@ -87,10 +87,35 @@ def list_models() -> list[dict]:
 
 
 def get_provider(model_id: str) -> LLMProvider:
+    """Return a provider for ``model_id``.
+
+    Soft-fallback: unknown ids or unavailable providers degrade to ``MockProvider``
+    so the demo never hard-crashes. Callers that need to know whether the real
+    backend was selected should compare ``provider.provider`` against ``"mock"``.
+    """
     spec = _BY_ID.get(model_id)
     if spec is None:
         return MockProvider()
     provider = _build(spec)
     if not provider.available():
         return MockProvider()
+    return provider
+
+
+def get_provider_strict(model_id: str) -> LLMProvider:
+    """Return a provider for ``model_id`` without the mock safety net.
+
+    Raises ``ValueError`` if the id is unknown or the provider is unavailable
+    (missing API key, Ollama not running, …). Use this in contexts where a silent
+    fallback to demo data would be misleading.
+    """
+    spec = _BY_ID.get(model_id)
+    if spec is None:
+        raise ValueError(f"Unknown model id: {model_id!r}")
+    provider = _build(spec)
+    if not provider.available():
+        raise ValueError(
+            f"Provider '{spec.provider}' for model {model_id!r} is not available "
+            "(missing API key or service unreachable)."
+        )
     return provider

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from typing import Any
 
 from sqlalchemy import create_engine, text
@@ -17,7 +18,15 @@ FORBIDDEN = re.compile(
 
 
 class SqlGuardError(ValueError):
-    pass
+    """Raised when SQL fails static validation (forbidden keywords, multi-statement, …)."""
+
+
+class SqlExecutionError(RuntimeError):
+    """Raised when a validated query fails while executing (syntax/runtime error)."""
+
+
+class SqlTimeoutError(RuntimeError):
+    """Raised when a query exceeds the configured execution timeout."""
 
 
 def sanitize_sql(sql: str, row_limit: int | None = None) -> str:
@@ -37,17 +46,41 @@ def sanitize_sql(sql: str, row_limit: int | None = None) -> str:
     return f"SELECT * FROM ({cleaned}) AS _q LIMIT {limit}"
 
 
-def run_sql(engine: Engine, sql: str) -> dict[str, Any]:
+def run_sql(engine: Engine, sql: str, *, timeout: float | None = None) -> dict[str, Any]:
+    """Validate and execute ``sql`` against ``engine``.
+
+    ``SqlGuardError`` — static validation failure (never retried).
+    ``SqlTimeoutError`` — query exceeded the timeout (surfaces to the user).
+    ``SqlExecutionError`` — the DB rejected the validated query (retryable by the
+    self-correction loop, e.g. a typo in a column name).
+    """
     safe = sanitize_sql(sql)
-    with engine.connect() as conn:
-        result = conn.execute(text(safe))
-        columns = list(result.keys())
-        rows = [list(r) for r in result.fetchall()]
-    # JSON-friendly values
-    serializable = []
-    for row in rows:
-        serializable.append([_jsonable(v) for v in row])
-    return {"columns": columns, "rows": serializable, "sql": safe, "row_count": len(serializable)}
+    timeout = timeout if timeout is not None else get_settings().sql_timeout_sec
+
+    def _exec() -> dict[str, Any]:
+        with engine.connect() as conn:
+            result = conn.execute(text(safe))
+            columns = list(result.keys())
+            rows = [list(r) for r in result.fetchall()]
+        serializable = [[_jsonable(v) for v in row] for row in rows]
+        return {"columns": columns, "rows": serializable, "sql": safe, "row_count": len(serializable)}
+
+    # SQLite access is synchronous and blocking. Run it in a worker thread so we
+    # can enforce a hard timeout without blocking the async event loop.
+    try:
+        with ThreadPoolExecutor(max_workers=1, thread_name_prefix="sqlguard") as pool:
+            future = pool.submit(_exec)
+            return future.result(timeout=timeout)
+    except FuturesTimeoutError as e:
+        raise SqlTimeoutError(
+            f"Запрос превысил лимит времени ({timeout:g} с). Попробуйте сузить диапазон или агрегировать данные."
+        ) from e
+    except SqlGuardError:
+        raise
+    except SqlExecutionError:
+        raise
+    except Exception as e:  # SQLAlchemy OperationalError/ProgrammingError/etc.
+        raise SqlExecutionError(str(e)) from e
 
 
 def _jsonable(v: Any) -> Any:

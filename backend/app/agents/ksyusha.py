@@ -71,6 +71,9 @@ async def run_ksyusha(
 
     return {
         "agent": "ksyusha",
+        "status": "demo" if provider.provider == "mock" else "ok",
+        "warnings": [],
+        "insights": {},
         "answer": answer,
         "sources": sources,
         "sql": None,

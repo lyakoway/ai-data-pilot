@@ -33,6 +33,12 @@ class ScenarioOut(BaseModel):
 class ChatResponse(BaseModel):
     agent: str
     answer: str
+    # ok = real model + query executed; demo = offline deterministic mode;
+    # partial = real model but degraded (e.g. self-correction kicked in);
+    # error = query could not be executed.
+    status: Literal["ok", "demo", "partial", "error"] = "ok"
+    warnings: list[str] = []
+    insights: dict[str, Any] = {}
     sql: str | None = None
     explanation: str | None = None
     columns: list[str] = []

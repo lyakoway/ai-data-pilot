@@ -1,15 +1,38 @@
-"""Analyst Oleg — NL → SQL → execute → explain (+ chart / excel)."""
+"""Analyst Oleg — NL → SQL → execute → analyze → explain (+ chart / excel).
+
+Reliability contract (Phase 1):
+- The SQL planner may attempt up to ``MAX_SQL_ATTEMPTS`` self-correction rounds.
+  On a runtime SQL error the agent feeds the error back to the LLM and asks it
+  to rewrite the query. Guard errors (forbidden keywords, multi-statement) are
+  never retried.
+- Silent mock substitution on real-model failures is gone. Mock data is only
+  ever served when the user explicitly picked the offline demo mode, and such
+  answers are flagged with ``status="demo"``.
+- All figures quoted in the natural-language answer are computed deterministically
+  by :mod:`app.core.analytics`; the LLM only renders them into prose.
+"""
 from __future__ import annotations
 
 import json
 import re
 from typing import Any
 
+from app.core.analytics import compute_insights
 from app.core.export_xlsx import export_rows
-from app.core.sql_guard import SqlGuardError, analytics_engine, run_sql
+from app.core.sql_guard import (
+    SqlExecutionError,
+    SqlGuardError,
+    SqlTimeoutError,
+    analytics_engine,
+    run_sql,
+)
 from app.db.schema_catalog import SCHEMA_CATALOG
 from app.llm.base import ChatMessage
 from app.llm.registry import get_provider
+
+# Total planner attempts: 1 initial + this many repair rounds.
+MAX_SQL_REPAIR_ROUNDS = 2
+MAX_SQL_ATTEMPTS = 1 + MAX_SQL_REPAIR_ROUNDS
 
 PLAN_SYSTEM = """Ты — аналитик Олег. Строишь SQL для базы RideGo.
 Верни ТОЛЬКО JSON без markdown:
@@ -32,12 +55,34 @@ PLAN_SYSTEM = """Ты — аналитик Олег. Строишь SQL для �
 SCHEMA:
 """
 
+# Asks the model to rewrite a query that failed at runtime.
+# Note: literal braces in the JSON example are escaped ({{ }}) because the
+# template is processed with str.format() for {error}/{sql} below.
+REPAIR_SYSTEM = """Ты — аналитик Олег. Предыдущий SQL упал с ошибкой БД.
+Перепиши запрос так, чтобы он выполнился. Используй только таблицы/поля из SCHEMA.
+Верни ТОЛЬКО JSON в том же формате: {{sql, chart_type, wants_excel, tables_used, logic}}.
+
+ОШИБКА:
+{error}
+
+ПРОВЛЕМНЫЙ SQL:
+{sql}
+
+SCHEMA:
+"""
+
+# Renders pre-computed insights into prose. The model must NOT invent numbers —
+# every figure it mentions must come from the provided HIGHLIGHTS list.
 ANSWER_SYSTEM = """Ты — аналитик Олег. По результату SQL дай короткий деловой ответ.
 Структура:
 1) Прямой ответ / ключевые цифры
-2) 2–4 наблюдения (тренды, топы, аномалии)
-Не выдумывай цифры вне таблицы. Язык ответа = язык вопроса пользователя.
-Если данных мало — скажи об этом.
+2) 2–4 наблюдения на основе HIGHLIGHTS
+
+КРИТИЧЕСКИ ВАЖНО:
+- Используй ТОЛЬКО цифры из блока HIGHLIGHTS. Не вычисляй и не выдумывай проценты сам.
+- Язык ответа = язык вопроса пользователя.
+- Если HIGHLIGHTS пуст или данных мало — честно скажи, что данных недостаточно.
+- Не повторяй SQL, не пересказывай таблицу построчно.
 """
 
 
@@ -161,6 +206,125 @@ def _mock_answer(question: str, columns: list[str], rows: list[list[Any]], lang:
     return "\n".join(lines)
 
 
+def _build_chart(plan: dict[str, Any], columns: list[str], rows: list[list[Any]]) -> dict[str, Any] | None:
+    chart_type = plan.get("chart_type")
+    if chart_type not in {"bar", "line", "pie"} or not columns or not rows:
+        return None
+    x_key = columns[0]
+    y_key = None
+    for i, col in enumerate(columns[1:], start=1):
+        if rows and isinstance(rows[0][i], (int, float)):
+            y_key = col
+            break
+    if y_key is None and len(columns) > 1:
+        y_key = columns[1]
+    if not y_key:
+        return None
+    yi = columns.index(y_key)
+    return {
+        "type": chart_type,
+        "x_key": x_key,
+        "y_key": y_key,
+        "points": [
+            {"x": str(r[0]), "y": float(r[yi]) if isinstance(r[yi], (int, float)) else 0}
+            for r in rows[:20]
+        ],
+    }
+
+
+def _ok_response(
+    *,
+    answer: str,
+    plan: dict[str, Any],
+    columns: list[str],
+    rows: list[list[Any]],
+    row_count: int,
+    insights: dict[str, Any],
+    status: str,
+    warnings: list[str] | None = None,
+    force_excel: bool = False,
+) -> dict[str, Any]:
+    wants_excel = bool(plan.get("wants_excel")) or force_excel or len(rows) >= 15
+    excel_url = None
+    if wants_excel and rows:
+        path = export_rows(columns, rows, name="oleg_report")
+        excel_url = f"/api/exports/{path.name}"
+
+    return {
+        "agent": "oleg",
+        "status": status,
+        "warnings": warnings or [],
+        "answer": answer,
+        "sql": plan.get("sql"),
+        "explanation": plan.get("logic"),
+        "columns": columns,
+        "rows": rows[:100],
+        "row_count": row_count,
+        "chart": _build_chart(plan, columns, rows),
+        "excel_url": excel_url,
+        "tables_used": plan.get("tables_used") or [],
+        "insights": insights,
+        "suggestions": [
+            "Сохрани это как сценарий",
+            "Сравни с прошлым месяцем",
+            "Выгрузи в Excel",
+        ],
+    }
+
+
+def _error_response(
+    *,
+    plan: dict[str, Any] | None,
+    message: str,
+    lang: str,
+    status: str = "error",
+    warnings: list[str] | None = None,
+) -> dict[str, Any]:
+    if lang == "en":
+        answer = f"I couldn't run the query. {message}"
+    else:
+        answer = f"Не удалось выполнить запрос. {message}"
+    return {
+        "agent": "oleg",
+        "status": status,
+        "warnings": warnings or [],
+        "answer": answer,
+        "sql": plan.get("sql") if plan else None,
+        "explanation": plan.get("logic") if plan else None,
+        "columns": [],
+        "rows": [],
+        "row_count": 0,
+        "chart": None,
+        "excel_url": None,
+        "tables_used": (plan.get("tables_used") if plan else None) or [],
+        "insights": {},
+        "suggestions": [
+            "Покажи топ-10 городов по поездкам",
+            "Выручка по регионам за 30 дней",
+        ],
+    }
+
+
+async def _generate_plan(provider, question: str, lang: str) -> dict[str, Any] | None:
+    """Ask the LLM for a JSON plan. Returns ``None`` if the call yields nothing usable."""
+    if provider.provider == "mock":
+        # Demo mode uses deterministic plans; no LLM round-trip.
+        return _mock_plan(question)
+    raw = await provider.complete(
+        PLAN_SYSTEM + SCHEMA_CATALOG,
+        [ChatMessage("user", question)],
+        lang=lang,
+    )
+    return _extract_json(raw)
+
+
+async def _repair_plan(provider, question: str, broken_sql: str, error: str, lang: str) -> dict[str, Any] | None:
+    """Feed a runtime error back to the LLM and ask for a corrected plan."""
+    system = REPAIR_SYSTEM.format(error=error[:500], sql=broken_sql) + SCHEMA_CATALOG
+    raw = await provider.complete(system, [ChatMessage("user", question)], lang=lang)
+    return _extract_json(raw)
+
+
 async def run_oleg(
     question: str,
     model_id: str = "mock",
@@ -168,59 +332,97 @@ async def run_oleg(
     force_excel: bool = False,
 ) -> dict[str, Any]:
     provider = get_provider(model_id)
-    plan: dict[str, Any] | None = None
+    is_mock = provider.provider == "mock"
 
-    if provider.provider != "mock":
-        raw = await provider.complete(
-            PLAN_SYSTEM + SCHEMA_CATALOG,
-            [ChatMessage("user", question)],
-            lang=lang,
-        )
-        plan = _extract_json(raw)
-
+    plan = await _generate_plan(provider, question, lang)
     if not plan or not plan.get("sql"):
-        plan = _mock_plan(question)
+        if is_mock:
+            plan = _mock_plan(question)
+        else:
+            return _error_response(
+                plan=plan,
+                message=(
+                    "Модель не вернула корректный SQL."
+                    if lang != "en"
+                    else "The model did not return valid SQL."
+                ),
+                lang=lang,
+            )
 
     engine = analytics_engine()
-    try:
-        result = run_sql(engine, plan["sql"])
-    except SqlGuardError as e:
-        return {
-            "agent": "oleg",
-            "answer": f"Не смог выполнить SQL: {e}",
-            "sql": plan.get("sql"),
-            "explanation": plan.get("logic"),
-            "columns": [],
-            "rows": [],
-            "chart": None,
-            "excel_url": None,
-            "tables_used": plan.get("tables_used") or [],
-            "suggestions": [
-                "Покажи топ-10 городов по поездкам",
-                "Выручка по регионам за 30 дней",
-            ],
-        }
-    except Exception:  # noqa: BLE001 — fall back to deterministic SQL
-        plan = _mock_plan(question)
-        result = run_sql(engine, plan["sql"])
+    warnings: list[str] = []
 
+    # --- Self-correction loop: try, and on runtime errors ask the LLM to repair ---
+    result: dict[str, Any] | None = None
+    attempts_made = 1
+    for attempt in range(MAX_SQL_ATTEMPTS):
+        try:
+            result = run_sql(engine, plan["sql"])
+            break
+        except SqlGuardError as e:
+            # Static validation failure — never worth retrying; surface to the user.
+            return _error_response(plan=plan, message=str(e), lang=lang)
+        except SqlTimeoutError as e:
+            return _error_response(plan=plan, message=str(e), lang=lang)
+        except SqlExecutionError as e:
+            if is_mock:
+                # In demo mode the plans are hand-written and must succeed. If one
+                # fails we surface it rather than fabricate data.
+                return _error_response(plan=plan, message=str(e), lang=lang)
+            if attempt >= MAX_SQL_REPAIR_ROUNDS:
+                msg = (
+                    f"SQL не выполнился после {MAX_SQL_ATTEMPTS} попыток. Последняя ошибка: {e}"
+                    if lang != "en"
+                    else f"SQL failed after {MAX_SQL_ATTEMPTS} attempts. Last error: {e}"
+                )
+                return _error_response(plan=plan, message=msg, lang=lang, warnings=[str(e)])
+            repaired = await _repair_plan(provider, question, plan["sql"], str(e), lang)
+            attempts_made += 1
+            if repaired and repaired.get("sql") and repaired["sql"] != plan["sql"]:
+                plan = repaired
+                warnings.append(
+                    f"Самокоррекция: переписал запрос (попытка {attempts_made})."
+                    if lang != "en"
+                    else f"Self-correction: rewrote query (attempt {attempts_made})."
+                )
+                continue
+            # Model couldn't produce a different query — give up honestly.
+            return _error_response(
+                plan=plan,
+                message=(
+                    "Не удалось исправить SQL автоматически."
+                    if lang != "en"
+                    else "Could not repair the SQL automatically."
+                ),
+                lang=lang,
+                warnings=[str(e)],
+            )
+
+    assert result is not None  # loop only exits cleanly with a result
     columns, rows = result["columns"], result["rows"]
 
+    # --- Deterministic analytics layer (no LLM math) ---
+    insights = compute_insights(columns, rows, question=question, lang=lang)
+
+    # --- Answer: LLM renders insights into prose, or mock fallback ---
     answer = ""
-    if provider.provider != "mock":
+    if not is_mock:
         table_preview = {
             "columns": columns,
             "rows": rows[:30],
             "row_count": len(rows),
             "logic": plan.get("logic"),
             "sql": result["sql"],
+            "highlights": insights["highlights"],
         }
         answer = await provider.complete(
             ANSWER_SYSTEM,
             [
                 ChatMessage(
                     "user",
-                    f"Вопрос: {question}\n\nРезультат JSON:\n{json.dumps(table_preview, ensure_ascii=False)}",
+                    f"Вопрос: {question}\n\nHIGHLIGHTS:\n- "
+                    + "\n- ".join(insights["highlights"])
+                    + f"\n\nРезультат JSON:\n{json.dumps(table_preview, ensure_ascii=False)}",
                 )
             ],
             lang=lang,
@@ -228,50 +430,15 @@ async def run_oleg(
     if not answer.strip():
         answer = _mock_answer(question, columns, rows, lang)
 
-    wants_excel = bool(plan.get("wants_excel")) or force_excel or len(rows) >= 15
-    excel_url = None
-    if wants_excel and rows:
-        path = export_rows(columns, rows, name="oleg_report")
-        excel_url = f"/api/exports/{path.name}"
-
-    chart_type = plan.get("chart_type")
-    chart = None
-    if chart_type in {"bar", "line", "pie"} and columns and rows:
-        # x = first col, y = first numeric col after
-        x_key = columns[0]
-        y_key = None
-        for i, col in enumerate(columns[1:], start=1):
-            if rows and isinstance(rows[0][i], (int, float)):
-                y_key = col
-                break
-        if y_key is None and len(columns) > 1:
-            y_key = columns[1]
-        if y_key:
-            yi = columns.index(y_key)
-            chart = {
-                "type": chart_type,
-                "x_key": x_key,
-                "y_key": y_key,
-                "points": [
-                    {"x": str(r[0]), "y": float(r[yi]) if isinstance(r[yi], (int, float)) else 0}
-                    for r in rows[:20]
-                ],
-            }
-
-    return {
-        "agent": "oleg",
-        "answer": answer,
-        "sql": plan.get("sql"),
-        "explanation": plan.get("logic"),
-        "columns": columns,
-        "rows": rows[:100],
-        "row_count": len(rows),
-        "chart": chart,
-        "excel_url": excel_url,
-        "tables_used": plan.get("tables_used") or [],
-        "suggestions": [
-            "Сохрани это как сценарий",
-            "Сравни с прошлым месяцем",
-            "Выгрузи в Excel",
-        ],
-    }
+    status = "demo" if is_mock else "ok"
+    return _ok_response(
+        answer=answer,
+        plan=plan,
+        columns=columns,
+        rows=rows,
+        row_count=len(rows),
+        insights=insights,
+        status=status,
+        warnings=warnings or None,
+        force_excel=force_excel,
+    )

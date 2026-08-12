@@ -328,6 +328,36 @@ th { background: var(--bg-soft); color: var(--text-soft); font-weight: 600; }
 
 .result-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
+/* Status badge + warnings (Phase 1 reliability) */
+.result-head { display: flex; align-items: center; gap: 8px; }
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 650;
+  padding: 3px 9px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--border);
+  line-height: 1.4;
+}
+.status-ok { color: #16a34a; border-color: rgba(22, 163, 74, 0.4); background: rgba(22, 163, 74, 0.12); }
+.status-demo { color: var(--accent); border-color: rgba(99, 102, 241, 0.4); background: rgba(99, 102, 241, 0.12); }
+.status-partial { color: #d97706; border-color: rgba(217, 119, 6, 0.4); background: rgba(217, 119, 6, 0.12); }
+.status-error { color: #dc2626; border-color: rgba(220, 38, 38, 0.4); background: rgba(220, 38, 38, 0.12); }
+[data-theme='dark'] .status-ok { color: #4ade80; }
+[data-theme='dark'] .status-partial { color: #fbbf24; }
+[data-theme='dark'] .status-error { color: #f87171; }
+
+.warnings-box {
+  border: 1px solid rgba(217, 119, 6, 0.4);
+  background: rgba(217, 119, 6, 0.08);
+  border-radius: var(--r-md);
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-soft);
+}
+.warnings-box p { margin: 2px 0; }
+
 .btn {
   display: inline-flex;
   align-items: center;
