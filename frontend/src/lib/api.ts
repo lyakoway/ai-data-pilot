@@ -24,9 +24,23 @@ export type ChartPayload = {
   points: { x: string; y: number }[]
 }
 
+export type AnswerStatus = 'ok' | 'demo' | 'partial' | 'error'
+
+export type Insights = {
+  is_timeseries?: boolean
+  trend?: { direction: 'up' | 'down' | 'flat'; pct: number } | null
+  top?: { label: string; value: number; share: number }[]
+  outliers?: { label: string; value: number; z: number }[]
+  summary?: Record<string, { sum: number; avg: number; min: number; max: number; median: number; count: number }>
+  highlights?: string[]
+}
+
 export type ChatResult = {
   agent: AgentId
   answer: string
+  status?: AnswerStatus
+  warnings?: string[]
+  insights?: Insights
   sql: string | null
   explanation: string | null
   columns: string[]

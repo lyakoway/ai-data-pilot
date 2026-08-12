@@ -1,8 +1,15 @@
 import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import type { ChatResult } from '../lib/api'
+import type { AnswerStatus, ChatResult } from '../lib/api'
 import { ChartBlock } from './ChartBlock'
+
+const STATUS_LABEL: Record<AnswerStatus, { ru: string; en: string }> = {
+  ok: { ru: 'Реальный ответ', en: 'Live answer' },
+  demo: { ru: 'Демо-режим', en: 'Demo mode' },
+  partial: { ru: 'С коррекцией', en: 'Self-corrected' },
+  error: { ru: 'Ошибка', en: 'Error' },
+}
 
 export function ResultCard({
   result,
@@ -14,9 +21,26 @@ export function ResultCard({
   lang: 'ru' | 'en'
 }) {
   const [vote, setVote] = useState<'up' | 'down' | null>(null)
+  const status = result.status ?? 'ok'
+  const statusClass = `status-badge status-${status}`
+  const warnings = result.warnings ?? []
 
   return (
     <article className="result-card">
+      <div className="result-head">
+        <span className={statusClass} title={STATUS_LABEL[status][lang === 'en' ? 'en' : 'ru']}>
+          {STATUS_LABEL[status][lang === 'en' ? 'en' : 'ru']}
+        </span>
+      </div>
+
+      {warnings.length > 0 && (
+        <div className="warnings-box">
+          {warnings.map((w, i) => (
+            <p key={i}>⚠ {w}</p>
+          ))}
+        </div>
+      )}
+
       <div className="result-md">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.answer}</ReactMarkdown>
       </div>
