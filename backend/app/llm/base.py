@@ -8,7 +8,9 @@ from typing import Protocol
 
 @dataclass
 class ChatMessage:
-    role: str  # "user" | "assistant" | "system"
+    # "user" | "assistant" | "system" | "tool"
+    # "tool" carries a tool-call result back to the model in the agent loop.
+    role: str
     content: str
 
 

@@ -393,6 +393,295 @@ def _new_step(index: int, tool: str, title: str) -> dict[str, Any]:
     }
 
 
+# --------------------------------------------------------------------------- #
+# Agent loop (ReAct) — for multi-step questions
+# --------------------------------------------------------------------------- #
+
+import re as _re
+
+# Questions matching these signals need a multi-step plan, not a single SQL.
+_COMPLEX_RE = _re.compile(
+    r"(почему|сравн|причин|динамик|упал|упало|выросл|вырос|изменен|раст[её]т|падает|"
+    r"why|compare|reason|trend|drop|dropped|grow|grew|change|decline|increase)",
+    _re.IGNORECASE,
+)
+
+
+def _is_complex_question(question: str) -> bool:
+    """Heuristic: questions about causes, comparisons, or trends need the loop."""
+    return bool(_COMPLEX_RE.search(question))
+
+
+# Prompt-based tool-calling system. The model replies with a single JSON object
+# per turn; we parse it, dispatch the tool, and feed the result back as a "tool"
+# message until the model calls ``finish``.
+LOOP_SYSTEM = """Ты — аналитик Олег. Пользователь задал вопрос, требующий нескольких шагов анализа.
+Ты принимаешь решения пошагово: на каждом ходу выбираешь ОДИН инструмент и возвращаешь
+строго JSON без markdown:
+
+{{"thought": "краткое рассуждение (1 предложение)", "tool": "<имя>", "args": {{...}}}}
+
+Доступные инструменты:
+{tools}
+
+Правила:
+- За один ход — ровно один инструмент.
+- Когда данных достаточно для ответа — вызови finish с полным текстом ответа.
+- В args SQL используй только таблицы/поля из SCHEMA. Только SELECT/WITH.
+- Язык ответа = язык вопроса. Не выдумывай цифры — считай через calculate или бери из database_query.
+
+SCHEMA:
+""".format(tools=__import__("app.agents.tools", fromlist=["TOOLS_DESCRIPTION"]).TOOLS_DESCRIPTION)
+
+
+async def _run_loop(
+    *,
+    question: str,
+    provider: Any,
+    lang: str,
+    engine: Any,
+    schema_catalog: str,
+    steps: list[dict[str, Any]],
+    emit: Any,
+) -> dict[str, Any]:
+    """ReAct loop: the model picks tools until it calls ``finish``.
+
+    Returns a full result dict (same shape as ``_ok_response``) on success,
+    or an error dict if the loop exhausts its budget.
+    """
+    from app.agents.tools import MAX_LOOP_STEPS, dispatch_tool, tool_result_to_message
+
+    messages: list[ChatMessage] = [ChatMessage("user", question)]
+    last_chart: dict[str, Any] | None = None
+    last_columns: list[str] = []
+    last_rows: list[list[Any]] = []
+    last_sql: str | None = None
+    last_insights: dict[str, Any] = {}
+    step_index = len(steps)
+
+    for _ in range(MAX_LOOP_STEPS):
+        step_index += 1
+        think_step = _new_step(step_index, "agent", "Агент размышляет" if lang != "en" else "Agent reasoning")
+        await emit(think_step)
+        t0 = time.perf_counter()
+        raw = await provider.complete(
+            LOOP_SYSTEM + schema_catalog, list(messages), lang=lang
+        )
+        think_step["duration_ms"] = int((time.perf_counter() - t0) * 1000)
+        decision = _extract_json(raw)
+        if not decision or "tool" not in decision:
+            think_step["status"] = "error"
+            think_step["summary"] = (raw or "")[:140]
+            await emit(think_step)
+            break
+
+        tool_name = decision["tool"]
+        tool_args = decision.get("args") or {}
+        thought = (decision.get("thought") or "")[:160]
+        think_step["status"] = "done"
+        think_step["summary"] = thought or tool_name
+        await emit(think_step)
+
+        # Dispatch the tool.
+        step_index += 1
+        tool_step = _new_step(step_index, tool_name, f"Вызываю: {tool_name}")
+        await emit(tool_step)
+        t0 = time.perf_counter()
+        result = dispatch_tool(tool_name, tool_args, engine=engine, lang=lang)
+        tool_step["duration_ms"] = int((time.perf_counter() - t0) * 1000)
+        tool_step["status"] = "done" if result.get("ok") else "error"
+        tool_step["summary"] = result.get("summary", "")[:140]
+        tool_step["detail"] = {
+            k: v for k, v in result.get("data", {}).items()
+            if k not in ("rows",) or tool_name == "database_query"
+        }
+        await emit(tool_step)
+
+        # Track the latest result set for the final response payload.
+        if tool_name == "database_query" and result.get("ok"):
+            last_columns = result["data"].get("columns", [])
+            last_rows = result["data"].get("rows", [])
+            last_sql = result["data"].get("sql")
+        if tool_name == "analyze" and result.get("ok"):
+            last_insights = result["data"].get("insights", {})
+        if tool_name == "create_chart" and result.get("ok"):
+            last_chart = _build_chart(
+                {
+                    "chart_type": result["data"].get("chart_type"),
+                    **({"x_key": result["data"]["x_key"]} if result["data"].get("x_key") else {}),
+                    **({"y_key": result["data"]["y_key"]} if result["data"].get("y_key") else {}),
+                },
+                last_columns,
+                last_rows,
+            )
+
+        if result.get("_finish"):
+            answer = result["data"].get("answer", "")
+            return {
+                "agent": "oleg",
+                "status": "ok",
+                "warnings": [],
+                "steps": steps,
+                "answer": answer,
+                "sql": last_sql,
+                "explanation": None,
+                "columns": last_columns[:100],
+                "rows": last_rows[:100],
+                "row_count": len(last_rows),
+                "chart": last_chart,
+                "excel_url": None,
+                "tables_used": [],
+                "insights": last_insights,
+                "suggestions": [
+                    "Сохрани это как сценарий",
+                    "Сравни с другим периодом",
+                    "Выгрузи в Excel",
+                ],
+            }
+
+        # Feed the result back to the model.
+        messages.append(ChatMessage("assistant", json.dumps(decision, ensure_ascii=False)))
+        messages.append(ChatMessage("tool", tool_result_to_message(result)))
+
+    # Loop exhausted without finish.
+    return _error_response(
+        plan={"sql": last_sql, "logic": None, "tables_used": []},
+        message=(
+            f"Агент не завершил анализ за {MAX_LOOP_STEPS} шагов. Попробуйте переформулировать вопрос."
+            if lang != "en"
+            else f"Agent did not finish within {MAX_LOOP_STEPS} steps."
+        ),
+        lang=lang,
+        steps=steps,
+    )
+
+
+async def _mock_loop(
+    *,
+    question: str,
+    lang: str,
+    engine: Any,
+    steps: list[dict[str, Any]],
+    emit: Any,
+) -> dict[str, Any]:
+    """Deterministic scripted loop for demo mode (no LLM). Simulates the
+    'compare periods' scenario: query two months → calculate change → analyze."""
+    from app.agents.tools import dispatch_tool, tool_result_to_message
+
+    step_index = len(steps)
+
+    async def do_tool(name: str, args: dict[str, Any], title: str) -> dict[str, Any]:
+        nonlocal step_index
+        step_index += 1
+        s = _new_step(step_index, name, title)
+        await emit(s)
+        t0 = time.perf_counter()
+        r = dispatch_tool(name, args, engine=engine, lang=lang)
+        s["duration_ms"] = int((time.perf_counter() - t0) * 1000)
+        s["status"] = "done" if r.get("ok") else "error"
+        s["summary"] = r.get("summary", "")[:140]
+        s["detail"] = {k: v for k, v in r.get("data", {}).items() if k != "rows"}
+        await emit(s)
+        return r
+
+    # Step 1: revenue by month.
+    r1 = await do_tool(
+        "database_query",
+        {"sql": (
+            "SELECT strftime('%Y-%m', ride_date) AS month, "
+            "ROUND(SUM(revenue_rub), 0) AS revenue, COUNT(*) AS rides "
+            "FROM fact_rides WHERE is_partner = 0 "
+            "GROUP BY month ORDER BY month DESC LIMIT 3"
+        )},
+        "Запрашиваю выручку по месяцам",
+    )
+    cols = r1["data"].get("columns", [])
+    rows = r1["data"].get("rows", [])
+    # Determine current/previous from the result (last two months).
+    cur = prev = None
+    if len(rows) >= 2:
+        # rows: [ [month, revenue, rides], ... ] newest first
+        try:
+            cur = float(rows[0][1])
+            prev = float(rows[1][1])
+            cur_rides = float(rows[0][2])
+            prev_rides = float(rows[1][2])
+        except (IndexError, TypeError, ValueError):
+            cur = prev = cur_rides = prev_rides = None
+
+    # Step 2: revenue change.
+    change_pct = None
+    if cur is not None and prev is not None:
+        r2 = await do_tool(
+            "calculate",
+            {"current": cur, "previous": prev},
+            "Считаю изменение выручки",
+        )
+        change_pct = r2["data"].get("change_pct")
+        # Step 3: rides change.
+        if cur_rides is not None and prev_rides is not None:
+            await do_tool(
+                "calculate",
+                {"current": cur_rides, "previous": prev_rides},
+                "Считаю изменение количества поездок",
+            )
+
+    # Step 4: analyze.
+    r4 = await do_tool("analyze", {"columns": cols, "rows": rows}, "Анализирую данные")
+    insights = r4["data"].get("insights", {}) if r4.get("ok") else {}
+
+    # Step 5: chart.
+    chart = _build_chart({"chart_type": "bar"}, cols, rows)
+
+    # Step 6: finish.
+    step_index += 1
+    fin = _new_step(step_index, "finish", "Формирую ответ")
+    await emit(fin)
+    fin["status"] = "done"
+    fin["summary"] = "Готово"
+    await emit(fin)
+
+    # Compose a deterministic answer.
+    if change_pct is not None:
+        direction = "выросла" if change_pct >= 0 else "снизилась"
+        if lang == "en":
+            direction = "grew" if change_pct >= 0 else "decreased"
+            answer = (
+                f"Revenue {direction} by {abs(change_pct)}% month-over-month. "
+                f"Highlights: " + "; ".join(insights.get("highlights", [])[:3])
+            )
+        else:
+            answer = (
+                f"Выручка {direction} на {abs(change_pct)}% по сравнению с предыдущим месяцем. "
+                f"Ключевые наблюдения: " + "; ".join(insights.get("highlights", [])[:3])
+            )
+    else:
+        answer = _mock_answer(question, cols, rows, lang)
+
+    return {
+        "agent": "oleg",
+        "status": "demo",
+        "warnings": [],
+        "steps": steps,
+        "answer": answer,
+        "sql": r1["data"].get("sql"),
+        "explanation": "Сравнение выручки по месяцам, расчёт изменения, анализ факторов.",
+        "columns": cols[:100],
+        "rows": rows[:100],
+        "row_count": len(rows),
+        "chart": chart,
+        "excel_url": None,
+        "tables_used": ["fact_rides"],
+        "insights": insights,
+        "suggestions": [
+            "Сохрани это как сценарий",
+            "Сравни с другим периодом",
+            "Выгрузи в Excel",
+        ],
+    }
+
+
+
 async def run_oleg_streaming(
     question: str,
     model_id: str = "mock",
@@ -427,6 +716,25 @@ async def run_oleg_streaming(
         schema_catalog = SCHEMA_CATALOG
         engine = _legacy_engine()
     is_ridego = datasource_id == RIDEGO_SOURCE_ID
+
+    # --- Route: complex multi-step questions go through the ReAct loop,
+    #     simple questions use the fast linear flow below. CSV sources always
+    #     use the linear flow (mock plans are RideGo-specific; the loop's mock
+    #     script is RideGo-specific too). ---
+    if is_ridego and _is_complex_question(question):
+        if is_mock:
+            return await _mock_loop(
+                question=question, lang=lang, engine=engine, steps=steps, emit=emit
+            )
+        return await _run_loop(
+            question=question,
+            provider=provider,
+            lang=lang,
+            engine=engine,
+            schema_catalog=schema_catalog,
+            steps=steps,
+            emit=emit,
+        )
 
     # --- Step 1: planning -------------------------------------------------
     step = _new_step(1, "planner", "Анализирую запрос" if lang != "en" else "Analysing request")
