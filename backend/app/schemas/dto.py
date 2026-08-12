@@ -11,6 +11,7 @@ class ChatRequest(BaseModel):
     model: str = "mock"
     lang: Literal["ru", "en"] = "ru"
     force_excel: bool = False
+    datasource_id: str | None = None
 
 
 class ScenarioCreate(BaseModel):
@@ -19,6 +20,7 @@ class ScenarioCreate(BaseModel):
     description: str = ""
     prompt: str
     chart_type: str | None = None
+    datasource_id: str | None = None
 
 
 class ScenarioOut(BaseModel):
@@ -28,6 +30,7 @@ class ScenarioOut(BaseModel):
     description: str
     prompt: str
     chart_type: str | None = None
+    datasource_id: str | None = None
 
 
 class ChatResponse(BaseModel):

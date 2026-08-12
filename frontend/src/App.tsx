@@ -13,6 +13,7 @@ import {
   api,
   type AgentId,
   type ChatResult,
+  type DataSourceInfo,
   type Kpis,
   type ModelInfo,
   type Scenario,
@@ -40,6 +41,11 @@ const COPY = {
     placeholderOleg: 'Спросите про выручку, города, подписки…',
     placeholderKsyusha: 'Спросите про utilization, Redis, anti-fraud…',
     emptyTitle: 'Дашборд аналитических агентов',
+    dataSource: 'Источник данных',
+    uploadCsv: 'Загрузить CSV',
+    uploading: 'Загрузка…',
+    uploadHint: 'CSV с заголовком. Максимум 25 МБ.',
+    uploadError: 'Не удалось загрузить CSV',
     emptyOleg:
       'Олег ходит в демо-БД RideGo: строит SQL, таблицу, график и Excel. Запустите сценарий слева или задайте вопрос.',
     emptyKsyusha:
@@ -62,6 +68,11 @@ const COPY = {
     placeholderOleg: 'Ask about revenue, cities, subscriptions…',
     placeholderKsyusha: 'Ask about utilization, Redis, anti-fraud…',
     emptyTitle: 'Analytical agents dashboard',
+    dataSource: 'Data source',
+    uploadCsv: 'Upload CSV',
+    uploading: 'Uploading…',
+    uploadHint: 'CSV with a header row. Max 25 MB.',
+    uploadError: 'Failed to upload CSV',
     emptyOleg:
       'Oleg queries the RideGo demo DB: SQL, table, chart, Excel. Run a scenario or ask a question.',
     emptyKsyusha:
@@ -83,6 +94,9 @@ export default function App() {
   const [models, setModels] = useState<ModelInfo[]>([])
   const [model, setModel] = useState('mock')
   const [scenarios, setScenarios] = useState<Scenario[]>([])
+  const [datasources, setDatasources] = useState<DataSourceInfo[]>([])
+  const [datasourceId, setDatasourceId] = useState('ridego')
+  const [uploading, setUploading] = useState(false)
   const [kpis, setKpis] = useState<Kpis | null>(null)
   const [turns, setTurns] = useState<Turn[]>([])
   const [input, setInput] = useState('')
@@ -90,6 +104,7 @@ export default function App() {
   const [lastUserPrompt, setLastUserPrompt] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const csvInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     saveTheme(theme)
@@ -107,6 +122,7 @@ export default function App() {
     })
     api.scenarios().then(setScenarios)
     api.kpis().then(setKpis).catch(() => undefined)
+    api.datasources().then(setDatasources).catch(() => undefined)
   }, [])
 
   useEffect(() => {
@@ -133,6 +149,7 @@ export default function App() {
         model,
         lang,
         force_excel: forceExcel,
+        datasource_id: agent === 'oleg' ? datasourceId : undefined,
       })
       setTurns((prev) => [
         ...prev,
@@ -212,8 +229,24 @@ export default function App() {
       description: '',
       prompt: lastUserPrompt,
       chart_type: 'bar',
+      datasource_id: agent === 'oleg' ? datasourceId : undefined,
     })
     setScenarios((prev) => [...prev, created])
+  }
+
+  async function handleCsvUpload(file: File) {
+    setUploading(true)
+    try {
+      const created = await api.uploadCsv(file)
+      setDatasources((prev) => [...prev, created])
+      setDatasourceId(created.id)
+      // KPIs are RideGo-specific; switch them off for non-RideGo sources.
+      if (created.id !== 'ridego') setKpis(null)
+    } catch (e) {
+      window.alert(`${t.uploadError}: ${e instanceof Error ? e.message : ''}`)
+    } finally {
+      setUploading(false)
+    }
   }
 
   const lastSuggestions =
@@ -324,17 +357,67 @@ export default function App() {
               <p className="sub">{agent === 'oleg' ? t.subtitleOleg : t.subtitleKsyusha}</p>
             </div>
           </div>
-          <select
-            className="select"
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-          >
-            {models.map((m) => (
-              <option key={m.id} value={m.id} disabled={!m.available}>
-                {m.available ? '●' : '○'} {m.label}
-              </option>
-            ))}
-          </select>
+          <div className="topbar-selects">
+            {agent === 'oleg' && (
+              <select
+                className="select"
+                value={datasourceId}
+                onChange={(e) => {
+                  const id = e.target.value
+                  setDatasourceId(id)
+                  // KPIs are only meaningful for the built-in RideGo source.
+                  if (id !== 'ridego') {
+                    setKpis(null)
+                  } else {
+                    api.kpis().then(setKpis).catch(() => undefined)
+                  }
+                }}
+                title={t.dataSource}
+              >
+                {datasources.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.kind === 'csv' ? '📄' : '🛴'} {d.name}
+                    {d.row_count != null ? ` · ${d.row_count}` : ''}
+                  </option>
+                ))}
+              </select>
+            )}
+            {agent === 'oleg' && (
+              <>
+                <input
+                  ref={csvInputRef}
+                  type="file"
+                  accept=".csv"
+                  className="csv-input-hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) void handleCsvUpload(f)
+                    e.target.value = ''
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => csvInputRef.current?.click()}
+                  disabled={uploading}
+                  title={t.uploadHint}
+                >
+                  {uploading ? t.uploading : `+ ${t.uploadCsv}`}
+                </button>
+              </>
+            )}
+            <select
+              className="select"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+            >
+              {models.map((m) => (
+                <option key={m.id} value={m.id} disabled={!m.available}>
+                  {m.available ? '●' : '○'} {m.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </header>
 
         <div className="content">

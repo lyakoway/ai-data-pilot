@@ -15,6 +15,20 @@ export type Scenario = {
   description: string
   prompt: string
   chart_type: string | null
+  datasource_id?: string | null
+}
+
+export type DataSourceInfo = {
+  id: string
+  name: string
+  kind: 'ridego' | 'csv'
+  description: string
+  row_count: number | null
+  created_at: string | null
+}
+
+export type CsvUploadResult = DataSourceInfo & {
+  columns: { name: string; type: string; sqlite_type: string }[]
 }
 
 export type ChartPayload = {
@@ -93,10 +107,19 @@ export const api = {
     model: string
     lang: string
     force_excel?: boolean
+    datasource_id?: string
   }) =>
     json<ChatResult>('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     }),
+  datasources: () => json<DataSourceInfo[]>('/api/datasources'),
+  uploadCsv: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return json<CsvUploadResult>('/api/datasources/upload', { method: 'POST', body: form })
+  },
+  deleteDatasource: (id: string) =>
+    json<{ ok: boolean }>(`/api/datasources/${id}`, { method: 'DELETE' }),
 }

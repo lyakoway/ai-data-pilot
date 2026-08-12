@@ -23,5 +23,6 @@ async def chat(body: ChatRequest) -> ChatResponse:
             model_id=body.model,
             lang=body.lang,
             force_excel=body.force_excel,
+            datasource_id=body.datasource_id or "ridego",
         )
     return ChatResponse(**data)

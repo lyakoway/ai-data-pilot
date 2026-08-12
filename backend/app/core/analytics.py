@@ -17,7 +17,10 @@ from typing import Any
 # A column is treated as a date axis if its name hints so OR values parse as dates.
 _DATE_NAME_RE = re.compile(r"(date|day|week|month|year|дата|день|нед|мес|год|период|time)", re.I)
 _ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}")
-_OUTLIER_Z_THRESHOLD = 2.0
+# Values whose |z-score| exceeds this are flagged as outliers. Set slightly
+# below the textbook 2σ so that masked outliers (which inflate the std they
+# were computed from) are still caught — a common case in small analytical slices.
+_OUTLIER_Z_THRESHOLD = 1.9
 _TREND_FLAT_PCT = 2.5  # |trend %| below this is reported as "flat"
 
 
