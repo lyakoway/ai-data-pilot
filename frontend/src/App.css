@@ -358,6 +358,15 @@ th { background: var(--bg-soft); color: var(--text-soft); font-weight: 600; }
 }
 .warnings-box p { margin: 2px 0; }
 
+/* Data source selector + CSV upload (Phase 2 multi-source) */
+.topbar-selects { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.btn-sm { padding: 7px 11px; font-size: 12px; }
+.csv-input-hidden { display: none; }
+@media (max-width: 720px) {
+  .topbar-selects { width: 100%; }
+  .topbar-selects .select { flex: 1; min-width: 0; }
+}
+
 .btn {
   display: inline-flex;
   align-items: center;

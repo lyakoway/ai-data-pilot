@@ -1,0 +1,12 @@
+[
+  {
+    "id": "ridego",
+    "name": "RideGo (демо)",
+    "kind": "ridego",
+    "description": "Встроенная демо-БД микромобильности: города, поездки, подписки.",
+    "table_name": null,
+    "columns": null,
+    "row_count": null,
+    "created_at": null
+  }
+]

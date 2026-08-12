@@ -23,9 +23,9 @@ from app.core.sql_guard import (
     SqlExecutionError,
     SqlGuardError,
     SqlTimeoutError,
-    analytics_engine,
     run_sql,
 )
+from app.db.datasources import RIDEGO_SOURCE_ID, get_engine_for, get_schema_catalog
 from app.db.schema_catalog import SCHEMA_CATALOG
 from app.llm.base import ChatMessage
 from app.llm.registry import get_provider
@@ -34,21 +34,19 @@ from app.llm.registry import get_provider
 MAX_SQL_REPAIR_ROUNDS = 2
 MAX_SQL_ATTEMPTS = 1 + MAX_SQL_REPAIR_ROUNDS
 
-PLAN_SYSTEM = """Ты — аналитик Олег. Строишь SQL для базы RideGo.
+PLAN_SYSTEM = """Ты — аналитик Олег. Строишь SQL для аналитической базы данных.
 Верни ТОЛЬКО JSON без markdown:
 {
   "sql": "SELECT ...",
   "chart_type": "bar" | "line" | "pie" | null,
   "wants_excel": true/false,
-  "tables_used": ["fact_rides", "..."],
+  "tables_used": ["..."],
   "logic": "краткое пояснение методологии на языке пользователя"
 }
 
 Правила:
 - Только SELECT / WITH. Никаких мутаций.
 - Используй только таблицы и поля из SCHEMA.
-- Для «последние N дней» опирайся на MAX(ride_date) или MAX(registered_at).
-- Партнёрские поездки исключай (is_partner = 0), если пользователь не просит иное.
 - SQLite синтаксис (date(), julianday и т.п. допустимы).
 - LIMIT внутри запроса можно, но не обязателен.
 
@@ -305,22 +303,39 @@ def _error_response(
     }
 
 
-async def _generate_plan(provider, question: str, lang: str) -> dict[str, Any] | None:
-    """Ask the LLM for a JSON plan. Returns ``None`` if the call yields nothing usable."""
+def _legacy_engine():
+    """Fallback to the seeded RideGo engine when no/unknown datasource is given."""
+    from app.core.sql_guard import analytics_engine
+
+    return analytics_engine()
+
+
+async def _generate_plan(
+    provider, question: str, lang: str, schema_catalog: str, *, allow_mock: bool = True
+) -> dict[str, Any] | None:
+    """Ask the LLM for a JSON plan. Returns ``None`` if the call yields nothing usable.
+
+    ``allow_mock`` controls whether the deterministic RideGo mock plans may be
+    used. They are RideGo-specific, so they must not be served for uploaded CSV
+    sources (their schemas differ entirely).
+    """
     if provider.provider == "mock":
-        # Demo mode uses deterministic plans; no LLM round-trip.
-        return _mock_plan(question)
+        if allow_mock:
+            return _mock_plan(question)
+        return None  # force the caller down the honest "needs a real model" path
     raw = await provider.complete(
-        PLAN_SYSTEM + SCHEMA_CATALOG,
+        PLAN_SYSTEM + schema_catalog,
         [ChatMessage("user", question)],
         lang=lang,
     )
     return _extract_json(raw)
 
 
-async def _repair_plan(provider, question: str, broken_sql: str, error: str, lang: str) -> dict[str, Any] | None:
+async def _repair_plan(
+    provider, question: str, broken_sql: str, error: str, lang: str, schema_catalog: str
+) -> dict[str, Any] | None:
     """Feed a runtime error back to the LLM and ask for a corrected plan."""
-    system = REPAIR_SYSTEM.format(error=error[:500], sql=broken_sql) + SCHEMA_CATALOG
+    system = REPAIR_SYSTEM.format(error=error[:500], sql=broken_sql) + schema_catalog
     raw = await provider.complete(system, [ChatMessage("user", question)], lang=lang)
     return _extract_json(raw)
 
@@ -330,26 +345,38 @@ async def run_oleg(
     model_id: str = "mock",
     lang: str = "ru",
     force_excel: bool = False,
+    datasource_id: str = RIDEGO_SOURCE_ID,
 ) -> dict[str, Any]:
     provider = get_provider(model_id)
     is_mock = provider.provider == "mock"
 
-    plan = await _generate_plan(provider, question, lang)
+    # Resolve the active data source: schema text + engine. Falls back to RideGo.
+    schema_catalog = get_schema_catalog(datasource_id) if datasource_id else SCHEMA_CATALOG
+    try:
+        engine = get_engine_for(datasource_id) if datasource_id else _legacy_engine()
+    except KeyError:
+        # Unknown source id — fall back to the default RideGo engine and note it.
+        schema_catalog = SCHEMA_CATALOG
+        engine = _legacy_engine()
+
+    # Mock plans are RideGo-specific; only allow them for the built-in source.
+    is_ridego = datasource_id == RIDEGO_SOURCE_ID
+    plan = await _generate_plan(provider, question, lang, schema_catalog, allow_mock=is_ridego)
     if not plan or not plan.get("sql"):
-        if is_mock:
+        if is_mock and is_ridego:
             plan = _mock_plan(question)
         else:
             return _error_response(
                 plan=plan,
                 message=(
-                    "Модель не вернула корректный SQL."
+                    "В демо-режиме нельзя строить запросы по пользовательским данным. "
+                    "Подключите реальную модель (OpenAI / Anthropic / Z.ai / Ollama)."
                     if lang != "en"
-                    else "The model did not return valid SQL."
+                    else "Demo mode can't query uploaded data. Connect a real model."
                 ),
                 lang=lang,
             )
 
-    engine = analytics_engine()
     warnings: list[str] = []
 
     # --- Self-correction loop: try, and on runtime errors ask the LLM to repair ---
@@ -376,7 +403,7 @@ async def run_oleg(
                     else f"SQL failed after {MAX_SQL_ATTEMPTS} attempts. Last error: {e}"
                 )
                 return _error_response(plan=plan, message=msg, lang=lang, warnings=[str(e)])
-            repaired = await _repair_plan(provider, question, plan["sql"], str(e), lang)
+            repaired = await _repair_plan(provider, question, plan["sql"], str(e), lang, schema_catalog)
             attempts_made += 1
             if repaired and repaired.get("sql") and repaired["sql"] != plan["sql"]:
                 plan = repaired

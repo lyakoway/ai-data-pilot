@@ -23,10 +23,16 @@ pinned: false
 ## Возможности
 
 - 👤 **Аналитик Олег** — Text-to-SQL, KPI, Recharts, Excel, показ SQL и методологии
+  - **Self-correction** — если SQL упал, агент видит ошибку и переписывает запрос (до 2 попыток) вместо молчаливой подмены данных
+  - **Детерминированная аналитика** — тренды, топ-N, аномалии (z-score) считает Python; LLM только оформляет текст. Цифры в ответе всегда точные
+  - **Прозрачные статусы** — каждый ответ помечен: `Реальный ответ` / `Демо-режим` / `С коррекцией` / `Ошибка`
+  - **Таймаут запросов** — долгие SQL не вешают endpoint
+  - **Мульти-источники** — работайте со встроенной демо-БД RideGo **или загрузите свой CSV**: схема автогенерируется, и Олег строит SQL по вашим данным
 - 👩‍💻 **Ксюша** — RAG по фейковой док-базе (метрики, lineage, backend)
 - ⚡ **Сценарии** — one-click отчёты + сохранение своих
 - 🤖 **Модели** — Demo (offline), OpenAI, Anthropic, Z.ai (GLM), Ollama
 - 🎨 UI в стиле RAG Chat — dark/light, RU/EN, мобильное меню
+- 🧪 **Тесты** — pytest покрывает аналитический слой, SQL guard и self-correction loop
 
 ## Быстрый старт (локально)
 
@@ -56,9 +62,14 @@ DEMO_SCALE=small   # или full для более плотных данных
 
 ```
 [React dashboard] ──/api──▶ [FastAPI]
-                              ├─ Oleg: schema → SQL → guard → SQLite → chart/xlsx
+                              ├─ Oleg: schema → SQL → guard → analytics → chart/xlsx
+                              │         ↑ self-correction (2 retry rounds)
+                              │         ↑ deterministic insights (Python, not LLM math)
+                              ├─ DataSources: RideGo (built-in) | user-uploaded CSV
                               └─ Ksyusha: keyword RAG over data/docs/*.md
 ```
+
+**Источники данных:** RideGo (демо, ~21k поездок) — встроенный. CSV-файлы загружаются через UI → автодетекция типов колонок → SQLite-таблица → автогенерация схемы для промпта Олега. Сценарии привязаны к источнику.
 
 Демо-домен: **RideGo** (микромобильность) — `dim_city`, `dim_user`, `fact_rides`, `fact_subscriptions`.
 
@@ -81,6 +92,16 @@ docker run --rm -p 7860:7860 ai-data-pilot
 ```bash
 docker compose up --build
 ```
+
+## Тесты
+
+```bash
+cd backend
+pip install -r requirements.txt   # включает pytest, pytest-asyncio
+pytest -v
+```
+
+Покрытие: аналитический слой (`analytics.py`), SQL guard (`sql_guard.py`), self-correction loop Олега (`oleg.py`). Тесты изолированы — используют временную SQLite-БД и не требуют API-ключей.
 
 ## Портфолио
 

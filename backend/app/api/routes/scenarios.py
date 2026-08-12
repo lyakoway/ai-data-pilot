@@ -51,6 +51,7 @@ def create_scenario(body: ScenarioCreate) -> ScenarioOut:
         "description": body.description,
         "prompt": body.prompt,
         "chart_type": body.chart_type,
+        "datasource_id": body.datasource_id,
     }
     items.append(item)
     _save(items)
@@ -76,5 +77,12 @@ async def run_scenario(scenario_id: str, model: str = "mock", lang: str = "ru") 
     if sc["agent"] == "ksyusha":
         data = await run_ksyusha(sc["prompt"], model_id=model, lang=lang)
     else:
-        data = await run_oleg(sc["prompt"], model_id=model, lang=lang, force_excel=True)
+        datasource_id = sc.get("datasource_id") or "ridego"
+        data = await run_oleg(
+            sc["prompt"],
+            model_id=model,
+            lang=lang,
+            force_excel=True,
+            datasource_id=datasource_id,
+        )
     return ChatResponse(**data)
