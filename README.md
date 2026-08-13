@@ -23,6 +23,7 @@ pinned: false
 ## Возможности
 
 - 👤 **Аналитик Олег** — Text-to-SQL, KPI, Recharts, Excel, показ SQL и методологии
+  - **Agent Loop (ReAct)** — для сложных вопросов («Почему выручка упала?», «Сравни периоды») агент сам решает какие инструменты вызвать и в каком порядке: `database_query → calculate → analyze → finish`. Простые вопросы идут по быстрому линейному path. Prompt-based tool-calling работает со всеми провайдерами включая Demo (scripted сценарий)
   - **Execution trace (SSE)** — пользователь видит пошаговую работу агента в реальном времени: «Анализирую запрос ✓ → Получаю данные ✓ (6 строк) → Считаю метрики ✓ → Готовлю визуализацию ✓ → Формирую ответ ✓». Каждый шаг раскрывается (SQL, инсайты, row_count). Self-correction виден как отдельный шаг «Исправляю запрос»
   - **Self-correction** — если SQL упал, агент видит ошибку и переписывает запрос (до 2 попыток) вместо молчаливой подмены данных
   - **Детерминированная аналитика** — тренды, топ-N, аномалии (z-score) считает Python; LLM только оформляет текст. Цифры в ответе всегда точные
@@ -34,7 +35,7 @@ pinned: false
 - ⚡ **Сценарии** — one-click отчёты + сохранение своих
 - 🤖 **Модели** — Demo (offline), OpenAI, Anthropic, Z.ai (GLM), Ollama
 - 🎨 UI в стиле RAG Chat — dark/light, RU/EN, мобильное меню
-- 🧪 **Тесты** — pytest (76 тестов) покрывает аналитический слой, SQL guard, self-correction loop, execution trace, мульти-источники (CSV + Excel) и app-БД
+- 🧪 **Тесты** — pytest (92 теста) покрывают аналитический слой, SQL guard, self-correction, Agent Loop (ReAct), execution trace, мульти-источники (CSV + Excel) и app-БД
 
 ## Быстрый старт (локально)
 
@@ -65,6 +66,7 @@ DEMO_SCALE=small   # или full для более плотных данных
 ```
 [React dashboard] ──/api──▶ [FastAPI]
                               ├─ Oleg: schema → SQL → guard → analytics → chart/xlsx
+                              │         ↑ Agent Loop (ReAct): сложные вопросы → multi-step tool-calling
                               │         ↑ self-correction (2 retry rounds)
                               │         ↑ deterministic insights (Python, not LLM math)
                               │         ↑ execution trace streamed via SSE (step events)
