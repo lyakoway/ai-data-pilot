@@ -7,7 +7,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
-from app.agents.ksyusha import run_ksyusha
+from app.agents.ksyusha import run_ksyusha, run_ksyusha_streaming
 from app.agents.oleg import run_oleg, run_oleg_streaming
 from app.schemas.dto import ChatRequest, ChatResponse
 
@@ -59,7 +59,9 @@ async def chat_stream(body: ChatRequest) -> StreamingResponse:
     async def runner() -> None:
         try:
             if body.agent == "ksyusha":
-                data = await run_ksyusha(msg, model_id=body.model, lang=body.lang)
+                data = await run_ksyusha_streaming(
+                    msg, model_id=body.model, lang=body.lang, on_step=on_step
+                )
             else:
                 data = await run_oleg_streaming(
                     msg,
