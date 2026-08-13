@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS scenarios (
     prompt        TEXT NOT NULL,
     chart_type    TEXT,
     datasource_id TEXT,
+    parameters    TEXT,
     created_at    TEXT NOT NULL
 );
 
@@ -73,6 +74,13 @@ RIDEGO_SOURCE_ROW = {
 _engine: Engine | None = None
 
 
+def _ensure_column(conn, table: str, column: str, coltype: str) -> None:
+    """Add ``column`` to ``table`` if it doesn't already exist (idempotent migration)."""
+    cols = {row[1] for row in conn.execute(text(f"PRAGMA table_info({table})")).fetchall()}
+    if column not in cols:
+        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}"))
+
+
 def get_app_engine() -> Engine:
     """Return the shared app-DB engine, creating tables + seeding defaults on first use."""
     global _engine
@@ -89,6 +97,9 @@ def _init_db(engine: Engine) -> None:
             s = stmt.strip()
             if s:
                 conn.execute(text(s))
+        # Migration: add the parameters column to pre-existing scenarios tables
+        # (CREATE TABLE IF NOT EXISTS won't alter an existing table).
+        _ensure_column(conn, "scenarios", "parameters", "TEXT")
         # Seed the built-in ridego source if absent.
         exists = conn.execute(
             text("SELECT 1 FROM datasources WHERE id = 'ridego'")
@@ -108,8 +119,8 @@ def _init_db(engine: Engine) -> None:
             for sc in SEED_SCENARIOS:
                 conn.execute(
                     text(
-                        "INSERT INTO scenarios (id, name, agent, description, prompt, chart_type, datasource_id, created_at) "
-                        "VALUES (:id, :name, :agent, :description, :prompt, :chart_type, :datasource_id, :created_at)"
+                        "INSERT INTO scenarios (id, name, agent, description, prompt, chart_type, datasource_id, parameters, created_at) "
+                        "VALUES (:id, :name, :agent, :description, :prompt, :chart_type, :datasource_id, :parameters, :created_at)"
                     ),
                     {
                         "id": sc["id"],
@@ -119,6 +130,7 @@ def _init_db(engine: Engine) -> None:
                         "prompt": sc["prompt"],
                         "chart_type": sc.get("chart_type"),
                         "datasource_id": sc.get("datasource_id"),
+                        "parameters": json.dumps(sc["parameters"], ensure_ascii=False) if sc.get("parameters") else None,
                         "created_at": now,
                     },
                 )
@@ -139,20 +151,9 @@ def list_scenarios() -> list[dict[str, Any]]:
     eng = get_app_engine()
     with eng.connect() as conn:
         rows = conn.execute(
-            text("SELECT id, name, agent, description, prompt, chart_type, datasource_id FROM scenarios ORDER BY created_at")
+            text("SELECT id, name, agent, description, prompt, chart_type, datasource_id, parameters FROM scenarios ORDER BY created_at")
         ).fetchall()
-    return [
-        {
-            "id": r[0],
-            "name": r[1],
-            "agent": r[2],
-            "description": r[3],
-            "prompt": r[4],
-            "chart_type": r[5],
-            "datasource_id": r[6],
-        }
-        for r in rows
-    ]
+    return [_row_to_scenario(r) for r in rows]
 
 
 def get_scenario(scenario_id: str) -> dict[str, Any] | None:
@@ -160,31 +161,35 @@ def get_scenario(scenario_id: str) -> dict[str, Any] | None:
     with eng.connect() as conn:
         row = conn.execute(
             text(
-                "SELECT id, name, agent, description, prompt, chart_type, datasource_id FROM scenarios WHERE id = :id"
+                "SELECT id, name, agent, description, prompt, chart_type, datasource_id, parameters FROM scenarios WHERE id = :id"
             ),
             {"id": scenario_id},
         ).fetchone()
-    if not row:
-        return None
+    return _row_to_scenario(row) if row else None
+
+
+def _row_to_scenario(r: tuple) -> dict[str, Any]:
     return {
-        "id": row[0],
-        "name": row[1],
-        "agent": row[2],
-        "description": row[3],
-        "prompt": row[4],
-        "chart_type": row[5],
-        "datasource_id": row[6],
+        "id": r[0],
+        "name": r[1],
+        "agent": r[2],
+        "description": r[3],
+        "prompt": r[4],
+        "chart_type": r[5],
+        "datasource_id": r[6],
+        "parameters": json.loads(r[7]) if r[7] else None,
     }
 
 
 def create_scenario(sc: dict[str, Any]) -> dict[str, Any]:
     eng = get_app_engine()
     now = datetime.utcnow().isoformat(timespec="seconds")
+    params_json = json.dumps(sc["parameters"], ensure_ascii=False) if sc.get("parameters") else None
     with eng.begin() as conn:
         conn.execute(
             text(
-                "INSERT INTO scenarios (id, name, agent, description, prompt, chart_type, datasource_id, created_at) "
-                "VALUES (:id, :name, :agent, :description, :prompt, :chart_type, :datasource_id, :created_at)"
+                "INSERT INTO scenarios (id, name, agent, description, prompt, chart_type, datasource_id, parameters, created_at) "
+                "VALUES (:id, :name, :agent, :description, :prompt, :chart_type, :datasource_id, :parameters, :created_at)"
             ),
             {
                 "id": sc["id"],
@@ -194,6 +199,7 @@ def create_scenario(sc: dict[str, Any]) -> dict[str, Any]:
                 "prompt": sc["prompt"],
                 "chart_type": sc.get("chart_type"),
                 "datasource_id": sc.get("datasource_id"),
+                "parameters": params_json,
                 "created_at": now,
             },
         )

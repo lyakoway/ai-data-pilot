@@ -53,25 +53,35 @@ Daily ride facts.
 SEED_SCENARIOS = [
     {
         "id": "sales-by-region",
-        "name": "Выручка по регионам за 30 дней",
+        "name": "Выручка по группам",
         "agent": "oleg",
-        "description": "Сумма revenue_rub по регионам за последний месяц",
+        "description": "Выручка за период с группировкой и графиком",
         "prompt": (
-            "Покажи выручку по регионам за последние 30 дней от максимальной даты в данных. "
+            "Покажи выручку по {group_by} за последние {period} дней от максимальной даты в данных. "
             "Исключи партнёрские поездки. Отсортируй по убыванию выручки. Нужен bar chart."
         ),
         "chart_type": "bar",
+        "parameters": [
+            {"name": "period", "label": "Период (дней)", "type": "number", "default": 30},
+            {"name": "group_by", "label": "Группировка", "type": "select",
+             "options": ["регионам", "городам", "месяцам"], "default": "регионам"},
+        ],
     },
     {
         "id": "top-cities-rides",
-        "name": "Топ-10 городов по поездкам",
+        "name": "Топ городов",
         "agent": "oleg",
-        "description": "Количество поездок и уникальных пользователей",
+        "description": "Рейтинг городов по выбранной метрике",
         "prompt": (
-            "Топ-10 городов по числу поездок за всё время. "
-            "Покажи city_name, rides_count, unique_users. Исключи партнёрские поездки."
+            "Топ-{limit} городов по числу {metric} за всё время. "
+            "Покажи city_name и значение метрики. Исключи партнёрские поездки."
         ),
         "chart_type": "bar",
+        "parameters": [
+            {"name": "limit", "label": "Сколько городов", "type": "number", "default": 10},
+            {"name": "metric", "label": "Метрика", "type": "select",
+             "options": ["поездок", "выручки", "уникальных пользователей"], "default": "поездок"},
+        ],
     },
     {
         "id": "subscription-penetration",
