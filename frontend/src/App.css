@@ -475,6 +475,68 @@ th { background: var(--bg-soft); color: var(--text-soft); font-weight: 600; }
 .modal-input:focus { border-color: var(--accent); }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
 
+/* Inline citations + source cards (Ksyusha RAG polish) */
+.cite-ref {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  margin: 0 1px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent-2);
+  background: rgba(139, 92, 246, 0.14);
+  border: none;
+  border-radius: var(--r-full);
+  cursor: pointer;
+  vertical-align: super;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.cite-ref:hover { background: rgba(139, 92, 246, 0.3); }
+.source-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 2px 0;
+}
+.source-toggle { font-size: 10px; color: var(--text-muted); width: 12px; }
+.source-relevance {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  background: rgba(99, 102, 241, 0.1);
+  padding: 1px 7px;
+  border-radius: var(--r-full);
+}
+.source-full {
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: var(--bg-soft);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-soft);
+  white-space: pre-wrap;
+  border-left: 2px solid var(--accent-2);
+}
+.source-full mark {
+  background: rgba(250, 204, 21, 0.3);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+.source-item.flash { animation: flash 1.4s ease; }
+@keyframes flash {
+  0%, 100% { background: transparent; }
+  20%, 60% { background: rgba(139, 92, 246, 0.12); }
+}
+
 /* Data source selector + CSV upload (Phase 2 multi-source) */
 .topbar-selects { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .btn-sm { padding: 7px 11px; font-size: 12px; }

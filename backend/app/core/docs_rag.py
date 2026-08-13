@@ -63,7 +63,14 @@ def retrieve(query: str, top_k: int = 4) -> list[DocChunk]:
         score = overlap + title_hit * 2
         scored.append(DocChunk(ch.doc_id, ch.title, ch.text, float(score)))
     scored.sort(key=lambda c: c.score, reverse=True)
-    return scored[:top_k]
+    top = scored[:top_k]
+    # Normalise scores to 0..1 relative to the strongest match so the UI can
+    # show a relevance percentage. The best fragment is always 1.0.
+    if top:
+        max_score = top[0].score or 1.0
+        for ch in top:
+            ch.score = round(ch.score / max_score, 3)
+    return top
 
 
 def ensure_docs() -> None:

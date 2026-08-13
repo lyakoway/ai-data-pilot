@@ -88,7 +88,7 @@ export type ChatResult = {
   chart: ChartPayload | null
   excel_url: string | null
   tables_used: string[]
-  sources?: { id: string; title: string; snippet: string }[]
+  sources?: { id: string; title: string; snippet: string; full_text?: string; score?: number }[]
   suggestions: string[]
 }
 

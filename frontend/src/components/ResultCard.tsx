@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { AnswerStatus, ChatResult } from '../lib/api'
 import { api } from '../lib/api'
+import { injectCitations } from '../lib/citations'
 import { AgentTrace } from './AgentTrace'
 import { ChartBlock } from './ChartBlock'
 
@@ -20,6 +21,19 @@ export type FeedbackContext = {
   datasource_id?: string
 }
 
+/** Highlight query terms in a text fragment using <mark>. */
+function highlightTerms(text: string, query?: string): string {
+  if (!query) return text
+  const terms = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((t) => t.length >= 3)
+    .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  if (terms.length === 0) return text
+  const re = new RegExp(`(${terms.join('|')})`, 'gi')
+  return text.replace(re, '<mark>$1</mark>')
+}
+
 export function ResultCard({
   result,
   onSaveScenario,
@@ -33,12 +47,44 @@ export function ResultCard({
 }) {
   const [vote, setVote] = useState<'up' | 'down' | null>(null)
   const [voteSaved, setVoteSaved] = useState(false)
+  const [openSources, setOpenSources] = useState<Set<number>>(new Set())
+  const sourceRefs = useRef<(HTMLDivElement | null)[]>([])
   const status = result.status ?? 'ok'
   const statusClass = `status-badge status-${status}`
   const warnings = result.warnings ?? []
+  const sources = result.sources ?? []
+  const query = feedbackContext?.message
+
+  function handleCite(n: number) {
+    const idx = n - 1
+    const el = sourceRefs.current[idx]
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.classList.add('flash')
+      setTimeout(() => el.classList.remove('flash'), 1400)
+      // auto-expand
+      setOpenSources((prev) => new Set(prev).add(idx))
+    }
+  }
+
+  function toggleSource(idx: number) {
+    setOpenSources((prev) => {
+      const next = new Set(prev)
+      if (next.has(idx)) next.delete(idx)
+      else next.add(idx)
+      return next
+    })
+  }
+
+  // Markdown component renderers with inline-citation injection (for Ksyusha).
+  const mdComponents = sources.length > 0
+    ? {
+        p: (p: { children?: unknown }) => <p>{injectCitations(p.children as never, sources.length, handleCite)}</p>,
+        li: (li: { children?: unknown }) => <li>{injectCitations(li.children as never, sources.length, handleCite)}</li>,
+      }
+    : {}
 
   async function handleVote(v: 'up' | 'down') {
-    const previous = vote
     setVote(v)
     setVoteSaved(false)
     if (feedbackContext) {
@@ -54,7 +100,7 @@ export function ResultCard({
         })
         setVoteSaved(true)
       } catch {
-        // best-effort: keep the local UI state even if persisting fails
+        // best-effort
       }
     }
   }
@@ -80,7 +126,9 @@ export function ResultCard({
       )}
 
       <div className="result-md">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.answer}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+          {result.answer}
+        </ReactMarkdown>
       </div>
 
       {result.explanation && (
@@ -134,17 +182,40 @@ export function ResultCard({
         </details>
       )}
 
-      {result.sources && result.sources.length > 0 && (
+      {sources.length > 0 && (
         <div className="sources">
           <div className="sources-title">
-            {lang === 'en' ? 'Sources' : 'Источники'} {result.sources.length}
+            {lang === 'en' ? 'Sources' : 'Источники'} {sources.length}
           </div>
-          {result.sources.map((s) => (
-            <div key={s.id} className="source-item">
-              <strong>{s.title}</strong>
-              <p>{s.snippet}</p>
-            </div>
-          ))}
+          {sources.map((s, idx) => {
+            const isOpen = openSources.has(idx)
+            const relevance = s.score != null ? Math.round(s.score * 100) : null
+            return (
+              <div
+                key={s.id}
+                ref={(el) => { sourceRefs.current[idx] = el }}
+                className="source-item"
+              >
+                <div className="source-head" onClick={() => toggleSource(idx)}>
+                  <span className="source-toggle">{isOpen ? '▾' : '▸'}</span>
+                  <strong>[{idx + 1}] {s.title}</strong>
+                  {relevance != null && (
+                    <span className="source-relevance" title="Relevance">
+                      {relevance}%
+                    </span>
+                  )}
+                </div>
+                {isOpen && s.full_text ? (
+                  <div
+                    className="source-full"
+                    dangerouslySetInnerHTML={{ __html: highlightTerms(s.full_text, query) }}
+                  />
+                ) : (
+                  <p>{s.snippet}</p>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
 
