@@ -438,6 +438,43 @@ th { background: var(--bg-soft); color: var(--text-soft); font-weight: 600; }
 .trace-highlights li { color: var(--text-soft); margin: 2px 0; }
 .trace-logic { margin: 0; font-size: 11px; color: var(--text-soft); }
 
+/* Parameterized scenario modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+.modal-box {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 20px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+.modal-title { margin: 0 0 4px; font-size: 16px; }
+.modal-desc { margin: 0 0 14px; font-size: 12px; color: var(--text-muted); }
+.modal-params { display: flex; flex-direction: column; gap: 12px; }
+.modal-field { display: flex; flex-direction: column; gap: 4px; }
+.modal-field-label { font-size: 12px; font-weight: 600; color: var(--text-soft); }
+.modal-input {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg-soft);
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+}
+.modal-input:focus { border-color: var(--accent); }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
 /* Data source selector + CSV upload (Phase 2 multi-source) */
 .topbar-selects { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .btn-sm { padding: 7px 11px; font-size: 12px; }

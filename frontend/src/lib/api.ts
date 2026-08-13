@@ -8,6 +8,14 @@ export type ModelInfo = {
   description: string
 }
 
+export type ScenarioParameter = {
+  name: string
+  label?: string
+  type: 'number' | 'text' | 'select'
+  default?: string | number
+  options?: string[]
+}
+
 export type Scenario = {
   id: string
   name: string
@@ -16,6 +24,7 @@ export type Scenario = {
   prompt: string
   chart_type: string | null
   datasource_id?: string | null
+  parameters?: ScenarioParameter[] | null
 }
 
 export type DataSourceInfo = {
@@ -113,9 +122,11 @@ export const api = {
     }),
   deleteScenario: (id: string) =>
     json<{ ok: boolean }>(`/api/scenarios/${id}`, { method: 'DELETE' }),
-  runScenario: (id: string, model: string, lang: string) =>
+  runScenario: (id: string, model: string, lang: string, values?: Record<string, string | number>) =>
     json<ChatResult>(`/api/scenarios/${id}/run?model=${encodeURIComponent(model)}&lang=${lang}`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: values ?? {} }),
     }),
   chat: (body: {
     message: string

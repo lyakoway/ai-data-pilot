@@ -10,6 +10,7 @@ import {
 } from 'recharts'
 import { AgentTrace } from './components/AgentTrace'
 import { ResultCard } from './components/ResultCard'
+import { ScenarioModal } from './components/ScenarioModal'
 import {
   api,
   type AgentId,
@@ -106,6 +107,7 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [lastUserPrompt, setLastUserPrompt] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [scenarioModal, setScenarioModal] = useState<Scenario | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const csvInputRef = useRef<HTMLInputElement>(null)
 
@@ -241,16 +243,32 @@ export default function App() {
     }
   }
 
-  async function runScenario(sc: Scenario) {
+  function runScenario(sc: Scenario) {
+    // If the scenario has parameters, open the modal form; otherwise run now.
+    if (sc.parameters && sc.parameters.length > 0) {
+      setScenarioModal(sc)
+      return
+    }
+    void _executeScenario(sc)
+  }
+
+  async function _executeScenario(sc: Scenario, values?: Record<string, string | number>) {
+    setScenarioModal(null)
     setAgent(sc.agent as AgentId)
     setLoading(true)
-    setLastUserPrompt(sc.prompt)
+    const displayPrompt = values
+      ? Object.entries(values).reduce(
+          (p, [k, v]) => p.replace(`{${k}}`, String(v)),
+          sc.prompt,
+        )
+      : sc.prompt
+    setLastUserPrompt(displayPrompt)
     setTurns((prev) => [
       ...prev,
       { id: crypto.randomUUID(), role: 'user', text: `▶ ${sc.name}` },
     ])
     try {
-      const result = await api.runScenario(sc.id, model, lang)
+      const result = await api.runScenario(sc.id, model, lang, values)
       setTurns((prev) => [
         ...prev,
         { id: crypto.randomUUID(), role: 'assistant', result },
@@ -658,6 +676,15 @@ export default function App() {
           <div className="composer-hint">{t.sendHint}</div>
         </footer>
       </main>
+
+      {scenarioModal && (
+        <ScenarioModal
+          scenario={scenarioModal}
+          lang={lang}
+          onRun={(values) => void _executeScenario(scenarioModal, values)}
+          onClose={() => setScenarioModal(null)}
+        />
+      )}
     </div>
   )
 }

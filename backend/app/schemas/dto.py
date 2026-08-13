@@ -21,6 +21,7 @@ class ScenarioCreate(BaseModel):
     prompt: str
     chart_type: str | None = None
     datasource_id: str | None = None
+    parameters: list[dict[str, Any]] | None = None
 
 
 class FeedbackCreate(BaseModel):
@@ -46,6 +47,11 @@ class ScenarioOut(BaseModel):
     prompt: str
     chart_type: str | None = None
     datasource_id: str | None = None
+    parameters: list[dict[str, Any]] | None = None
+
+
+class ScenarioRunRequest(BaseModel):
+    values: dict[str, Any] = {}
 
 
 class ChatResponse(BaseModel):
