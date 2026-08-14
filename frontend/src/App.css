@@ -538,6 +538,9 @@ th { background: var(--bg-soft); color: var(--text-soft); font-weight: 600; }
 .pg-form-host { flex: 1; }
 .pg-form-port { width: 90px; }
 .pg-error { margin-top: 10px; }
+.modal-box-center .modal-title,
+.modal-box-center .modal-desc { text-align: center; }
+.modal-box-center .modal-actions { justify-content: center; }
 .pg-error-detail { margin: 10px 0 0; }
 .pg-error-detail pre {
   margin: 8px 0 2px;

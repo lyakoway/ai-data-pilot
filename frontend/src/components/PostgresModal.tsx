@@ -79,7 +79,7 @@ export function PostgresModal({
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-        <h3 className="modal-title">🐘 {t.title}</h3>
+        <h3 className="modal-title">{t.title}</h3>
         <p className="modal-desc">{t.hint}</p>
         <div className="modal-params">
           <label className="modal-field">
