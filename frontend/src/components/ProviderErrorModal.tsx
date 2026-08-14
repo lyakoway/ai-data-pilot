@@ -50,7 +50,7 @@ export function ProviderErrorModal({
             target="_blank"
             rel="noopener noreferrer"
           >
-            ✉ {t.contact}
+            {t.contact}
           </a>
         </div>
       </div>

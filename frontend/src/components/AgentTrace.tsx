@@ -1,14 +1,6 @@
 import { useState } from 'react'
 import type { Step } from '../lib/api'
 
-const TOOL_ICON: Record<string, string> = {
-  planner: '🧠',
-  database_query: '🗄️',
-  analyze: '📊',
-  chart: '📈',
-  answer: '✍️',
-}
-
 export function AgentTrace({ steps, lang }: { steps: Step[]; lang: 'ru' | 'en' }) {
   const [open, setOpen] = useState(true)
   const [openStep, setOpenStep] = useState<string | null>(null)
@@ -48,7 +40,6 @@ export function AgentTrace({ steps, lang }: { steps: Step[]; lang: 'ru' | 'en' }
                   <span className="trace-status">
                     {step.status === 'done' ? '✓' : step.status === 'error' ? '✕' : '○'}
                   </span>
-                  <span className="trace-tool-icon">{TOOL_ICON[step.tool] ?? '•'}</span>
                   <span className="trace-title">{step.title}</span>
                   {step.summary && <span className="trace-summary">{step.summary}</span>}
                   {step.duration_ms != null && step.duration_ms > 0 && (
