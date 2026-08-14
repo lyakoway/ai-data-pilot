@@ -23,6 +23,10 @@ async def lifespan(_: FastAPI):
     from app.db.app_db import get_app_engine
 
     get_app_engine()
+    # Register a pre-configured PostgreSQL source if POSTGRES_URL is set.
+    from app.db.datasources import register_env_postgres
+
+    register_env_postgres()
     yield
 
 

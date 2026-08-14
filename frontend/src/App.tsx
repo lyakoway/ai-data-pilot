@@ -9,6 +9,7 @@ import {
   YAxis,
 } from 'recharts'
 import { AgentTrace } from './components/AgentTrace'
+import { PostgresModal } from './components/PostgresModal'
 import { ResultCard } from './components/ResultCard'
 import { ScenarioModal } from './components/ScenarioModal'
 import {
@@ -108,6 +109,7 @@ export default function App() {
   const [lastUserPrompt, setLastUserPrompt] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [scenarioModal, setScenarioModal] = useState<Scenario | null>(null)
+  const [pgModal, setPgModal] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const csvInputRef = useRef<HTMLInputElement>(null)
 
@@ -433,7 +435,7 @@ export default function App() {
               >
                 {datasources.map((d) => (
                   <option key={d.id} value={d.id}>
-                    {d.kind === 'csv' ? '📄' : '🛴'} {d.name}
+                    {d.kind === 'csv' ? '📄' : d.kind === 'postgres' ? '🐘' : '🛴'} {d.name}
                     {d.row_count != null ? ` · ${d.row_count}` : ''}
                   </option>
                 ))}
@@ -460,6 +462,14 @@ export default function App() {
                   title={t.uploadHint}
                 >
                   {uploading ? t.uploading : `+ ${t.uploadCsv}`}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setPgModal(true)}
+                  title={lang === 'en' ? 'Connect a PostgreSQL database' : 'Подключить базу PostgreSQL'}
+                >
+                  🐘 {lang === 'en' ? 'PostgreSQL' : 'PostgreSQL'}
                 </button>
               </>
             )}
@@ -649,6 +659,24 @@ export default function App() {
           lang={lang}
           onRun={(values) => void _executeScenario(scenarioModal, values)}
           onClose={() => setScenarioModal(null)}
+        />
+      )}
+
+      {pgModal && (
+        <PostgresModal
+          lang={lang}
+          onAdded={(source, tables) => {
+            setPgModal(false)
+            setDatasources((prev) => [...prev, source])
+            setDatasourceId(source.id)
+            setKpis(null)
+            window.alert(
+              lang === 'en'
+                ? `Connected! ${tables} tables found. Oleg can now query this database.`
+                : `Подключено! Найдено таблиц: ${tables}. Олег может делать запросы к этой базе.`,
+            )
+          }}
+          onClose={() => setPgModal(false)}
         />
       )}
     </div>

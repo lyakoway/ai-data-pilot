@@ -30,7 +30,7 @@ export type Scenario = {
 export type DataSourceInfo = {
   id: string
   name: string
-  kind: 'ridego' | 'csv'
+  kind: 'ridego' | 'csv' | 'postgres'
   description: string
   row_count: number | null
   created_at: string | null
@@ -208,6 +208,26 @@ export const api = {
   },
   deleteDatasource: (id: string) =>
     json<{ ok: boolean }>(`/api/datasources/${id}`, { method: 'DELETE' }),
+  addPostgres: (body: {
+    name: string
+    host: string
+    port: number
+    database: string
+    username: string
+    password: string
+  }) =>
+    json<{ id: string; name: string; kind: string; description: string; tables: number }>(
+      '/api/datasources/postgres',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+    ),
+  refreshDatasource: (id: string) =>
+    json<{ id: string; name: string; tables: number }>(`/api/datasources/${id}/refresh`, {
+      method: 'POST',
+    }),
   feedback: (body: {
     vote: 'up' | 'down'
     agent: AgentId

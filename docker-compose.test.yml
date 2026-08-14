@@ -1,0 +1,20 @@
+# Test PostgreSQL for AI Data Pilot — e-commerce demo schema.
+# Usage:  docker compose -f docker-compose.test.yml up -d
+#         POSTGRES_URL=postgresql://demo:demo@localhost:5433/shop
+version: "3.9"
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: demo
+      POSTGRES_PASSWORD: demo
+      POSTGRES_DB: shop
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./backend/tests/seed_postgres.sql:/docker-entrypoint-initdb.d/01-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U demo -d shop"]
+      interval: 3s
+      timeout: 3s
+      retries: 10

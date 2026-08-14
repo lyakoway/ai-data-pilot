@@ -100,6 +100,8 @@ def _init_db(engine: Engine) -> None:
         # Migration: add the parameters column to pre-existing scenarios tables
         # (CREATE TABLE IF NOT EXISTS won't alter an existing table).
         _ensure_column(conn, "scenarios", "parameters", "TEXT")
+        # Migration: add the connection column to datasources (for postgres sources).
+        _ensure_column(conn, "datasources", "connection", "TEXT")
         # Seed the built-in ridego source if absent.
         exists = conn.execute(
             text("SELECT 1 FROM datasources WHERE id = 'ridego'")
@@ -222,7 +224,7 @@ def list_datasources() -> list[dict[str, Any]]:
     eng = get_app_engine()
     with eng.connect() as conn:
         rows = conn.execute(
-            text("SELECT id, name, kind, description, table_name, columns, row_count, created_at FROM datasources ORDER BY created_at")
+            text("SELECT id, name, kind, description, table_name, columns, row_count, created_at, connection FROM datasources ORDER BY created_at")
         ).fetchall()
     out = []
     for r in rows:
@@ -235,7 +237,7 @@ def get_datasource(source_id: str) -> dict[str, Any] | None:
     with eng.connect() as conn:
         row = conn.execute(
             text(
-                "SELECT id, name, kind, description, table_name, columns, row_count, created_at FROM datasources WHERE id = :id"
+                "SELECT id, name, kind, description, table_name, columns, row_count, created_at, connection FROM datasources WHERE id = :id"
             ),
             {"id": source_id},
         ).fetchone()
@@ -252,6 +254,7 @@ def _row_to_datasource(r: tuple) -> dict[str, Any]:
         "columns": json.loads(r[5]) if r[5] else None,
         "row_count": r[6],
         "created_at": r[7],
+        "connection": json.loads(r[8]) if len(r) > 8 and r[8] else None,
     }
 
 
@@ -259,11 +262,12 @@ def save_datasource(meta: dict[str, Any]) -> dict[str, Any]:
     """Insert or replace a datasource metadata row."""
     eng = get_app_engine()
     columns_json = json.dumps(meta.get("columns"), ensure_ascii=False) if meta.get("columns") else None
+    connection_json = json.dumps(meta.get("connection"), ensure_ascii=False) if meta.get("connection") else None
     with eng.begin() as conn:
         conn.execute(
             text(
-                "INSERT OR REPLACE INTO datasources (id, name, kind, description, table_name, columns, row_count, created_at) "
-                "VALUES (:id, :name, :kind, :description, :table_name, :columns, :row_count, :created_at)"
+                "INSERT OR REPLACE INTO datasources (id, name, kind, description, table_name, columns, row_count, created_at, connection) "
+                "VALUES (:id, :name, :kind, :description, :table_name, :columns, :row_count, :created_at, :connection)"
             ),
             {
                 "id": meta["id"],
@@ -274,6 +278,7 @@ def save_datasource(meta: dict[str, Any]) -> dict[str, Any]:
                 "columns": columns_json,
                 "row_count": meta.get("row_count"),
                 "created_at": meta.get("created_at"),
+                "connection": connection_json,
             },
         )
     return meta

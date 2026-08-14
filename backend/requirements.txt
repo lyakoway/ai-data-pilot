@@ -9,6 +9,9 @@ pydantic-settings==2.7.1
 SQLAlchemy==2.0.36
 aiosqlite==0.20.0
 
+# --- PostgreSQL driver (optional: only needed for postgres data sources) ---
+psycopg2-binary==2.9.10
+
 # --- Excel export ---
 openpyxl==3.1.5
 

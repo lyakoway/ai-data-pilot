@@ -532,6 +532,12 @@ th { background: var(--bg-soft); color: var(--text-soft); font-weight: 600; }
   padding: 0 1px;
 }
 .source-item.flash { animation: flash 1.4s ease; }
+
+/* PostgreSQL connection modal */
+.pg-form-row { display: flex; gap: 10px; }
+.pg-form-host { flex: 1; }
+.pg-form-port { width: 90px; }
+.pg-error { margin-top: 10px; }
 @keyframes flash {
   0%, 100% { background: transparent; }
   20%, 60% { background: rgba(139, 92, 246, 0.12); }

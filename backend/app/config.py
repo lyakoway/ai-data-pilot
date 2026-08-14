@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     ollama_num_gpu: int | None = None
 
+    # Optional pre-configured PostgreSQL analytics source.
+    postgres_url: str | None = None
+
     def ensure_dirs(self) -> None:
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.docs_dir.mkdir(parents=True, exist_ok=True)

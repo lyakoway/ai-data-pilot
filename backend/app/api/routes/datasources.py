@@ -1,7 +1,8 @@
-"""Data sources API: list, upload (CSV / Excel), delete."""
+"""Data sources API: list, upload (CSV / Excel), PostgreSQL, delete."""
 from __future__ import annotations
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
+from pydantic import BaseModel
 
 from app.db import datasources
 
@@ -75,3 +76,56 @@ def delete_datasource(source_id: str) -> dict:
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
     return {"ok": True}
+
+
+# --------------------------------------------------------------------------- #
+# PostgreSQL sources
+# --------------------------------------------------------------------------- #
+
+
+class PostgresConnection(BaseModel):
+    name: str
+    host: str
+    port: int = 5432
+    database: str
+    username: str
+    password: str
+
+
+@router.post("/postgres")
+def add_postgres(body: PostgresConnection) -> dict:
+    """Register a PostgreSQL source: test connection → introspect → save."""
+    try:
+        meta = datasources.register_postgres(
+            name=body.name,
+            host=body.host,
+            port=body.port,
+            database=body.database,
+            username=body.username,
+            password=body.password,
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    return {
+        "id": meta["id"],
+        "name": meta["name"],
+        "kind": meta["kind"],
+        "description": meta["description"],
+        "tables": len(meta.get("columns") or []),
+    }
+
+
+@router.post("/{source_id}/refresh")
+def refresh_schema(source_id: str) -> dict:
+    """Re-introspect the schema for an existing PostgreSQL source."""
+    try:
+        meta = datasources.refresh_postgres_schema(source_id)
+    except KeyError as e:
+        raise HTTPException(404, str(e)) from e
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    return {
+        "id": meta["id"],
+        "name": meta["name"],
+        "tables": len(meta.get("columns") or []),
+    }
