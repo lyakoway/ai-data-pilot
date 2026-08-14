@@ -11,13 +11,15 @@ export function PostgresModal({
   onAdded: (source: DataSourceInfo, tables: number) => void
   onClose: () => void
 }) {
+  // Pre-filled with a public demo database (RNAcentral, EMBL-EBI — read-only, CC0)
+  // so the demo connects in one click; every field is editable for a real DB.
   const [form, setForm] = useState({
-    name: '',
-    host: 'localhost',
+    name: 'RNAcentral (demo)',
+    host: 'hh-pgsql-public.ebi.ac.uk',
     port: 5432,
-    database: '',
-    username: 'postgres',
-    password: '',
+    database: 'pfmegrnargs',
+    username: 'reader',
+    password: 'NWDMCE5xdipIjRrp',
   })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -26,8 +28,8 @@ export function PostgresModal({
     title: lang === 'en' ? 'Connect PostgreSQL' : 'Подключить PostgreSQL',
     hint:
       lang === 'en'
-        ? 'Oleg will introspect the schema and build SQL over your tables.'
-        : 'Олег интроспектирует схему и будет строить SQL по вашим таблицам.',
+        ? 'Pre-filled with a public demo DB — press Connect to try it, or enter your own credentials.'
+        : 'Предзаполнено публичной демо-базой — нажмите «Подключить» для проверки, или введите свои данные.',
     name: lang === 'en' ? 'Display name' : 'Название',
     host: 'Host',
     port: 'Port',
