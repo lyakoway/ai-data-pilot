@@ -445,7 +445,7 @@ export default function App() {
               >
                 {datasources.map((d) => (
                   <option key={d.id} value={d.id}>
-                    {d.kind === 'csv' ? '📄' : d.kind === 'postgres' ? '🐘' : '🛴'} {d.name}
+                    {d.name}
                     {d.row_count != null ? ` · ${d.row_count}` : ''}
                   </option>
                 ))}
@@ -479,7 +479,7 @@ export default function App() {
                   onClick={() => setPgModal(true)}
                   title={lang === 'en' ? 'Connect a PostgreSQL database' : 'Подключить базу PostgreSQL'}
                 >
-                  🐘 {lang === 'en' ? 'PostgreSQL' : 'PostgreSQL'}
+                  {lang === 'en' ? 'PostgreSQL' : 'PostgreSQL'}
                 </button>
               </>
             )}
