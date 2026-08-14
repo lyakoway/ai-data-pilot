@@ -33,6 +33,8 @@ class Settings(BaseSettings):
 
     sql_row_limit: int = 500
     sql_timeout_sec: float = 8.0
+    # External PostgreSQL needs a longer budget: cross-network connect + heavy OLAP queries.
+    sql_timeout_pg_sec: float = 30.0
     # small ≈ быстрый cold start (HF Spaces); full ≈ плотнее данные локально
     demo_scale: str = "small"
 

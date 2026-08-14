@@ -128,7 +128,13 @@ def delete_source(source_id: str) -> None:
                 conn.execute(text(f'DROP TABLE IF EXISTS "{meta["table_name"]}"'))
         except Exception:  # noqa: BLE001
             pass
-    # postgres sources have no local tables to drop — just remove metadata.
+    # Dispose any cached remote engine (postgres).
+    eng = _pg_engine_cache.pop(source_id, None)
+    if eng is not None:
+        try:
+            eng.dispose()
+        except Exception:  # noqa: BLE001
+            pass
     app_db.delete_datasource_row(source_id)
 
 
@@ -449,11 +455,31 @@ def _build_postgres_url(conn: dict[str, Any]) -> str:
 
 
 def _postgres_engine(meta: dict[str, Any]) -> Engine:
-    """Create a SQLAlchemy engine for a postgres source."""
+    """Return a cached SQLAlchemy engine for a postgres source.
+
+    Engines are cached per source id so remote connections (cross-network
+    TCP+TLS handshake) are reused instead of re-established on every query.
+    """
     conn = meta.get("connection") or {}
     if not conn.get("host"):
         raise ValueError("Postgres source missing connection info.")
-    return create_engine(_build_postgres_url(conn), pool_pre_ping=True)
+    sid = meta.get("id") or conn.get("host")
+    eng = _pg_engine_cache.get(sid)
+    if eng is None:
+        eng = create_engine(_build_postgres_url(conn), pool_pre_ping=True, pool_size=2)
+        _pg_engine_cache[sid] = eng
+    return eng
+
+
+_pg_engine_cache: dict[str, Engine] = {}
+
+
+def get_query_timeout(source_id: str) -> float:
+    """Query timeout budget for a source: PostgreSQL gets a longer one."""
+    meta = get_source_meta(source_id)
+    if meta and meta.get("kind") == "postgres":
+        return get_settings().sql_timeout_pg_sec
+    return get_settings().sql_timeout_sec
 
 
 def _introspect_schema_pg(engine: Engine, schema: str | None, max_tables: int) -> list[dict[str, Any]]:
