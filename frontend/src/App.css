@@ -49,16 +49,12 @@
 
 .agent-switch {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 6px;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
   padding: 4px;
   background: var(--bg-soft);
   border-radius: var(--r-md);
   border: 1px solid var(--border);
-}
-
-.agent-btn-auto {
-  padding: 10px 6px;
 }
 
 .agent-btn {
