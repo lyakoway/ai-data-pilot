@@ -16,7 +16,6 @@ import { ScenarioModal } from './components/ScenarioModal'
 import {
   api,
   type AgentId,
-  type AgentMode,
   type ChatResult,
   type DataSourceInfo,
   type Kpis,
@@ -38,10 +37,8 @@ type Turn = {
 const COPY = {
   ru: {
     title: 'AI Data Pilot',
-    subtitleAuto: 'Авто-роутер · сам выбирает: данные или документация',
-    autoLabel: 'Авто',
-    autoHint: 'сам выберет агента',
-    placeholderAuto: 'Спросите про данные или документацию…',
+    subtitleAuto: 'Авто-роутер · данные → Олег, документация → Ксюша',
+    autoLockHint: 'Закрепить агента · повторный клик по активному вернёт авто-выбор',
     emptyAuto:
       'Задайте вопрос — роутер сам направит его аналитику Олегу (SQL, базы данных) или Ксюше (документация).',
     subtitleOleg: 'Аналитик Олег · SQL, метрики, Excel',
@@ -71,10 +68,8 @@ const COPY = {
   },
   en: {
     title: 'AI Data Pilot',
-    subtitleAuto: 'Auto-router · picks data or docs per question',
-    autoLabel: 'Auto',
-    autoHint: 'picks the agent',
-    placeholderAuto: 'Ask about data or documentation…',
+    subtitleAuto: 'Auto-router · data → Oleg, docs → Ksyusha',
+    autoLockHint: 'Pin this agent · click the active one again to return to auto',
     emptyAuto:
       'Ask anything — the router sends data questions to Oleg (SQL) and docs questions to Ksyusha.',
     subtitleOleg: 'Analyst Oleg · SQL, metrics, Excel',
@@ -109,7 +104,11 @@ export default function App() {
   const [lang, setLang] = useState<Lang>(() => loadLang())
   const t = COPY[lang]
 
-  const [agent, setAgent] = useState<AgentMode>('auto')
+  // `agent` is the *highlighted* agent (switched automatically by the router);
+  // `agentMode` is hidden: 'auto' (default) routes per question, 'manual' pins
+  // the agent until the user clicks the active button again.
+  const [agent, setAgent] = useState<AgentId>('oleg')
+  const [agentMode, setAgentMode] = useState<'auto' | 'manual'>('auto')
   const [models, setModels] = useState<ModelInfo[]>([])
   const [model, setModel] = useState('mock')
   const [scenarios, setScenarios] = useState<Scenario[]>([])
@@ -152,9 +151,19 @@ export default function App() {
   }, [turns, loading])
 
   const visibleScenarios = useMemo(
-    () => (agent === 'auto' ? scenarios : scenarios.filter((s) => s.agent === agent)),
-    [scenarios, agent],
+    () => (agentMode === 'auto' ? scenarios : scenarios.filter((s) => s.agent === agent)),
+    [scenarios, agent, agentMode],
   )
+
+  function selectAgent(target: AgentId) {
+    // Clicking the already-pinned agent releases it back to auto-routing.
+    if (agentMode === 'manual' && agent === target) {
+      setAgentMode('auto')
+      return
+    }
+    setAgent(target)
+    setAgentMode('manual')
+  }
 
   async function ask(message: string, forceExcel = false) {
     const msg = message.trim()
@@ -171,7 +180,7 @@ export default function App() {
     await api.chatStream(
       {
         message: msg,
-        agent,
+        agent: agentMode === 'auto' ? 'auto' : agent,
         model,
         lang,
         force_excel: forceExcel,
@@ -179,6 +188,15 @@ export default function App() {
       },
       {
         onStep: (step) => {
+          // Auto mode: highlight the agent the router picked, right away.
+          if (
+            agentMode === 'auto' &&
+            step.tool === 'router' &&
+            step.detail &&
+            typeof step.detail.decision === 'string'
+          ) {
+            setAgent(step.detail.decision as AgentId)
+          }
           setTurns((prev) =>
             prev.map((t) => {
               if (t.id !== assistantId) return t
@@ -195,6 +213,7 @@ export default function App() {
           setTurns((prev) =>
             prev.map((t) => (t.id === assistantId ? { ...t, result, liveSteps: undefined } : t)),
           )
+          if (agentMode === 'auto') setAgent(result.agent)
           if (result.status === 'error' && isProviderError(result.answer)) {
             setProviderError(result.answer)
           }
@@ -371,16 +390,9 @@ export default function App() {
         <div className="agent-switch">
           <button
             type="button"
-            className={`agent-btn agent-btn-auto ${agent === 'auto' ? 'active' : ''}`}
-            onClick={() => setAgent('auto')}
-          >
-            {t.autoLabel}
-            <small>{t.autoHint}</small>
-          </button>
-          <button
-            type="button"
             className={`agent-btn ${agent === 'oleg' ? 'active' : ''}`}
-            onClick={() => setAgent('oleg')}
+            title={t.autoLockHint}
+            onClick={() => selectAgent('oleg')}
           >
             Олег
             <small>SQL · Excel</small>
@@ -388,7 +400,8 @@ export default function App() {
           <button
             type="button"
             className={`agent-btn ${agent === 'ksyusha' ? 'active' : ''}`}
-            onClick={() => setAgent('ksyusha')}
+            title={t.autoLockHint}
+            onClick={() => selectAgent('ksyusha')}
           >
             Ксюша
             <small>Docs · RAG</small>
@@ -447,11 +460,9 @@ export default function App() {
               ☰
             </button>
             <div>
-              <h2>
-                {agent === 'auto' ? t.title : agent === 'oleg' ? 'Аналитик Олег' : 'Ксюша'}
-              </h2>
+              <h2>{agent === 'oleg' ? 'Аналитик Олег' : 'Ксюша'}</h2>
               <p className="sub">
-                {agent === 'auto'
+                {agentMode === 'auto'
                   ? t.subtitleAuto
                   : agent === 'oleg'
                     ? t.subtitleOleg
@@ -586,14 +597,14 @@ export default function App() {
             <div className="empty">
               <h3>{t.emptyTitle}</h3>
               <p>
-                {agent === 'auto'
+                {agentMode === 'auto' && turns.length === 0
                   ? t.emptyAuto
                   : agent === 'oleg'
                     ? t.emptyOleg
                     : t.emptyKsyusha}
               </p>
               <div className="suggestions">
-                {(agent === 'auto'
+                {(agentMode === 'auto'
                   ? [
                       'Топ-10 городов по поездкам',
                       'Как считается utilization?',
@@ -685,13 +696,7 @@ export default function App() {
           <div className="composer-box">
             <textarea
               value={input}
-              placeholder={
-                agent === 'auto'
-                  ? t.placeholderAuto
-                  : agent === 'oleg'
-                    ? t.placeholderOleg
-                    : t.placeholderKsyusha
-              }
+              placeholder={agent === 'oleg' ? t.placeholderOleg : t.placeholderKsyusha}
               rows={2}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
