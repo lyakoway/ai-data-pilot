@@ -38,7 +38,8 @@ const COPY = {
   ru: {
     title: 'AI Data Pilot',
     subtitleAuto: 'Авто-роутер · данные → Олег, документация → Ксюша',
-    autoLockHint: 'Закрепить агента · повторный клик по активному вернёт авто-выбор',
+    autoModeLabel: 'Авто-выбор агента',
+    autoModeHint: 'Роутер сам направляет вопрос Олегу или Ксюше',
     emptyAuto:
       'Задайте вопрос — роутер сам направит его аналитику Олегу (SQL, базы данных) или Ксюше (документация).',
     subtitleOleg: 'Аналитик Олег · SQL, метрики, Excel',
@@ -69,7 +70,8 @@ const COPY = {
   en: {
     title: 'AI Data Pilot',
     subtitleAuto: 'Auto-router · data → Oleg, docs → Ksyusha',
-    autoLockHint: 'Pin this agent · click the active one again to return to auto',
+    autoModeLabel: 'Auto-select agent',
+    autoModeHint: 'The router sends each question to Oleg or Ksyusha',
     emptyAuto:
       'Ask anything — the router sends data questions to Oleg (SQL) and docs questions to Ksyusha.',
     subtitleOleg: 'Analyst Oleg · SQL, metrics, Excel',
@@ -156,11 +158,8 @@ export default function App() {
   )
 
   function selectAgent(target: AgentId) {
-    // Clicking the already-pinned agent releases it back to auto-routing.
-    if (agentMode === 'manual' && agent === target) {
-      setAgentMode('auto')
-      return
-    }
+    // Clicking an agent pins it and turns auto-routing off (checkbox unchecks);
+    // re-enabling auto is done via the checkbox itself.
     setAgent(target)
     setAgentMode('manual')
   }
@@ -391,7 +390,6 @@ export default function App() {
           <button
             type="button"
             className={`agent-btn ${agent === 'oleg' ? 'active' : ''}`}
-            title={t.autoLockHint}
             onClick={() => selectAgent('oleg')}
           >
             Олег
@@ -400,13 +398,21 @@ export default function App() {
           <button
             type="button"
             className={`agent-btn ${agent === 'ksyusha' ? 'active' : ''}`}
-            title={t.autoLockHint}
             onClick={() => selectAgent('ksyusha')}
           >
             Ксюша
             <small>Docs · RAG</small>
           </button>
         </div>
+
+        <label className="auto-mode-toggle" title={t.autoModeHint}>
+          <input
+            type="checkbox"
+            checked={agentMode === 'auto'}
+            onChange={(e) => setAgentMode(e.target.checked ? 'auto' : 'manual')}
+          />
+          {t.autoModeLabel}
+        </label>
 
         <div className="section-label">{t.scenarios}</div>
         <div className="scenario-list">
