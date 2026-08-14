@@ -538,6 +538,15 @@ th { background: var(--bg-soft); color: var(--text-soft); font-weight: 600; }
 .pg-form-host { flex: 1; }
 .pg-form-port { width: 90px; }
 .pg-error { margin-top: 10px; }
+.pg-error-detail { margin: 10px 0 0; }
+.pg-error-detail pre {
+  margin: 8px 0 2px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-soft);
+  white-space: pre-wrap;
+}
 @keyframes flash {
   0%, 100% { background: transparent; }
   20%, 60% { background: rgba(139, 92, 246, 0.12); }

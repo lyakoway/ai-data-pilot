@@ -10,6 +10,7 @@ import {
 } from 'recharts'
 import { AgentTrace } from './components/AgentTrace'
 import { PostgresModal } from './components/PostgresModal'
+import { ProviderErrorModal, isProviderError } from './components/ProviderErrorModal'
 import { ResultCard } from './components/ResultCard'
 import { ScenarioModal } from './components/ScenarioModal'
 import {
@@ -110,6 +111,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [scenarioModal, setScenarioModal] = useState<Scenario | null>(null)
   const [pgModal, setPgModal] = useState(false)
+  const [providerError, setProviderError] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const csvInputRef = useRef<HTMLInputElement>(null)
 
@@ -180,9 +182,13 @@ export default function App() {
           setTurns((prev) =>
             prev.map((t) => (t.id === assistantId ? { ...t, result, liveSteps: undefined } : t)),
           )
+          if (result.status === 'error' && isProviderError(result.answer)) {
+            setProviderError(result.answer)
+          }
           setLoading(false)
         },
         onError: (errMsg) => {
+          if (isProviderError(errMsg)) setProviderError(errMsg)
           setTurns((prev) =>
             prev.map((t) =>
               t.id === assistantId
@@ -663,6 +669,14 @@ export default function App() {
           lang={lang}
           onRun={(values) => void _executeScenario(scenarioModal, values)}
           onClose={() => setScenarioModal(null)}
+        />
+      )}
+
+      {providerError && (
+        <ProviderErrorModal
+          message={providerError}
+          lang={lang}
+          onClose={() => setProviderError(null)}
         />
       )}
 
