@@ -37,22 +37,34 @@ MAX_SQL_ATTEMPTS = 1 + MAX_SQL_REPAIR_ROUNDS
 
 PLAN_SYSTEM = """Ты — аналитик Олег. Строишь SQL для аналитической базы данных.
 Верни ТОЛЬКО JSON без markdown:
-{
+{{
   "sql": "SELECT ...",
   "chart_type": "bar" | "line" | "pie" | null,
   "wants_excel": true/false,
   "tables_used": ["..."],
   "logic": "краткое пояснение методологии на языке пользователя"
-}
+}}
 
 Правила:
 - Только SELECT / WITH. Никаких мутаций.
 - Используй только таблицы и поля из SCHEMA.
-- SQLite синтаксис (date(), julianday и т.п. допустимы).
+{dialect_note}
 - LIMIT внутри запроса можно, но не обязателен.
 
 SCHEMA:
 """
+
+
+def _dialect_note(datasource_id: str) -> str:
+    """Return a dialect-specific syntax hint for the prompt."""
+    from app.db.datasources import get_dialect
+    try:
+        dialect = get_dialect(datasource_id)
+    except Exception:  # noqa: BLE001
+        dialect = "sqlite"
+    if dialect == "postgresql":
+        return "- PostgreSQL синтаксис (DATE_TRUNC, EXTRACT, ::cast, ILIKE, NOW())."
+    return "- SQLite синтаксис (date(), strftime(), julianday и т.п. допустимы)."
 
 # Asks the model to rewrite a query that failed at runtime.
 # Note: literal braces in the JSON example are escaped ({{ }}) because the
@@ -316,7 +328,8 @@ def _legacy_engine():
 
 
 async def _generate_plan(
-    provider, question: str, lang: str, schema_catalog: str, *, allow_mock: bool = True
+    provider, question: str, lang: str, schema_catalog: str, *, allow_mock: bool = True,
+    datasource_id: str = RIDEGO_SOURCE_ID,
 ) -> dict[str, Any] | None:
     """Ask the LLM for a JSON plan. Returns ``None`` if the call yields nothing usable.
 
@@ -328,8 +341,9 @@ async def _generate_plan(
         if allow_mock:
             return _mock_plan(question)
         return None  # force the caller down the honest "needs a real model" path
+    prompt = PLAN_SYSTEM.format(dialect_note=_dialect_note(datasource_id)) + schema_catalog
     raw = await provider.complete(
-        PLAN_SYSTEM + schema_catalog,
+        prompt,
         [ChatMessage("user", question)],
         lang=lang,
     )
@@ -740,7 +754,7 @@ async def run_oleg_streaming(
     step = _new_step(1, "planner", "Анализирую запрос" if lang != "en" else "Analysing request")
     await emit(step)
     t0 = time.perf_counter()
-    plan = await _generate_plan(provider, question, lang, schema_catalog, allow_mock=is_ridego)
+    plan = await _generate_plan(provider, question, lang, schema_catalog, allow_mock=is_ridego, datasource_id=datasource_id)
     step["duration_ms"] = int((time.perf_counter() - t0) * 1000)
     if not plan or not plan.get("sql"):
         if is_mock and is_ridego:

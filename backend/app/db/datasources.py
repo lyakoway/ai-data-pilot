@@ -85,6 +85,8 @@ def get_engine_for(source_id: str) -> Engine:
         return get_ridego_engine()
     if meta["kind"] == "csv":
         return _uploaded_engine()
+    if meta["kind"] == "postgres":
+        return _postgres_engine(meta)
     raise ValueError(f"Unsupported source kind: {meta['kind']!r}")
 
 
@@ -97,7 +99,18 @@ def get_schema_catalog(source_id: str) -> str:
         return RIDEGO_CATALOG
     if meta["kind"] == "csv":
         return _build_uploaded_catalog(meta)
+    if meta["kind"] == "postgres":
+        # Catalog is cached in metadata at registration time.
+        return _build_postgres_catalog(meta)
     raise ValueError(f"Unsupported source kind: {meta['kind']!r}")
+
+
+def get_dialect(source_id: str) -> str:
+    """Return 'sqlite' or 'postgresql' for the source (for dialect-aware prompts)."""
+    meta = get_source_meta(source_id)
+    if meta is None:
+        return "sqlite"
+    return "postgresql" if meta.get("kind") == "postgres" else "sqlite"
 
 
 def delete_source(source_id: str) -> None:
@@ -107,7 +120,7 @@ def delete_source(source_id: str) -> None:
     meta = get_source_meta(source_id)
     if meta is None:
         raise KeyError(f"Unknown data source: {source_id!r}")
-    if meta.get("table_name"):
+    if meta.get("table_name") and meta.get("kind") == "csv":
         # Best-effort table drop; ignore failures (table may already be gone).
         try:
             eng = _uploaded_engine()
@@ -115,6 +128,7 @@ def delete_source(source_id: str) -> None:
                 conn.execute(text(f'DROP TABLE IF EXISTS "{meta["table_name"]}"'))
         except Exception:  # noqa: BLE001
             pass
+    # postgres sources have no local tables to drop — just remove metadata.
     app_db.delete_datasource_row(source_id)
 
 
@@ -419,3 +433,151 @@ def _build_uploaded_catalog(meta: dict[str, Any]) -> str:
     lines.append("- Date columns are stored as TEXT in ISO format (YYYY-MM-DD).")
     lines.append("- Only SELECT / WITH queries are allowed.")
     return "\n".join(lines)
+
+
+# --------------------------------------------------------------------------- #
+# PostgreSQL sources
+# --------------------------------------------------------------------------- #
+
+
+def _build_postgres_url(conn: dict[str, Any]) -> str:
+    """Build a SQLAlchemy URL from connection parameters."""
+    return (
+        f"postgresql+psycopg2://{conn['username']}:{conn['password']}"
+        f"@{conn['host']}:{conn.get('port', 5432)}/{conn['database']}"
+    )
+
+
+def _postgres_engine(meta: dict[str, Any]) -> Engine:
+    """Create a SQLAlchemy engine for a postgres source."""
+    conn = meta.get("connection") or {}
+    if not conn.get("host"):
+        raise ValueError("Postgres source missing connection info.")
+    return create_engine(_build_postgres_url(conn), pool_pre_ping=True)
+
+
+def _introspect_schema(engine: Engine, max_tables: int = 50) -> list[dict[str, Any]]:
+    """Introspect table/column metadata using the dialect-agnostic SQLAlchemy
+    ``inspect()`` API. Works identically for SQLite and PostgreSQL."""
+    from sqlalchemy import inspect as sa_inspect
+
+    insp = sa_inspect(engine)
+    tables: list[dict[str, Any]] = []
+    for table_name in insp.get_table_names()[:max_tables]:
+        cols = []
+        for col in insp.get_columns(table_name):
+            cols.append({
+                "name": col["name"],
+                "type": str(col["type"]),
+                "nullable": col.get("nullable", True),
+            })
+        tables.append({"name": table_name, "columns": cols})
+    return tables
+
+
+def _build_postgres_catalog(meta: dict[str, Any]) -> str:
+    """Build a schema-catalog text from cached introspection results."""
+    tables = meta.get("columns") or []
+    conn = meta.get("connection") or {}
+    lines = [f"# PostgreSQL source: {meta['name']}", ""]
+    lines.append(f"Database: {conn.get('database', '?')} @ {conn.get('host', '?')}")
+    lines.append("")
+    for t in tables:
+        lines.append(f"## {t['name']}")
+        for c in t["columns"]:
+            lines.append(f"- {c['name']} {c['type']}")
+        lines.append("")
+    lines.append("Notes:")
+    lines.append("- Use PostgreSQL syntax (DATE_TRUNC, EXTRACT, ::cast, ILIKE).")
+    lines.append("- Only SELECT / WITH queries are allowed.")
+    return "\n".join(lines)
+
+
+def register_postgres(
+    *,
+    name: str,
+    host: str,
+    port: int = 5432,
+    database: str,
+    username: str,
+    password: str,
+    source_id: str | None = None,
+) -> dict[str, Any]:
+    """Test the connection, introspect the schema, and register a postgres source.
+
+    Raises ``ValueError`` if the connection fails or psycopg2 is unavailable.
+    """
+    try:
+        engine = create_engine(
+            f"postgresql+psycopg2://{username}:{password}@{host}:{port}/{database}",
+            pool_pre_ping=True,
+        )
+        # Test the connection + introspect in one shot.
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        tables = _introspect_schema(engine)
+    except Exception as e:
+        raise ValueError(f"Could not connect to PostgreSQL: {e}") from e
+
+    sid = source_id or f"pg_{uuid.uuid4().hex[:10]}"
+    conn_info = {"host": host, "port": port, "database": database, "username": username, "password": password}
+    meta = {
+        "id": sid,
+        "name": name,
+        "kind": "postgres",
+        "description": f"PostgreSQL: {database}@{host}, {len(tables)} таблиц(ы).",
+        "table_name": None,
+        "columns": tables,  # cached introspection results
+        "row_count": None,
+        "created_at": datetime.utcnow().isoformat(timespec="seconds"),
+        "connection": conn_info,
+    }
+    app_db.save_datasource(meta)
+    # Return a copy with masked password for the API response.
+    safe = dict(meta)
+    safe["connection"] = {**conn_info, "password": "****"}
+    return safe
+
+
+def refresh_postgres_schema(source_id: str) -> dict[str, Any]:
+    """Re-introspect the schema for an existing postgres source."""
+    meta = get_source_meta(source_id)
+    if meta is None:
+        raise KeyError(f"Unknown data source: {source_id!r}")
+    if meta["kind"] != "postgres":
+        raise ValueError("Source is not a PostgreSQL source.")
+    engine = _postgres_engine(meta)
+    tables = _introspect_schema(engine)
+    meta["columns"] = tables
+    meta["description"] = f"PostgreSQL: {meta['connection']['database']}@{meta['connection']['host']}, {len(tables)} таблиц(ы)."
+    app_db.save_datasource(meta)
+    safe = dict(meta)
+    safe["connection"] = {**meta["connection"], "password": "****"}
+    return safe
+
+
+def register_env_postgres() -> dict[str, Any] | None:
+    """If POSTGRES_URL is set, register/update a postgres source on startup."""
+    url = get_settings().postgres_url
+    if not url:
+        return None
+    # Parse the URL: postgresql://user:pass@host:port/db
+    import re
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    if not parsed.hostname:
+        return None
+    try:
+        return register_postgres(
+            name=f"PostgreSQL ({parsed.path.lstrip('/') or parsed.hostname})",
+            host=parsed.hostname,
+            port=parsed.port or 5432,
+            database=parsed.path.lstrip("/"),
+            username=parsed.username or "",
+            password=parsed.password or "",
+            source_id="postgres-env",
+        )
+    except ValueError:
+        # Connection failed at startup — skip silently (user can add manually later).
+        return None
