@@ -112,11 +112,14 @@ async def run_ksyusha_streaming(
     t0 = time.perf_counter()
     answer = ""
     if not is_mock:
-        answer = await provider.complete(
-            SYSTEM.format(context=context),
-            [ChatMessage("user", question)],
-            lang=lang,
-        )
+        try:
+            answer = await provider.complete(
+                SYSTEM.format(context=context),
+                [ChatMessage("user", question)],
+                lang=lang,
+            )
+        except Exception:  # noqa: BLE001 — provider failed (e.g. 429); fall back to mock
+            answer = ""
     if not answer.strip():
         answer = _mock_answer(question, chunks, lang)
     step["duration_ms"] = int((time.perf_counter() - t0) * 1000)

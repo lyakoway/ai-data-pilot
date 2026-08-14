@@ -754,7 +754,24 @@ async def run_oleg_streaming(
     step = _new_step(1, "planner", "Анализирую запрос" if lang != "en" else "Analysing request")
     await emit(step)
     t0 = time.perf_counter()
-    plan = await _generate_plan(provider, question, lang, schema_catalog, allow_mock=is_ridego, datasource_id=datasource_id)
+    try:
+        plan = await _generate_plan(provider, question, lang, schema_catalog, allow_mock=is_ridego, datasource_id=datasource_id)
+    except Exception as e:  # noqa: BLE001 — provider/network errors (e.g. 429 no balance)
+        step["duration_ms"] = int((time.perf_counter() - t0) * 1000)
+        step["status"] = "error"
+        step["summary"] = f"Ошибка модели: {str(e)[:120]}"
+        await emit(step)
+        return _error_response(
+            plan=None,
+            message=(
+                f"Модель недоступна: {str(e)[:300]}. "
+                "Проверьте баланс/ключ выбранного провайдера или выберите другую модель."
+                if lang != "en"
+                else f"Model unavailable: {str(e)[:300]}"
+            ),
+            lang=lang,
+            steps=steps,
+        )
     step["duration_ms"] = int((time.perf_counter() - t0) * 1000)
     if not plan or not plan.get("sql"):
         if is_mock and is_ridego:
@@ -888,18 +905,21 @@ async def run_oleg_streaming(
             "sql": result["sql"],
             "highlights": insights["highlights"],
         }
-        answer = await provider.complete(
-            ANSWER_SYSTEM,
-            [
-                ChatMessage(
-                    "user",
-                    f"Вопрос: {question}\n\nHIGHLIGHTS:\n- "
-                    + "\n- ".join(insights["highlights"])
-                    + f"\n\nРезультат JSON:\n{json.dumps(table_preview, ensure_ascii=False)}",
-                )
-            ],
-            lang=lang,
-        )
+        try:
+            answer = await provider.complete(
+                ANSWER_SYSTEM,
+                [
+                    ChatMessage(
+                        "user",
+                        f"Вопрос: {question}\n\nHIGHLIGHTS:\n- "
+                        + "\n- ".join(insights["highlights"])
+                        + f"\n\nРезультат JSON:\n{json.dumps(table_preview, ensure_ascii=False)}",
+                    )
+                ],
+                lang=lang,
+            )
+        except Exception:  # noqa: BLE001 — provider failed (e.g. 429); fall back to mock text
+            answer = ""
     if not answer.strip():
         answer = _mock_answer(question, columns, rows, lang)
     step["duration_ms"] = int((time.perf_counter() - t0) * 1000)

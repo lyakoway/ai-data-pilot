@@ -191,6 +191,10 @@ export default function App() {
                     liveSteps: undefined,
                     result: {
                       agent,
+                      status: 'error',
+                      warnings: [],
+                      insights: {},
+                      steps: [],
                       answer: errMsg,
                       sql: null,
                       explanation: null,
