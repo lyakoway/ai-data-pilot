@@ -66,6 +66,22 @@ def _dialect_note(datasource_id: str) -> str:
         return "- PostgreSQL синтаксис (DATE_TRUNC, EXTRACT, ::cast, ILIKE, NOW())."
     return "- SQLite синтаксис (date(), strftime(), julianday и т.п. допустимы)."
 
+
+def _query_timeout(datasource_id: str) -> float:
+    """Per-source SQL timeout (PostgreSQL gets a longer cross-network budget)."""
+    from app.db.datasources import get_query_timeout
+
+    try:
+        return get_query_timeout(datasource_id)
+    except Exception:  # noqa: BLE001
+        return get_settings_sql_timeout()
+
+
+def get_settings_sql_timeout() -> float:
+    from app.config import get_settings
+
+    return get_settings().sql_timeout_sec
+
 # Asks the model to rewrite a query that failed at runtime.
 # Note: literal braces in the JSON example are escaped ({{ }}) because the
 # template is processed with str.format() for {error}/{sql} below.
@@ -457,6 +473,7 @@ async def _run_loop(
     schema_catalog: str,
     steps: list[dict[str, Any]],
     emit: Any,
+    loop_timeout: float | None = None,
 ) -> dict[str, Any]:
     """ReAct loop: the model picks tools until it calls ``finish``.
 
@@ -501,7 +518,7 @@ async def _run_loop(
         tool_step = _new_step(step_index, tool_name, f"Вызываю: {tool_name}")
         await emit(tool_step)
         t0 = time.perf_counter()
-        result = dispatch_tool(tool_name, tool_args, engine=engine, lang=lang)
+        result = dispatch_tool(tool_name, tool_args, engine=engine, lang=lang, timeout=loop_timeout)
         tool_step["duration_ms"] = int((time.perf_counter() - t0) * 1000)
         tool_step["status"] = "done" if result.get("ok") else "error"
         tool_step["summary"] = result.get("summary", "")[:140]
@@ -577,6 +594,7 @@ async def _mock_loop(
     engine: Any,
     steps: list[dict[str, Any]],
     emit: Any,
+    loop_timeout: float | None = None,
 ) -> dict[str, Any]:
     """Deterministic scripted loop for demo mode (no LLM). Simulates the
     'compare periods' scenario: query two months → calculate change → analyze."""
@@ -590,7 +608,7 @@ async def _mock_loop(
         s = _new_step(step_index, name, title)
         await emit(s)
         t0 = time.perf_counter()
-        r = dispatch_tool(name, args, engine=engine, lang=lang)
+        r = dispatch_tool(name, args, engine=engine, lang=lang, timeout=loop_timeout)
         s["duration_ms"] = int((time.perf_counter() - t0) * 1000)
         s["status"] = "done" if r.get("ok") else "error"
         s["summary"] = r.get("summary", "")[:140]
@@ -735,10 +753,13 @@ async def run_oleg_streaming(
     #     simple questions use the fast linear flow below. CSV sources always
     #     use the linear flow (mock plans are RideGo-specific; the loop's mock
     #     script is RideGo-specific too). ---
+    q_timeout = _query_timeout(datasource_id)
+
     if is_ridego and _is_complex_question(question):
         if is_mock:
             return await _mock_loop(
-                question=question, lang=lang, engine=engine, steps=steps, emit=emit
+                question=question, lang=lang, engine=engine, steps=steps, emit=emit,
+                loop_timeout=q_timeout,
             )
         return await _run_loop(
             question=question,
@@ -748,6 +769,7 @@ async def run_oleg_streaming(
             schema_catalog=schema_catalog,
             steps=steps,
             emit=emit,
+            loop_timeout=q_timeout,
         )
 
     # --- Step 1: planning -------------------------------------------------
@@ -810,7 +832,7 @@ async def run_oleg_streaming(
         await emit(step)
         t0 = time.perf_counter()
         try:
-            result = run_sql(engine, plan["sql"])
+            result = run_sql(engine, plan["sql"], timeout=q_timeout)
             step["duration_ms"] = int((time.perf_counter() - t0) * 1000)
             step["status"] = "done"
             rc = result["row_count"]

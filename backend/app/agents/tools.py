@@ -52,13 +52,13 @@ def _err(summary: str, **data: Any) -> dict[str, Any]:
 # --------------------------------------------------------------------------- #
 
 
-def tool_database_query(args: dict[str, Any], *, engine: Engine, **_: Any) -> dict[str, Any]:
+def tool_database_query(args: dict[str, Any], *, engine: Engine, timeout: float | None = None, **_: Any) -> dict[str, Any]:
     """Execute a read-only SQL query against the analytics DB."""
     sql = (args.get("sql") or "").strip()
     if not sql:
         return _err("Пустой SQL" if args.get("_lang") != "en" else "Empty SQL")
     try:
-        result = run_sql(engine, sql)
+        result = run_sql(engine, sql, timeout=timeout)
     except SqlGuardError as e:
         return _err(f"SQL отклонён: {e}", sql=sql)
     except SqlTimeoutError as e:
@@ -219,7 +219,8 @@ TOOLS_DESCRIPTION = """У тебя есть следующие инструме�
 
 
 def dispatch_tool(
-    name: str, args: dict[str, Any], *, engine: Engine = None, lang: str = "ru"
+    name: str, args: dict[str, Any], *, engine: Engine = None, lang: str = "ru",
+    timeout: float | None = None,
 ) -> dict[str, Any]:
     """Execute a tool by name. Unknown tools return an error result (never raise)."""
     fn = TOOLS.get(name)
@@ -229,6 +230,8 @@ def dispatch_tool(
     kwargs: dict[str, Any] = {"lang": lang}
     if engine is not None:
         kwargs["engine"] = engine
+    if timeout is not None:
+        kwargs["timeout"] = timeout
     try:
         return fn(enriched, **kwargs)
     except Exception as e:  # noqa: BLE001 — tools must never crash the loop
