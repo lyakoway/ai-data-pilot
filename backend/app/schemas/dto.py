@@ -7,7 +7,8 @@ from pydantic import BaseModel, Field
 
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1)
-    agent: Literal["oleg", "ksyusha"] = "oleg"
+    # "auto" lets the router pick the agent per question.
+    agent: Literal["auto", "oleg", "ksyusha"] = "auto"
     model: str = "mock"
     lang: Literal["ru", "en"] = "ru"
     force_excel: bool = False

@@ -2,16 +2,65 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
-from app.agents.ksyusha import run_ksyusha, run_ksyusha_streaming
-from app.agents.oleg import run_oleg, run_oleg_streaming
+from app.agents.ksyusha import run_ksyusha_streaming
+from app.agents.oleg import run_oleg_streaming
+from app.agents.router import route_agent
 from app.schemas.dto import ChatRequest, ChatResponse
 
 router = APIRouter(prefix="/api", tags=["chat"])
+
+
+async def _resolve_agent(body: ChatRequest, msg: str) -> tuple[str, dict[str, Any] | None]:
+    """Resolve the effective agent for a request.
+
+    Returns ``(agent_id, router_step)``. ``router_step`` is set only when the
+    auto-router made the decision — callers prepend it to the answer's steps
+    (and stream it first) so the user sees who took the question.
+    """
+    if body.agent != "auto":
+        return body.agent, None
+    t0 = time.perf_counter()
+    agent = await route_agent(msg, model_id=body.model)
+    ru = body.lang != "en"
+    who = "Ксюше (документация)" if agent == "ksyusha" else "Олегу (данные)"
+    if not ru:
+        who = "Ksyusha (docs)" if agent == "ksyusha" else "Oleg (data)"
+    step = {
+        "id": "step_0_route",
+        "title": "Определяю агента" if ru else "Routing the question",
+        "tool": "router",
+        "status": "done",
+        "summary": f"→ {who}",
+        "detail": {"decision": agent},
+        "duration_ms": int((time.perf_counter() - t0) * 1000),
+    }
+    return agent, step
+
+
+async def _run_agent(body: ChatRequest, msg: str, agent: str, on_step=None) -> dict[str, Any]:
+    """Run the resolved agent with the request's parameters."""
+    from app.agents.ksyusha import _noop_step as _ks_noop
+    from app.agents.oleg import _noop_step as _ol_noop
+
+    if agent == "ksyusha":
+        return await run_ksyusha_streaming(
+            msg, model_id=body.model, lang=body.lang,
+            on_step=on_step if on_step is not None else _ks_noop,
+        )
+    return await run_oleg_streaming(
+        msg,
+        model_id=body.model,
+        lang=body.lang,
+        force_excel=body.force_excel,
+        datasource_id=body.datasource_id or "ridego",
+        on_step=on_step if on_step is not None else _ol_noop,
+    )
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -20,16 +69,10 @@ async def chat(body: ChatRequest) -> ChatResponse:
     if not msg:
         raise HTTPException(400, "Empty message")
 
-    if body.agent == "ksyusha":
-        data = await run_ksyusha(msg, model_id=body.model, lang=body.lang)
-    else:
-        data = await run_oleg(
-            msg,
-            model_id=body.model,
-            lang=body.lang,
-            force_excel=body.force_excel,
-            datasource_id=body.datasource_id or "ridego",
-        )
+    agent, router_step = await _resolve_agent(body, msg)
+    data = await _run_agent(body, msg, agent)
+    if router_step is not None:
+        data.setdefault("steps", []).insert(0, router_step)
     return ChatResponse(**data)
 
 
@@ -41,12 +84,8 @@ def _sse(event: str, payload: dict[str, Any]) -> str:
 
 @router.post("/chat/stream")
 async def chat_stream(body: ChatRequest) -> StreamingResponse:
-    """Streaming variant of /chat for agents that emit execution-trace steps.
-
-    Currently Олег streams ``step`` events as he works, then a final ``done``
-    with the full ChatResponse. Ксюша has no steps yet, so she streams a single
-    ``done`` event (the UI treats it identically to the non-streaming endpoint).
-    """
+    """Streaming variant of /chat. Both agents stream execution-trace steps and
+    finish with a ``done`` event carrying the full ChatResponse."""
     msg = body.message.strip()
     if not msg:
         raise HTTPException(400, "Empty message")
@@ -58,19 +97,12 @@ async def chat_stream(body: ChatRequest) -> StreamingResponse:
 
     async def runner() -> None:
         try:
-            if body.agent == "ksyusha":
-                data = await run_ksyusha_streaming(
-                    msg, model_id=body.model, lang=body.lang, on_step=on_step
-                )
-            else:
-                data = await run_oleg_streaming(
-                    msg,
-                    model_id=body.model,
-                    lang=body.lang,
-                    force_excel=body.force_excel,
-                    datasource_id=body.datasource_id or "ridego",
-                    on_step=on_step,
-                )
+            agent, router_step = await _resolve_agent(body, msg)
+            if router_step is not None:
+                await queue.put(("step", dict(router_step)))
+            data = await _run_agent(body, msg, agent, on_step=on_step)
+            if router_step is not None:
+                data.setdefault("steps", []).insert(0, router_step)
             await queue.put(("done", data))
         except Exception as e:  # noqa: BLE001 — surface any failure to the client
             await queue.put(("error", {"message": str(e)}))
