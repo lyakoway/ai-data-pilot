@@ -16,6 +16,7 @@ import { ScenarioModal } from './components/ScenarioModal'
 import {
   api,
   type AgentId,
+  type AgentMode,
   type ChatResult,
   type DataSourceInfo,
   type Kpis,
@@ -37,6 +38,12 @@ type Turn = {
 const COPY = {
   ru: {
     title: 'AI Data Pilot',
+    subtitleAuto: 'Авто-роутер · сам выбирает: данные или документация',
+    autoLabel: 'Авто',
+    autoHint: 'сам выберет агента',
+    placeholderAuto: 'Спросите про данные или документацию…',
+    emptyAuto:
+      'Задайте вопрос — роутер сам направит его аналитику Олегу (SQL, базы данных) или Ксюше (документация).',
     subtitleOleg: 'Аналитик Олег · SQL, метрики, Excel',
     subtitleKsyusha: 'Ксюша · документация и backend-логика',
     scenarios: 'Сценарии',
@@ -64,6 +71,12 @@ const COPY = {
   },
   en: {
     title: 'AI Data Pilot',
+    subtitleAuto: 'Auto-router · picks data or docs per question',
+    autoLabel: 'Auto',
+    autoHint: 'picks the agent',
+    placeholderAuto: 'Ask about data or documentation…',
+    emptyAuto:
+      'Ask anything — the router sends data questions to Oleg (SQL) and docs questions to Ksyusha.',
     subtitleOleg: 'Analyst Oleg · SQL, metrics, Excel',
     subtitleKsyusha: 'Ksyusha · docs & backend logic',
     scenarios: 'Scenarios',
@@ -96,7 +109,7 @@ export default function App() {
   const [lang, setLang] = useState<Lang>(() => loadLang())
   const t = COPY[lang]
 
-  const [agent, setAgent] = useState<AgentId>('oleg')
+  const [agent, setAgent] = useState<AgentMode>('auto')
   const [models, setModels] = useState<ModelInfo[]>([])
   const [model, setModel] = useState('mock')
   const [scenarios, setScenarios] = useState<Scenario[]>([])
@@ -139,7 +152,7 @@ export default function App() {
   }, [turns, loading])
 
   const visibleScenarios = useMemo(
-    () => scenarios.filter((s) => s.agent === agent),
+    () => (agent === 'auto' ? scenarios : scenarios.filter((s) => s.agent === agent)),
     [scenarios, agent],
   )
 
@@ -162,7 +175,7 @@ export default function App() {
         model,
         lang,
         force_excel: forceExcel,
-        datasource_id: agent === 'oleg' ? datasourceId : undefined,
+        datasource_id: agent !== 'ksyusha' ? datasourceId : undefined,
       },
       {
         onStep: (step) => {
@@ -196,7 +209,7 @@ export default function App() {
                     ...t,
                     liveSteps: undefined,
                     result: {
-                      agent,
+                      agent: agent === 'ksyusha' ? 'ksyusha' : 'oleg',
                       status: 'error',
                       warnings: [],
                       insights: {},
@@ -280,13 +293,17 @@ export default function App() {
     if (!lastUserPrompt) return
     const name = window.prompt(t.saveName, lastUserPrompt.slice(0, 48))
     if (!name) return
+    // In auto mode, bind the scenario to the agent that actually answered.
+    const lastAgent: AgentId =
+      [...turns].reverse().find((x) => x.result)?.result?.agent ??
+      (agent === 'ksyusha' ? 'ksyusha' : 'oleg')
     const created = await api.createScenario({
       name,
-      agent,
+      agent: lastAgent,
       description: '',
       prompt: lastUserPrompt,
       chart_type: 'bar',
-      datasource_id: agent === 'oleg' ? datasourceId : undefined,
+      datasource_id: agent !== 'ksyusha' ? datasourceId : undefined,
     })
     setScenarios((prev) => [...prev, created])
   }
@@ -352,6 +369,14 @@ export default function App() {
         </button>
 
         <div className="agent-switch">
+          <button
+            type="button"
+            className={`agent-btn agent-btn-auto ${agent === 'auto' ? 'active' : ''}`}
+            onClick={() => setAgent('auto')}
+          >
+            {t.autoLabel}
+            <small>{t.autoHint}</small>
+          </button>
           <button
             type="button"
             className={`agent-btn ${agent === 'oleg' ? 'active' : ''}`}
@@ -422,12 +447,20 @@ export default function App() {
               ☰
             </button>
             <div>
-              <h2>{agent === 'oleg' ? 'Аналитик Олег' : 'Ксюша'}</h2>
-              <p className="sub">{agent === 'oleg' ? t.subtitleOleg : t.subtitleKsyusha}</p>
+              <h2>
+                {agent === 'auto' ? t.title : agent === 'oleg' ? 'Аналитик Олег' : 'Ксюша'}
+              </h2>
+              <p className="sub">
+                {agent === 'auto'
+                  ? t.subtitleAuto
+                  : agent === 'oleg'
+                    ? t.subtitleOleg
+                    : t.subtitleKsyusha}
+              </p>
             </div>
           </div>
           <div className="topbar-selects">
-            {agent === 'oleg' && (
+            {agent !== 'ksyusha' && (
               <select
                 className="select"
                 value={datasourceId}
@@ -451,7 +484,7 @@ export default function App() {
                 ))}
               </select>
             )}
-            {agent === 'oleg' && (
+            {agent !== 'ksyusha' && (
               <>
                 <input
                   ref={csvInputRef}
@@ -498,7 +531,7 @@ export default function App() {
         </header>
 
         <div className="content">
-          {agent === 'oleg' && kpis && (
+          {agent !== 'ksyusha' && kpis && (
             <>
               <div className="section-label">{t.kpis}</div>
               <div className="kpi-grid">
@@ -552,19 +585,32 @@ export default function App() {
           {turns.length === 0 && (
             <div className="empty">
               <h3>{t.emptyTitle}</h3>
-              <p>{agent === 'oleg' ? t.emptyOleg : t.emptyKsyusha}</p>
+              <p>
+                {agent === 'auto'
+                  ? t.emptyAuto
+                  : agent === 'oleg'
+                    ? t.emptyOleg
+                    : t.emptyKsyusha}
+              </p>
               <div className="suggestions">
-                {(agent === 'oleg'
+                {(agent === 'auto'
                   ? [
-                      'Выручка по регионам за 30 дней',
                       'Топ-10 городов по поездкам',
-                      'Проникновение подписок в InHouse городах',
+                      'Как считается utilization?',
+                      'Выручка по регионам за 30 дней',
+                      'Какой TTL у Redis pricing cache?',
                     ]
-                  : [
-                      'Где хранится utilization и как она считается?',
-                      'Как работает Redis pricing cache?',
-                      'Что делает Reset errors в админке?',
-                    ]
+                  : agent === 'oleg'
+                    ? [
+                        'Выручка по регионам за 30 дней',
+                        'Топ-10 городов по поездкам',
+                        'Проникновение подписок в InHouse городах',
+                      ]
+                    : [
+                        'Где хранится utilization и как она считается?',
+                        'Как работает Redis pricing cache?',
+                        'Что делает Reset errors в админке?',
+                      ]
                 ).map((s) => (
                   <button key={s} type="button" className="chip" onClick={() => ask(s)}>
                     {s}
@@ -588,10 +634,10 @@ export default function App() {
                       lang={lang}
                       onSaveScenario={saveAsScenario}
                       feedbackContext={{
-                        agent,
+                        agent: turn.result.agent,
                         message: lastUserPrompt,
                         model,
-                        datasource_id: agent === 'oleg' ? datasourceId : undefined,
+                        datasource_id: agent !== 'ksyusha' ? datasourceId : undefined,
                       }}
                     />
                   )}
@@ -639,7 +685,13 @@ export default function App() {
           <div className="composer-box">
             <textarea
               value={input}
-              placeholder={agent === 'oleg' ? t.placeholderOleg : t.placeholderKsyusha}
+              placeholder={
+                agent === 'auto'
+                  ? t.placeholderAuto
+                  : agent === 'oleg'
+                    ? t.placeholderOleg
+                    : t.placeholderKsyusha
+              }
               rows={2}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {

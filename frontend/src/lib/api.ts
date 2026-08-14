@@ -1,5 +1,8 @@
 export type AgentId = 'oleg' | 'ksyusha'
 
+/** 'auto' lets the backend router pick the agent per question. */
+export type AgentMode = AgentId | 'auto'
+
 export type ModelInfo = {
   id: string
   provider: string
@@ -130,7 +133,7 @@ export const api = {
     }),
   chat: (body: {
     message: string
-    agent: AgentId
+    agent: AgentMode
     model: string
     lang: string
     force_excel?: boolean
@@ -144,7 +147,7 @@ export const api = {
   chatStream: async (
     body: {
       message: string
-      agent: AgentId
+      agent: AgentMode
       model: string
       lang: string
       force_excel?: boolean
