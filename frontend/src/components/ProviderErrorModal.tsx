@@ -19,7 +19,7 @@ export function ProviderErrorModal({
   onClose: () => void
 }) {
   const t = {
-    title: lang === 'en' ? '⚡ Model unavailable' : '⚡ Модель недоступна',
+    title: lang === 'en' ? 'Model unavailable' : 'Модель недоступна',
     body:
       lang === 'en'
         ? 'The selected LLM provider declined the request — most often this means the account balance is exhausted or the API key is invalid. Top up the provider balance, choose another model in the selector, or contact us and we will help you set it up.'
@@ -31,7 +31,7 @@ export function ProviderErrorModal({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-box modal-box-center" onClick={(e) => e.stopPropagation()}>
         <h3 className="modal-title">{t.title}</h3>
         <p className="modal-desc">{t.body}</p>
         <details className="sql-block pg-error-detail">
