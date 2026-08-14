@@ -456,16 +456,52 @@ def _postgres_engine(meta: dict[str, Any]) -> Engine:
     return create_engine(_build_postgres_url(conn), pool_pre_ping=True)
 
 
-def _introspect_schema(engine: Engine, max_tables: int = 50) -> list[dict[str, Any]]:
-    """Introspect table/column metadata using the dialect-agnostic SQLAlchemy
-    ``inspect()`` API. Works identically for SQLite and PostgreSQL."""
+def _introspect_schema_pg(engine: Engine, schema: str | None, max_tables: int) -> list[dict[str, Any]]:
+    """Introspect PostgreSQL via information_schema — works for restricted users
+    where SQLAlchemy reflection (pg_catalog access) is denied."""
+    with engine.connect() as conn:
+        schema_filter = "AND table_schema = :schema" if schema else "AND table_schema = 'public'"
+        rows = conn.execute(
+            text(
+                "SELECT table_schema, table_name FROM information_schema.tables "
+                f"WHERE table_type = 'BASE TABLE' {schema_filter} "
+                "ORDER BY table_schema, table_name"
+            ),
+            {"schema": schema} if schema else {},
+        ).fetchall()[:max_tables]
+        tables: list[dict[str, Any]] = []
+        for tbl_schema, tbl_name in rows:
+            cols = conn.execute(
+                text(
+                    "SELECT column_name, data_type, is_nullable "
+                    "FROM information_schema.columns "
+                    "WHERE table_schema = :s AND table_name = :t "
+                    "ORDER BY ordinal_position"
+                ),
+                {"s": tbl_schema, "t": tbl_name},
+            ).fetchall()
+            tables.append({
+                "name": tbl_name,
+                "columns": [
+                    {"name": c[0], "type": c[1], "nullable": c[2] == "YES"} for c in cols
+                ],
+            })
+        return tables
+
+
+def _introspect_schema(engine: Engine, max_tables: int = 50, schema: str | None = None) -> list[dict[str, Any]]:
+    """Introspect table/column metadata. PostgreSQL goes through
+    ``information_schema`` (restricted users often can't use reflection);
+    other dialects (SQLite in tests) use the SQLAlchemy ``inspect()`` API."""
+    if engine.dialect.name == "postgresql":
+        return _introspect_schema_pg(engine, schema, max_tables)
     from sqlalchemy import inspect as sa_inspect
 
     insp = sa_inspect(engine)
     tables: list[dict[str, Any]] = []
-    for table_name in insp.get_table_names()[:max_tables]:
+    for table_name in insp.get_table_names(schema=schema)[:max_tables]:
         cols = []
-        for col in insp.get_columns(table_name):
+        for col in insp.get_columns(table_name, schema=schema):
             cols.append({
                 "name": col["name"],
                 "type": str(col["type"]),
@@ -475,15 +511,48 @@ def _introspect_schema(engine: Engine, max_tables: int = 50) -> list[dict[str, A
     return tables
 
 
+def _detect_schema(engine: Engine) -> str | None:
+    """Find the first non-empty table schema (public first, then others).
+
+    Most databases keep tables in ``public``; some (e.g. RNAcentral) use a
+    dedicated schema. Returns None if the default search path already has tables
+    — in that case introspection should use the default (schema=None).
+    """
+    from sqlalchemy import text as _text
+
+    if engine.dialect.name != "postgresql":
+        return None  # detection is PG-specific (information_schema based)
+    with engine.connect() as conn:
+        rows = conn.execute(
+            _text(
+                "SELECT table_schema, COUNT(*) AS n FROM information_schema.tables "
+                "WHERE table_type = 'BASE TABLE' "
+                "AND table_schema NOT IN ('pg_catalog', 'information_schema') "
+                "GROUP BY table_schema ORDER BY n DESC"
+            )
+        ).fetchall()
+    if not rows:
+        return None
+    schemas = {r[0] for r in rows}
+    if "public" in schemas:
+        return None  # default search path resolves public — no explicit schema needed
+    # Default schema is empty: use the largest non-system schema explicitly.
+    return rows[0][0]
+
+
 def _build_postgres_catalog(meta: dict[str, Any]) -> str:
     """Build a schema-catalog text from cached introspection results."""
     tables = meta.get("columns") or []
     conn = meta.get("connection") or {}
+    schema = conn.get("schema")
     lines = [f"# PostgreSQL source: {meta['name']}", ""]
     lines.append(f"Database: {conn.get('database', '?')} @ {conn.get('host', '?')}")
+    if schema:
+        lines.append(f"Schema: {schema} (always prefix tables: {schema}.table_name)")
     lines.append("")
     for t in tables:
-        lines.append(f"## {t['name']}")
+        full = f"{schema}.{t['name']}" if schema else t["name"]
+        lines.append(f"## {full}")
         for c in t["columns"]:
             lines.append(f"- {c['name']} {c['type']}")
         lines.append("")
@@ -502,8 +571,12 @@ def register_postgres(
     username: str,
     password: str,
     source_id: str | None = None,
+    schema: str | None = None,
 ) -> dict[str, Any]:
     """Test the connection, introspect the schema, and register a postgres source.
+
+    If ``schema`` is not given and the default search path has no tables, the
+    largest non-system schema is detected and used automatically.
 
     Raises ``ValueError`` if the connection fails or psycopg2 is unavailable.
     """
@@ -515,12 +588,20 @@ def register_postgres(
         # Test the connection + introspect in one shot.
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
-        tables = _introspect_schema(engine)
+        if schema is None:
+            schema = _detect_schema(engine)
+        tables = _introspect_schema(engine, schema=schema)
+    except ValueError:
+        raise
     except Exception as e:
         raise ValueError(f"Could not connect to PostgreSQL: {e}") from e
+    if not tables:
+        raise ValueError("Connected, but no tables found in the database.")
 
     sid = source_id or f"pg_{uuid.uuid4().hex[:10]}"
     conn_info = {"host": host, "port": port, "database": database, "username": username, "password": password}
+    if schema:
+        conn_info["schema"] = schema
     meta = {
         "id": sid,
         "name": name,
@@ -547,7 +628,8 @@ def refresh_postgres_schema(source_id: str) -> dict[str, Any]:
     if meta["kind"] != "postgres":
         raise ValueError("Source is not a PostgreSQL source.")
     engine = _postgres_engine(meta)
-    tables = _introspect_schema(engine)
+    schema = (meta.get("connection") or {}).get("schema")
+    tables = _introspect_schema(engine, schema=schema)
     meta["columns"] = tables
     meta["description"] = f"PostgreSQL: {meta['connection']['database']}@{meta['connection']['host']}, {len(tables)} таблиц(ы)."
     app_db.save_datasource(meta)
