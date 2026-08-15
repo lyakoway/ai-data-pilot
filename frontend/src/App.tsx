@@ -57,6 +57,7 @@ const COPY = {
     uploading: 'Загрузка…',
     uploadHint: 'CSV или Excel (.xlsx) с заголовком. Максимум 25 МБ.',
     uploadError: 'Не удалось загрузить файл',
+    loadingSuggestions: 'Подбираю вопросы по вашим данным…',
     emptyOleg:
       'Олег ходит в демо-БД RideGo: строит SQL, таблицу, график и Excel. Запустите сценарий слева или задайте вопрос.',
     emptyKsyusha:
@@ -89,6 +90,7 @@ const COPY = {
     uploading: 'Uploading…',
     uploadHint: 'CSV or Excel (.xlsx) with a header row. Max 25 MB.',
     uploadError: 'Failed to upload file',
+    loadingSuggestions: 'Picking questions for your data…',
     emptyOleg:
       'Oleg queries the RideGo demo DB: SQL, table, chart, Excel. Run a scenario or ask a question.',
     emptyKsyusha:
@@ -160,14 +162,19 @@ export default function App() {
   // Schema-based suggestions for the active data source. Seeded from the
   // heuristic list, then upgraded via the LLM endpoint (mock → heuristic).
   const [sourceSuggestions, setSourceSuggestions] = useState<string[]>([])
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false)
   useEffect(() => {
     const fallback = datasources.find((d) => d.id === datasourceId)?.suggestions?.[lang] ?? []
     setSourceSuggestions(fallback)
     if (datasourceId && datasourceId !== 'ridego') {
+      setSuggestionsLoading(true)
       api
         .sourceSuggestions(datasourceId, model, lang)
         .then((r) => setSourceSuggestions(r.suggestions))
         .catch(() => undefined)
+        .finally(() => setSuggestionsLoading(false))
+    } else {
+      setSuggestionsLoading(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [datasourceId, model, lang])
@@ -616,6 +623,11 @@ export default function App() {
                     ? t.emptyOleg
                     : t.emptyKsyusha}
               </p>
+              {suggestionsLoading ? (
+                <div className="suggestions-loading">
+                  <span className="trace-spinner" /> {t.loadingSuggestions}
+                </div>
+              ) : (
               <div className="suggestions">
                 {(sourceSuggestions.length > 0
                   ? agentMode === 'auto' && agent !== 'oleg'
@@ -645,6 +657,7 @@ export default function App() {
                   </button>
                 ))}
               </div>
+              )}
             </div>
           )}
 
