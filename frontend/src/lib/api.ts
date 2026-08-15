@@ -232,6 +232,10 @@ export const api = {
     json<{ id: string; name: string; tables: number }>(`/api/datasources/${id}/refresh`, {
       method: 'POST',
     }),
+  sourceSuggestions: (id: string, model: string, lang: string) =>
+    json<{ suggestions: string[] }>(
+      `/api/datasources/${id}/suggestions?model=${encodeURIComponent(model)}&lang=${lang}`,
+    ),
   feedback: (body: {
     vote: 'up' | 'down'
     agent: AgentId

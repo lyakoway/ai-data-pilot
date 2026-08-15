@@ -157,12 +157,20 @@ export default function App() {
     [scenarios, agent, agentMode],
   )
 
-  // Schema-based suggestions for the active data source (empty until a source
-  // with suggestions is selected; ridego ships hand-tuned ones).
-  const sourceSuggestions = useMemo(
-    () => datasources.find((d) => d.id === datasourceId)?.suggestions?.[lang] ?? [],
-    [datasources, datasourceId, lang],
-  )
+  // Schema-based suggestions for the active data source. Seeded from the
+  // heuristic list, then upgraded via the LLM endpoint (mock → heuristic).
+  const [sourceSuggestions, setSourceSuggestions] = useState<string[]>([])
+  useEffect(() => {
+    const fallback = datasources.find((d) => d.id === datasourceId)?.suggestions?.[lang] ?? []
+    setSourceSuggestions(fallback)
+    if (datasourceId && datasourceId !== 'ridego') {
+      api
+        .sourceSuggestions(datasourceId, model, lang)
+        .then((r) => setSourceSuggestions(r.suggestions))
+        .catch(() => undefined)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [datasourceId, model, lang])
 
   function selectAgent(target: AgentId) {
     // Clicking an agent pins it and turns auto-routing off (checkbox unchecks);

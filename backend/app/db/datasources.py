@@ -337,9 +337,21 @@ def _read_sheet(sheet) -> tuple[list[str] | None, list[list[Any]]]:
     header = [("" if v is None else str(v).strip()) for v in all_rows[header_idx]]
     if not any(header):
         return None, []
-    # Empty header cells (merged ranges) get synthetic names; ingest_rows'
-    # sanitiser turns them into col_N — no hard failure on messy headers.
-    header = [h if h else f"col_{i}" for i, h in enumerate(header)]
+    # Empty header cells (merged ranges) first inherit values from the title
+    # rows above (e.g. "Покупка авто" over a work-name column), else col_N.
+    title_rows = all_rows[:header_idx]
+    final_header: list[str] = []
+    for i, h in enumerate(header):
+        if h:
+            final_header.append(h)
+            continue
+        inherited = ""
+        for tr in title_rows:
+            if i < len(tr) and tr[i] is not None and str(tr[i]).strip():
+                inherited = str(tr[i]).strip()
+                break
+        final_header.append(inherited if inherited else f"col_{i}")
+    header = final_header
 
     data: list[list[Any]] = []
     for raw_row in all_rows[header_idx + 1:]:
@@ -725,6 +737,7 @@ def register_env_postgres() -> dict[str, Any] | None:
 
 _DATE_NAME_RE = re.compile(r"(date|day|week|month|year|период|time|дата|день|мес)", re.I)
 _ID_NAME_RE = re.compile(r"(^id$|_id$|_id\b)", re.I)
+_SYNTH_COL_RE = re.compile(r"^col_\d+$", re.I)
 _NUMERIC_TYPE_RE = re.compile(r"(int|real|numeric|double|float|decimal)", re.I)
 _TEXT_TYPE_RE = re.compile(r"(text|char|varying|varchar)", re.I)
 
@@ -794,7 +807,9 @@ def suggest_questions(meta: dict[str, Any]) -> dict[str, list[str]]:
         # Prefer real measures; never suggest aggregating over id/_id keys.
         measures = [m for m in metrics if not _ID_NAME_RE.search(m)]
         metric = measures[0] if measures else None
-        dim = dims[0] if dims else None
+        # Synthetic col_N names make useless questions — require a named dim.
+        named_dims = [d for d in dims if not _SYNTH_COL_RE.match(d)]
+        dim = named_dims[0] if named_dims else None
         date_col = dates[0] if dates else None
         if metric and dim:
             ru.append(f"Топ-10 {dim} по {metric}")
@@ -816,3 +831,68 @@ def suggest_questions(meta: dict[str, Any]) -> dict[str, list[str]]:
     ru = list(dict.fromkeys(ru))[:4]
     en = list(dict.fromkeys(en))[:4]
     return {"ru": ru, "en": en}
+
+
+_SUGGEST_LLM_CACHE: dict[tuple[str, str], list[str]] = {}
+
+SUGGEST_LLM_SYSTEM = """Ты — продуктовый аналитик. Тебе дают схему таблиц источника данных.
+Составь 3 практичных вопроса, которые бизнес-пользователь может задать по этим данным:
+агрегации, топы, сравнения, динамика по времени. Используй реальные имена таблиц и колонок.
+Верни ТОЛЬКО JSON-массив из 3 строк-вопросов, без markdown.
+"""
+
+
+def _schema_text_for_llm(meta: dict[str, Any]) -> str:
+    raw = meta.get("columns") or []
+    if raw and isinstance(raw[0], dict) and "columns" in raw[0]:
+        tables = raw
+    else:
+        tables = [{"name": meta.get("table_name") or "data", "columns": raw}]
+    lines = []
+    for t in tables[:5]:
+        cols = ", ".join(f"{c.get('name')} ({c.get('type')})" for c in (t.get("columns") or [])[:15])
+        lines.append(f"Таблица {t.get('name')}: {cols}")
+    return "\n".join(lines)
+
+
+async def suggest_questions_smart(
+    source_id: str, model_id: str = "mock", lang: str = "ru"
+) -> list[str]:
+    """Suggestions for a source: LLM-crafted when a real model is available
+    (cached on the source metadata), heuristic otherwise."""
+    meta = get_source_meta(source_id)
+    if meta is None:
+        return []
+
+    if model_id == "mock" or model_id.startswith("mock"):
+        return suggest_questions(meta).get(lang) or suggest_questions(meta)["ru"]
+
+    key = (source_id, lang)
+    if key in _SUGGEST_LLM_CACHE:
+        return _SUGGEST_LLM_CACHE[key]
+
+    from app.llm import registry as _llm_registry
+    from app.llm.base import ChatMessage
+
+    provider = _llm_registry.get_provider(model_id)
+    if provider.provider == "mock":
+        return suggest_questions(meta).get(lang) or suggest_questions(meta)["ru"]
+
+    import json as _json
+
+    lang_note = "Отвечай на русском." if lang == "ru" else "Answer in English."
+    try:
+        raw = await provider.complete(
+            SUGGEST_LLM_SYSTEM + lang_note + "\n\nСхема:\n" + _schema_text_for_llm(meta),
+            [ChatMessage("user", "Составь вопросы по схеме.")],
+            lang=lang,
+        )
+        parsed = _json.loads(raw.strip().removeprefix("```json").removesuffix("```").strip())
+        if isinstance(parsed, list) and len(parsed) >= 1 and all(isinstance(q, str) for q in parsed):
+            questions = [q.strip() for q in parsed if q.strip()][:3]
+            if questions:
+                _SUGGEST_LLM_CACHE[key] = questions
+                return questions
+    except Exception:  # noqa: BLE001 — any LLM failure falls back to heuristics
+        pass
+    return suggest_questions(meta).get(lang) or suggest_questions(meta)["ru"]
