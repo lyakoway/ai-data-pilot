@@ -491,62 +491,56 @@ export default function App() {
             </div>
           </div>
           <div className="topbar-selects">
-            {agent !== 'ksyusha' && (
-              <select
-                className="select"
-                value={datasourceId}
-                onChange={(e) => {
-                  const id = e.target.value
-                  setDatasourceId(id)
-                  // KPIs are only meaningful for the built-in RideGo source.
-                  if (id !== 'ridego') {
-                    setKpis(null)
-                  } else {
-                    api.kpis().then(setKpis).catch(() => undefined)
-                  }
-                }}
-                title={t.dataSource}
-              >
-                {datasources.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                    {d.row_count != null ? ` · ${d.row_count}` : ''}
-                  </option>
-                ))}
-              </select>
-            )}
-            {agent !== 'ksyusha' && (
-              <>
-                <input
-                  ref={csvInputRef}
-                  type="file"
-                  accept=".csv,.xlsx"
-                  className="csv-input-hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0]
-                    if (f) void handleFileUpload(f)
-                    e.target.value = ''
-                  }}
-                />
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => csvInputRef.current?.click()}
-                  disabled={uploading}
-                  title={t.uploadHint}
-                >
-                  {uploading ? t.uploading : `+ ${t.uploadCsv}`}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => setPgModal(true)}
-                  title={lang === 'en' ? 'Connect a PostgreSQL database' : 'Подключить базу PostgreSQL'}
-                >
-                  {lang === 'en' ? 'PostgreSQL' : 'PostgreSQL'}
-                </button>
-              </>
-            )}
+            <select
+              className="select"
+              value={datasourceId}
+              onChange={(e) => {
+                const id = e.target.value
+                setDatasourceId(id)
+                // KPIs are only meaningful for the built-in RideGo source.
+                if (id !== 'ridego') {
+                  setKpis(null)
+                } else {
+                  api.kpis().then(setKpis).catch(() => undefined)
+                }
+              }}
+              title={t.dataSource}
+            >
+              {datasources.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                  {d.row_count != null ? ` · ${d.row_count}` : ''}
+                </option>
+              ))}
+            </select>
+            <input
+              ref={csvInputRef}
+              type="file"
+              accept=".csv,.xlsx"
+              className="csv-input-hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f) void handleFileUpload(f)
+                e.target.value = ''
+              }}
+            />
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => csvInputRef.current?.click()}
+              disabled={uploading}
+              title={t.uploadHint}
+            >
+              {uploading ? t.uploading : `+ ${t.uploadCsv}`}
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => setPgModal(true)}
+              title={lang === 'en' ? 'Connect a PostgreSQL database' : 'Подключить базу PostgreSQL'}
+            >
+              {lang === 'en' ? 'PostgreSQL' : 'PostgreSQL'}
+            </button>
             <select
               className="select"
               value={model}
@@ -562,7 +556,7 @@ export default function App() {
         </header>
 
         <div className="content">
-          {agent !== 'ksyusha' && kpis && (
+          {kpis && (
             <>
               <div className="section-label">{t.kpis}</div>
               <div className="kpi-grid">
