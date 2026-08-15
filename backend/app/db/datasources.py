@@ -174,9 +174,18 @@ def ingest_rows(
     if not display_name:
         raise ValueError("Display name is required.")
     header = [h.strip() for h in header]
-    if not header or any(not h for h in header):
-        raise ValueError("Header contains empty column names.")
+    if not header:
+        raise ValueError("Header is empty.")
+    # Merged/blank header cells get synthetic names instead of failing the upload.
     header = [_sanitize_col(h, i) for i, h in enumerate(header)]
+    # De-duplicate column names (real sheets repeat headers): to_8 → to_8_2.
+    seen: dict[str, int] = {}
+    for i, h in enumerate(header):
+        if h in seen:
+            seen[h] += 1
+            header[i] = f"{h}_{seen[h]}"
+        else:
+            seen[h] = 1
 
     rows = rows[:_MAX_ROWS]
     # Normalise row widths to match the header.
@@ -303,19 +312,37 @@ def _read_sheet(sheet) -> tuple[list[str] | None, list[list[Any]]]:
     schema-catalog and SQL round-trip cleanly.
     """
     all_rows = list(sheet.iter_rows(values_only=True))
+    # Drop fully empty rows anywhere in the sheet.
+    all_rows = [
+        r for r in all_rows
+        if r and any(v is not None and str(v).strip() != "" for v in r)
+    ]
     if not all_rows:
         return None, []
-    header = [("" if v is None else str(v)) for v in all_rows[0]]
+
+    # Auto-detect the header row: real-world sheets often start with a merged
+    # title row ("Покупка авто | план | факт") while the actual column names sit
+    # one or two rows below. Pick the best-filled row among the first few.
+    def fill_ratio(r: list) -> float:
+        return sum(1 for v in r if v is not None and str(v).strip() != "") / max(len(r), 1)
+
+    header_idx = 0
+    best_fill = 0.0
+    for i, r in enumerate(all_rows[:5]):
+        f = fill_ratio(r)
+        if f > best_fill:
+            best_fill, header_idx = f, i
+        if f >= 0.6:
+            break  # good enough header found
+    header = [("" if v is None else str(v).strip()) for v in all_rows[header_idx]]
     if not any(header):
         return None, []
+    # Empty header cells (merged ranges) get synthetic names; ingest_rows'
+    # sanitiser turns them into col_N — no hard failure on messy headers.
+    header = [h if h else f"col_{i}" for i, h in enumerate(header)]
 
     data: list[list[Any]] = []
-    for raw_row in all_rows[1:]:
-        if raw_row is None:
-            continue
-        # A row is "empty" only if every cell is None/blank.
-        if all(v is None or (isinstance(v, str) and v.strip() == "") for v in raw_row):
-            continue
+    for raw_row in all_rows[header_idx + 1:]:
         data.append([_normalise_cell(v) for v in raw_row])
     return header, data
 

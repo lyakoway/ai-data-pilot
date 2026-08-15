@@ -302,3 +302,54 @@ def test_xlsx_source_deletable(xlsx_sources):
     assert ds.get_source_meta(target["id"]) is None
     # mutate the list so the fixture cleanup doesn't double-delete
     xlsx_sources[:] = xlsx_sources[1:]
+
+
+# --------------------------------------------------------------------------- #
+# Real-world xlsx quirks: merged title rows, blank header cells, duplicate names
+# --------------------------------------------------------------------------- #
+
+
+def test_xlsx_title_row_skipped_and_duplicate_columns_deduped(tmp_db):
+    """Sheet: row1 = merged title (mostly blank), row2 = real header with a
+    duplicated name; data starts at row3."""
+    import io
+
+    from openpyxl import Workbook
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "ТО"
+    ws.append(["Покупка авто", None, None, None, "синим - план"])
+    ws.append([None, "регламент", "мой выбор", "TO-1", "TO-1"])  # duplicate TO-1
+    ws.append(["Замена масла", 15000, 8000, 110900, 115000])
+    ws.append(["Осмотр", 15000, 4000, 110900, 115000])
+    buf = io.BytesIO()
+    wb.save(buf)
+
+    metas = ds.ingest_xlsx("Покупка_авто_ТО.xlsx", buf.getvalue())
+    assert len(metas) == 1
+    m = metas[0]
+    names = [c["name"] for c in m["columns"]]
+    # Header taken from row 2 (blank title row skipped), duplicate deduped.
+    assert "регламент" in names
+    assert "мой_выбор" in names
+    assert names.count("to_1") == 1
+    assert "to_1_2" in names
+    assert m["row_count"] == 2
+    ds.delete_source(m["id"])
+
+
+def test_csv_blank_header_cell_gets_synthetic_name(tmp_db):
+    meta = ds.ingest_csv("weird.csv", ",x,\n1,2,3\n")
+    names = [c["name"] for c in meta["columns"]]
+    # First blank header cell → col_0, not an error.
+    assert names[1] == "x"
+    assert names[0].startswith("col_")
+    ds.delete_source(meta["id"])
+
+
+def test_duplicate_csv_headers_deduped(tmp_db):
+    meta = ds.ingest_csv("dup.csv", "a,a\n1,2\n")
+    names = [c["name"] for c in meta["columns"]]
+    assert names == ["a", "a_2"]
+    ds.delete_source(meta["id"])
