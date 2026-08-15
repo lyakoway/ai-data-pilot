@@ -835,14 +835,37 @@ def suggest_questions(meta: dict[str, Any]) -> dict[str, list[str]]:
 
 _SUGGEST_LLM_CACHE: dict[tuple[str, str], list[str]] = {}
 
-SUGGEST_LLM_SYSTEM = """Ты — продуктовый аналитик. Тебе дают схему таблиц источника данных.
-Составь 3 практичных вопроса, которые бизнес-пользователь может задать по этим данным:
-агрегации, топы, сравнения, динамика по времени. Используй реальные имена таблиц и колонок.
+SUGGEST_LLM_SYSTEM = """Ты — продуктовый аналитик. Тебе дают схему таблиц источника данных и примеры строк.
+Составь 3 вопроса, которые бизнес-пользователь задаст по ЭТИМ ДАННЫМ.
+Правила:
+- Вопросы о значениях: суммы, сравнения вариантов, топы, динамика — ответимые SQL-запросом.
+- ЗАПРЕЩЕНЫ вопросы о структуре и именах колонок («что делает колонка», «что значит поле»).
+- НЕ упоминай технические имена вида col_N или с суффиксами _2 — формулируй по-человечески
+  через осмысленные колонки из схемы.
+- Без повторов. Язык вопросов = язык указанный ниже.
 Верни ТОЛЬКО JSON-массив из 3 строк-вопросов, без markdown.
 """
 
 
-def _schema_text_for_llm(meta: dict[str, Any]) -> str:
+def _sample_rows_clause(engine, table_name: str, limit: int = 2) -> str:
+    """Up to two sample rows so the LLM understands what the data is about."""
+    if engine is None:
+        return ""
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(text(f'SELECT * FROM "{table_name}" LIMIT {limit}')).fetchall()
+        if not rows:
+            return ""
+        rendered = []
+        for r in rows:
+            vals = [str(v)[:20] if v is not None else "—" for v in r[:10]]
+            rendered.append(" | ".join(vals))
+        return "\nПримеры строк:\n" + "\n".join(rendered)
+    except Exception:  # noqa: BLE001 — samples are best-effort
+        return ""
+
+
+def _schema_text_for_llm(meta: dict[str, Any], engine=None) -> str:
     raw = meta.get("columns") or []
     if raw and isinstance(raw[0], dict) and "columns" in raw[0]:
         tables = raw
@@ -852,6 +875,7 @@ def _schema_text_for_llm(meta: dict[str, Any]) -> str:
     for t in tables[:5]:
         cols = ", ".join(f"{c.get('name')} ({c.get('type')})" for c in (t.get("columns") or [])[:15])
         lines.append(f"Таблица {t.get('name')}: {cols}")
+        lines.append(_sample_rows_clause(engine, str(t.get("name"))))
     return "\n".join(lines)
 
 
@@ -882,14 +906,19 @@ async def suggest_questions_smart(
 
     lang_note = "Отвечай на русском." if lang == "ru" else "Answer in English."
     try:
+        engine = None
+        try:
+            engine = get_engine_for(source_id)
+        except Exception:  # noqa: BLE001 — samples are optional
+            pass
         raw = await provider.complete(
-            SUGGEST_LLM_SYSTEM + lang_note + "\n\nСхема:\n" + _schema_text_for_llm(meta),
-            [ChatMessage("user", "Составь вопросы по схеме.")],
+            SUGGEST_LLM_SYSTEM + lang_note + "\n\nСхема:\n" + _schema_text_for_llm(meta, engine),
+            [ChatMessage("user", "Составь вопросы по данным.")],
             lang=lang,
         )
         parsed = _json.loads(raw.strip().removeprefix("```json").removesuffix("```").strip())
         if isinstance(parsed, list) and len(parsed) >= 1 and all(isinstance(q, str) for q in parsed):
-            questions = [q.strip() for q in parsed if q.strip()][:3]
+            questions = list(dict.fromkeys(q.strip() for q in parsed if q.strip()))[:3]
             if questions:
                 _SUGGEST_LLM_CACHE[key] = questions
                 return questions
