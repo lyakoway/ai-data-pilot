@@ -30,9 +30,11 @@ async def test_llm_suggestions_cached(csv_meta, monkeypatch):
 
         async def complete(self, system, messages, lang="ru"):
             FakeLLM.calls += 1
-            assert "Таблица" in system or "работ" or True
+            # The prompt must now carry sample rows, not only column names.
+            assert "Примеры строк" in system and "a | 100" in system
+            assert "ЗАПРЕЩЕНЫ" in system  # structure-question ban present
             return json.dumps(
-                ["Сколько всего работ в справочнике?", "Какая работа самая дорогая?", "Средняя цена работы"]
+                ["Вопрос один", "Вопрос один", "Сколько всего работ?", "Какая работа самая дорогая?"]
             )
 
     import app.llm.registry as llm_registry
@@ -40,6 +42,9 @@ async def test_llm_suggestions_cached(csv_meta, monkeypatch):
     monkeypatch.setattr(llm_registry, "get_provider", lambda mid: FakeLLM())
 
     first = await ds.suggest_questions_smart(csv_meta["id"], model_id="openai:gpt-4o", lang="ru")
+    # Duplicated LLM answer is deduped.
+    assert len(first) == 3
+    assert len(set(first)) == 3
     assert "самая дорогая" in " ".join(first)
     assert FakeLLM.calls == 1
     # Second call hits the cache — no extra LLM call.
