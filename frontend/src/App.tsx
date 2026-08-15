@@ -157,6 +157,13 @@ export default function App() {
     [scenarios, agent, agentMode],
   )
 
+  // Schema-based suggestions for the active data source (empty until a source
+  // with suggestions is selected; ridego ships hand-tuned ones).
+  const sourceSuggestions = useMemo(
+    () => datasources.find((d) => d.id === datasourceId)?.suggestions?.[lang] ?? [],
+    [datasources, datasourceId, lang],
+  )
+
   function selectAgent(target: AgentId) {
     // Clicking an agent pins it and turns auto-routing off (checkbox unchecks);
     // re-enabling auto is done via the checkbox itself.
@@ -330,16 +337,8 @@ export default function App() {
     setUploading(true)
     try {
       const result = await api.uploadFile(file)
-      const summaries = result.sources.map((s) => ({
-        id: s.id,
-        name: s.name,
-        kind: s.kind,
-        description: s.description,
-        row_count: s.row_count,
-        created_at: s.created_at,
-      }))
-      setDatasources((prev) => [...prev, ...summaries])
-      // Select the first created source (CSV → one, Excel → first sheet).
+      // Refetch to pick up schema-based suggestions for the new source.
+      api.datasources().then(setDatasources).catch(() => undefined)
       const first = result.sources[0]
       if (first) {
         setDatasourceId(first.id)
@@ -610,24 +609,28 @@ export default function App() {
                     : t.emptyKsyusha}
               </p>
               <div className="suggestions">
-                {(agentMode === 'auto'
-                  ? [
-                      'Топ-10 городов по поездкам',
-                      'Как считается utilization?',
-                      'Выручка по регионам за 30 дней',
-                      'Какой TTL у Redis pricing cache?',
-                    ]
-                  : agent === 'oleg'
+                {(sourceSuggestions.length > 0
+                  ? agentMode === 'auto' && agent !== 'oleg'
+                    ? [...sourceSuggestions.slice(0, 3), 'Как считается utilization?']
+                    : sourceSuggestions.slice(0, 4)
+                  : agentMode === 'auto'
                     ? [
-                        'Выручка по регионам за 30 дней',
                         'Топ-10 городов по поездкам',
-                        'Проникновение подписок в InHouse городах',
+                        'Как считается utilization?',
+                        'Выручка по регионам за 30 дней',
+                        'Какой TTL у Redis pricing cache?',
                       ]
-                    : [
-                        'Где хранится utilization и как она считается?',
-                        'Как работает Redis pricing cache?',
-                        'Что делает Reset errors в админке?',
-                      ]
+                    : agent === 'oleg'
+                      ? [
+                          'Выручка по регионам за 30 дней',
+                          'Топ-10 городов по поездкам',
+                          'Проникновение подписок в InHouse городах',
+                        ]
+                      : [
+                          'Где хранится utilization и как она считается?',
+                          'Как работает Redis pricing cache?',
+                          'Что делает Reset errors в админке?',
+                        ]
                 ).map((s) => (
                   <button key={s} type="button" className="chip" onClick={() => ask(s)}>
                     {s}
@@ -748,7 +751,8 @@ export default function App() {
           lang={lang}
           onAdded={(source, tables) => {
             setPgModal(false)
-            setDatasources((prev) => [...prev, source])
+            // Refetch to pick up schema-based suggestions for the new source.
+            api.datasources().then(setDatasources).catch(() => undefined)
             setDatasourceId(source.id)
             setKpis(null)
             window.alert(

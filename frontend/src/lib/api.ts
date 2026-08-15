@@ -37,6 +37,7 @@ export type DataSourceInfo = {
   description: string
   row_count: number | null
   created_at: string | null
+  suggestions?: { ru?: string[]; en?: string[] }
 }
 
 export type CsvUploadResult = DataSourceInfo & {
