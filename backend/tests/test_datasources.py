@@ -353,3 +353,40 @@ def test_duplicate_csv_headers_deduped(tmp_db):
     names = [c["name"] for c in meta["columns"]]
     assert names == ["a", "a_2"]
     ds.delete_source(meta["id"])
+
+
+def test_title_row_value_names_blank_header_cell(tmp_db):
+    """Blank header cell inherits the title-row value above it (e.g. merged
+    'Покупка авто' header over a work-name column)."""
+    import io
+
+    from openpyxl import Workbook
+
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["Покупка авто", None, None])
+    ws.append([None, "регламент", "цена"])
+    ws.append(["Замена масла", 15000, 5000])
+    buf = io.BytesIO()
+    wb.save(buf)
+    metas = ds.ingest_xlsx("t.xlsx", buf.getvalue())
+    names = [c["name"] for c in metas[0]["columns"]]
+    assert names[0].startswith("покупка_авто")
+    assert "регламент" in names
+    ds.delete_source(metas[0]["id"])
+
+
+def test_heuristic_skips_synthetic_dim_names():
+    from app.db.datasources import suggest_questions
+
+    meta = {
+        "kind": "csv",
+        "table_name": "x",
+        "columns": [
+            {"name": "col_0", "type": "text"},
+            {"name": "amount", "type": "integer"},
+        ],
+    }
+    s = suggest_questions(meta)
+    # No "Топ-10 col_0 по amount" — synthetic names never become question dims.
+    assert not any("col_0" in q for q in s["ru"])

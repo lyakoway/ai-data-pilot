@@ -17,6 +17,16 @@ def list_datasources() -> list[dict]:
     return datasources.list_sources()
 
 
+@router.get("/{source_id}/suggestions")
+async def get_suggestions(source_id: str, model: str = "mock", lang: str = "ru") -> dict:
+    """Schema-based example questions; LLM-crafted for real models (cached), heuristic otherwise."""
+    meta = datasources.get_source_meta(source_id)
+    if meta is None:
+        raise HTTPException(404, "Data source not found")
+    questions = await datasources.suggest_questions_smart(source_id, model_id=model, lang=lang)
+    return {"suggestions": questions}
+
+
 @router.post("/upload")
 async def upload_file(file: UploadFile = File(...)) -> dict:
     """Upload a ``.csv`` or ``.xlsx`` file and register it as one or more data
