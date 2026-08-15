@@ -14,6 +14,7 @@ class DocChunk:
     title: str
     text: str
     score: float = 0.0
+    page: int = 1
 
 
 _TOKEN = re.compile(r"[a-zA-Zа-яА-ЯёЁ0-9_./-]{2,}")
@@ -49,23 +50,59 @@ def load_chunks() -> list[DocChunk]:
 
 
 def retrieve(query: str, top_k: int = 4) -> list[DocChunk]:
+    """Search uploaded documents (BM25-IDF) + built-in docs, merged ranked."""
     q = _tokenize(query)
     if not q:
         return []
-    scored: list[DocChunk] = []
+
+    all_scored: list[DocChunk] = []
+
+    # --- Uploaded documents (BM25-IDF scoring) ---
+    try:
+        from app.db import app_db
+        uploaded = app_db.get_chunks_for_search()
+        if uploaded:
+            # Compute IDF per query token across all chunks.
+            df: dict[str, int] = {}
+            chunk_tokens: list[set[str]] = []
+            for ch in uploaded:
+                toks = _tokenize(ch["text"])
+                chunk_tokens.append(toks)
+                for t in q:
+                    if t in toks:
+                        df[t] = df.get(t, 0) + 1
+            N = len(uploaded)
+            for ch, toks in zip(uploaded, chunk_tokens):
+                score = 0.0
+                for t in q:
+                    if t in toks:
+                        idf = 1.0 + (N / (df.get(t, 1)))
+                        score += idf
+                if score > 0:
+                    label = ch.get("label") or f"{ch['filename']} стр. {ch['page']}"
+                    all_scored.append(DocChunk(
+                        doc_id=f"{ch['document_id']}#{ch['chunk_index']}",
+                        title=label,
+                        text=ch["text"],
+                        score=score * 2.0,  # uploaded docs get a relevance boost
+                        page=ch.get("page", 1),
+                    ))
+    except Exception:  # noqa: BLE001 — uploaded search is additive, never blocks
+        pass
+
+    # --- Built-in docs (existing keyword search) ---
     for ch in load_chunks():
         tokens = _tokenize(ch.title + " " + ch.text)
         overlap = len(q & tokens)
         if overlap == 0:
             continue
-        # Boost title hits
         title_hit = len(q & _tokenize(ch.title))
         score = overlap + title_hit * 2
-        scored.append(DocChunk(ch.doc_id, ch.title, ch.text, float(score)))
-    scored.sort(key=lambda c: c.score, reverse=True)
-    top = scored[:top_k]
-    # Normalise scores to 0..1 relative to the strongest match so the UI can
-    # show a relevance percentage. The best fragment is always 1.0.
+        all_scored.append(DocChunk(ch.doc_id, ch.title, ch.text, float(score)))
+
+    all_scored.sort(key=lambda c: c.score, reverse=True)
+    top = all_scored[:top_k]
+    # Normalise scores to 0..1.
     if top:
         max_score = top[0].score or 1.0
         for ch in top:

@@ -127,16 +127,31 @@ async def run_ksyusha_streaming(
     step["summary"] = (answer[:140] + "…") if len(answer) > 140 else answer
     await emit(step)
 
-    sources = [
-        {
+    sources = []
+    for c in chunks:
+        src = {
             "id": c.doc_id,
             "title": c.title,
             "snippet": c.text[:220],
             "full_text": c.text,
             "score": c.score,
+            "document_id": None,
+            "filename": None,
+            "page": None,
         }
-        for c in chunks
-    ]
+        # Uploaded documents have doc_id = "{document_id}#{chunk_index}".
+        if "#" in c.doc_id and not c.doc_id.endswith(".md"):
+            doc_id = c.doc_id.rsplit("#", 1)[0]
+            try:
+                from app.db import app_db
+                doc = app_db.get_document(doc_id)
+                if doc:
+                    src["document_id"] = doc_id
+                    src["filename"] = doc["filename"]
+                    src["page"] = c.page
+            except Exception:  # noqa: BLE001
+                pass
+        sources.append(src)
 
     return {
         "agent": "ksyusha",

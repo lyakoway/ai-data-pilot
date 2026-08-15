@@ -3,6 +3,18 @@ export type AgentId = 'oleg' | 'ksyusha'
 /** 'auto' lets the backend router pick the agent per question. */
 export type AgentMode = AgentId | 'auto'
 
+export type DocumentItem = {
+  id: string
+  filename: string
+  content_type: string
+  size_bytes: number
+  page_count: number
+  chunk_count: number
+  status: 'processing' | 'ready' | 'error'
+  error: string | null
+  created_at: string
+}
+
 export type ModelInfo = {
   id: string
   provider: string
@@ -92,7 +104,16 @@ export type ChatResult = {
   chart: ChartPayload | null
   excel_url: string | null
   tables_used: string[]
-  sources?: { id: string; title: string; snippet: string; full_text?: string; score?: number }[]
+  sources?: {
+    id: string
+    title: string
+    snippet: string
+    full_text?: string
+    score?: number
+    document_id?: string | null
+    filename?: string | null
+    page?: number | null
+  }[]
   suggestions: string[]
 }
 
@@ -236,6 +257,15 @@ export const api = {
     json<{ suggestions: string[] }>(
       `/api/datasources/${id}/suggestions?model=${encodeURIComponent(model)}&lang=${lang}`,
     ),
+  listDocuments: () => json<DocumentItem[]>('/api/documents'),
+  uploadDocument: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return json<DocumentItem>('/api/documents', { method: 'POST', body: form })
+  },
+  deleteDocument: (id: string) =>
+    json<{ ok: boolean }>(`/api/documents/${id}`, { method: 'DELETE' }),
+  documentFileUrl: (id: string) => `/api/documents/${id}/file`,
   feedback: (body: {
     vote: 'up' | 'down'
     agent: AgentId

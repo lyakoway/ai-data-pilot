@@ -9,6 +9,7 @@ import {
   YAxis,
 } from 'recharts'
 import { AgentTrace } from './components/AgentTrace'
+import { DocumentsPanel } from './components/DocumentsPanel'
 import { PostgresModal } from './components/PostgresModal'
 import { ProviderErrorModal, isProviderError } from './components/ProviderErrorModal'
 import { ResultCard } from './components/ResultCard'
@@ -45,6 +46,7 @@ const COPY = {
     subtitleOleg: 'Аналитик Олег · SQL, метрики, Excel',
     subtitleKsyusha: 'Ксюша · документация и backend-логика',
     scenarios: 'Сценарии',
+    docsLabel: 'Документы',
     run: 'Запустить',
     kpis: 'Обзор RideGo',
     topCities: 'Топ городов по поездкам',
@@ -78,6 +80,7 @@ const COPY = {
     subtitleOleg: 'Analyst Oleg · SQL, metrics, Excel',
     subtitleKsyusha: 'Ksyusha · docs & backend logic',
     scenarios: 'Scenarios',
+    docsLabel: 'Documents',
     run: 'Run',
     kpis: 'RideGo overview',
     topCities: 'Top cities by rides',
@@ -427,6 +430,9 @@ export default function App() {
           />
           {t.autoModeLabel}
         </label>
+
+        <div className="section-label">{t.docsLabel}</div>
+        <DocumentsPanel lang={lang} onUploaded={() => undefined} />
 
         <div className="section-label">{t.scenarios}</div>
         <div className="scenario-list">

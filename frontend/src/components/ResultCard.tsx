@@ -6,6 +6,7 @@ import { api } from '../lib/api'
 import { injectCitations } from '../lib/citations'
 import { AgentTrace } from './AgentTrace'
 import { ChartBlock } from './ChartBlock'
+import { DocumentViewer, type ViewerSource } from './DocumentViewer'
 
 const STATUS_LABEL: Record<AnswerStatus, { ru: string; en: string }> = {
   ok: { ru: 'Реальный ответ', en: 'Live answer' },
@@ -48,6 +49,7 @@ export function ResultCard({
   const [vote, setVote] = useState<'up' | 'down' | null>(null)
   const [voteSaved, setVoteSaved] = useState(false)
   const [openSources, setOpenSources] = useState<Set<number>>(new Set())
+  const [viewerSource, setViewerSource] = useState<ViewerSource | null>(null)
   const sourceRefs = useRef<(HTMLDivElement | null)[]>([])
   const status = result.status ?? 'ok'
   const statusClass = `status-badge status-${status}`
@@ -196,9 +198,31 @@ export function ResultCard({
                 ref={(el) => { sourceRefs.current[idx] = el }}
                 className="source-item"
               >
-                <div className="source-head" onClick={() => toggleSource(idx)}>
-                  <span className="source-toggle">{isOpen ? '▾' : '▸'}</span>
-                  <strong>[{idx + 1}] {s.title}</strong>
+                <div className="source-head">
+                  {s.document_id ? (
+                    <button
+                      type="button"
+                      className="source-link"
+                      onClick={() =>
+                        setViewerSource({
+                          document_id: s.document_id!,
+                          filename: s.filename || s.title,
+                          page: s.page ?? null,
+                          snippet: s.snippet,
+                        })
+                      }
+                      title={lang === 'en' ? 'Open document' : 'Открыть документ'}
+                    >
+                      <span className="source-toggle">▸</span>
+                      <strong>[{idx + 1}] {s.filename || s.title}</strong>
+                      {s.page != null && <span className="source-page">стр. {s.page}</span>}
+                    </button>
+                  ) : (
+                    <span className="source-toggle-inner" onClick={() => toggleSource(idx)}>
+                      <span className="source-toggle">{isOpen ? '▾' : '▸'}</span>
+                      <strong>[{idx + 1}] {s.title}</strong>
+                    </span>
+                  )}
                   {relevance != null && (
                     <span className="source-relevance" title="Relevance">
                       {relevance}%
@@ -217,6 +241,10 @@ export function ResultCard({
             )
           })}
         </div>
+      )}
+
+      {viewerSource && (
+        <DocumentViewer source={viewerSource} onClose={() => setViewerSource(null)} />
       )}
 
       <div className="result-actions">
