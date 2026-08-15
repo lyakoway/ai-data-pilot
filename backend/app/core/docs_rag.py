@@ -19,9 +19,29 @@ class DocChunk:
 
 _TOKEN = re.compile(r"[a-zA-Zа-яА-ЯёЁ0-9_./-]{2,}")
 
+# Common Russian inflection endings to strip for crude stemming.
+_RU_SUFFIXES = [
+    "иями", "ями", "ами", "ого", "его", "ому", "ему", "ыми", "ими", "их", "ых",
+    "ая", "яя", "ое", "ее", "ые", "ие", "ой", "ей", "ый", "ий", "ом", "ем",
+    "ам", "ям", "ах", "ях", "ов", "ев", "ей", "ий", "ью", "ия", "ии",
+    "у", "ю", "а", "я", "о", "е", "ы", "и", "й", "ь",
+]
+
+
+def _stem(token: str) -> str:
+    """Crude Russian stemmer: strip common inflection endings (longest first)."""
+    if len(token) <= 3:
+        return token
+    for suffix in _RU_SUFFIXES:
+        if token.endswith(suffix) and len(token) - len(suffix) >= 3:
+            return token[: -len(suffix)]
+    return token
+
 
 def _tokenize(text: str) -> set[str]:
-    return {t.lower() for t in _TOKEN.findall(text)}
+    raw = {t.lower() for t in _TOKEN.findall(text)}
+    # Return both raw and stemmed forms so exact and inflected matches both work.
+    return raw | {_stem(t) for t in raw}
 
 
 def load_chunks() -> list[DocChunk]:
@@ -66,7 +86,7 @@ def retrieve(query: str, top_k: int = 4) -> list[DocChunk]:
             df: dict[str, int] = {}
             chunk_tokens: list[set[str]] = []
             for ch in uploaded:
-                toks = _tokenize(ch["text"])
+                toks = _tokenize(ch["filename"] + " " + ch["text"])
                 chunk_tokens.append(toks)
                 for t in q:
                     if t in toks:
