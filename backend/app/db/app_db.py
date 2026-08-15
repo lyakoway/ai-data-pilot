@@ -57,6 +57,28 @@ CREATE TABLE IF NOT EXISTS feedback (
     lang         TEXT,
     created_at   TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS documents (
+    id           TEXT PRIMARY KEY,
+    filename     TEXT NOT NULL,
+    content_type TEXT NOT NULL DEFAULT '',
+    size_bytes   INTEGER NOT NULL DEFAULT 0,
+    page_count   INTEGER NOT NULL DEFAULT 0,
+    chunk_count  INTEGER NOT NULL DEFAULT 0,
+    status       TEXT NOT NULL DEFAULT 'processing',
+    error        TEXT,
+    created_at   TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS chunks (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    document_id  TEXT NOT NULL,
+    page         INTEGER NOT NULL DEFAULT 1,
+    label        TEXT,
+    chunk_index  INTEGER NOT NULL DEFAULT 0,
+    text         TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_chunks_doc ON chunks(document_id);
 """
 
 RIDEGO_SOURCE_ROW = {
@@ -329,3 +351,93 @@ def feedback_stats() -> dict[str, int]:
         up = conn.execute(text("SELECT COUNT(*) FROM feedback WHERE vote = 'up'")).scalar() or 0
         down = conn.execute(text("SELECT COUNT(*) FROM feedback WHERE vote = 'down'")).scalar() or 0
     return {"up": int(up), "down": int(down)}
+
+
+# --------------------------------------------------------------------------- #
+# Documents CRUD
+# --------------------------------------------------------------------------- #
+
+
+def list_documents() -> list[dict[str, Any]]:
+    eng = get_app_engine()
+    with eng.connect() as conn:
+        rows = conn.execute(
+            text("SELECT id, filename, content_type, size_bytes, page_count, chunk_count, status, error, created_at FROM documents ORDER BY created_at DESC")
+        ).fetchall()
+    return [
+        {
+            "id": r[0], "filename": r[1], "content_type": r[2],
+            "size_bytes": r[3], "page_count": r[4], "chunk_count": r[5],
+            "status": r[6], "error": r[7], "created_at": r[8],
+        }
+        for r in rows
+    ]
+
+
+def get_document(doc_id: str) -> dict[str, Any] | None:
+    eng = get_app_engine()
+    with eng.connect() as conn:
+        row = conn.execute(
+            text("SELECT id, filename, content_type, size_bytes, page_count, chunk_count, status, error, created_at FROM documents WHERE id = :id"),
+            {"id": doc_id},
+        ).fetchone()
+    if not row:
+        return None
+    return {
+        "id": row[0], "filename": row[1], "content_type": row[2],
+        "size_bytes": row[3], "page_count": row[4], "chunk_count": row[5],
+        "status": row[6], "error": row[7], "created_at": row[8],
+    }
+
+
+def save_document(doc: dict[str, Any]) -> dict[str, Any]:
+    eng = get_app_engine()
+    with eng.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT OR REPLACE INTO documents (id, filename, content_type, size_bytes, page_count, chunk_count, status, error, created_at) "
+                "VALUES (:id, :filename, :content_type, :size_bytes, :page_count, :chunk_count, :status, :error, :created_at)"
+            ),
+            doc,
+        )
+    return doc
+
+
+def delete_document_row(doc_id: str) -> bool:
+    eng = get_app_engine()
+    with eng.begin() as conn:
+        conn.execute(text("DELETE FROM chunks WHERE document_id = :id"), {"id": doc_id})
+        result = conn.execute(text("DELETE FROM documents WHERE id = :id"), {"id": doc_id})
+    return result.rowcount > 0
+
+
+def insert_chunks(doc_id: str, chunks: list[dict[str, Any]]) -> int:
+    eng = get_app_engine()
+    with eng.begin() as conn:
+        for ch in chunks:
+            conn.execute(
+                text(
+                    "INSERT INTO chunks (document_id, page, label, chunk_index, text) "
+                    "VALUES (:document_id, :page, :label, :chunk_index, :text)"
+                ),
+                {"document_id": doc_id, "page": ch.get("page", 1), "label": ch.get("label"),
+                 "chunk_index": ch.get("index", 0), "text": ch["text"]},
+            )
+    return len(chunks)
+
+
+def get_chunks_for_search() -> list[dict[str, Any]]:
+    """All chunks from ready documents, for BM25 search."""
+    eng = get_app_engine()
+    with eng.connect() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT c.document_id, c.page, c.label, c.chunk_index, c.text, d.filename "
+                "FROM chunks c JOIN documents d ON d.id = c.document_id "
+                "WHERE d.status = 'ready' ORDER BY c.document_id, c.chunk_index"
+            )
+        ).fetchall()
+    return [
+        {"document_id": r[0], "page": r[1], "label": r[2], "chunk_index": r[3], "text": r[4], "filename": r[5]}
+        for r in rows
+    ]

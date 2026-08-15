@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import chat, datasources, feedback, meta, scenarios
+from app.api.routes import chat, datasources, documents, feedback, meta, scenarios
 from app.config import get_settings
 from app.core.docs_rag import ensure_docs
 from app.db.seed import seed_analytics_db
@@ -44,6 +44,7 @@ def create_app() -> FastAPI:
     app.include_router(scenarios.router)
     app.include_router(meta.router)
     app.include_router(datasources.router)
+    app.include_router(documents.router)
     app.include_router(feedback.router)
 
     # Optional: serve built frontend from static/ (HF Spaces / single container)
