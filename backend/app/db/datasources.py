@@ -67,6 +67,7 @@ def list_sources() -> list[dict[str, Any]]:
                 "description": s.get("description", ""),
                 "row_count": s.get("row_count"),
                 "created_at": s.get("created_at"),
+                "suggestions": suggest_questions(s),
             }
         )
     return out
@@ -689,3 +690,102 @@ def register_env_postgres() -> dict[str, Any] | None:
     except ValueError:
         # Connection failed at startup — skip silently (user can add manually later).
         return None
+
+
+# --------------------------------------------------------------------------- #
+# Schema-based question suggestions
+# --------------------------------------------------------------------------- #
+
+_DATE_NAME_RE = re.compile(r"(date|day|week|month|year|период|time|дата|день|мес)", re.I)
+_ID_NAME_RE = re.compile(r"(^id$|_id$|_id\b)", re.I)
+_NUMERIC_TYPE_RE = re.compile(r"(int|real|numeric|double|float|decimal)", re.I)
+_TEXT_TYPE_RE = re.compile(r"(text|char|varying|varchar)", re.I)
+
+_RIDEGO_SUGGESTIONS = {
+    "ru": [
+        "Выручка по регионам за 30 дней",
+        "Топ-10 городов по поездкам",
+        "Проникновение подписок в InHouse городах",
+    ],
+    "en": [
+        "Revenue by region for the last 30 days",
+        "Top-10 cities by rides",
+        "Subscription penetration in InHouse cities",
+    ],
+}
+
+
+def _classify_columns(cols: list[dict[str, Any]]) -> tuple[list[str], list[str], list[str]]:
+    """Split a table's columns into (dates, dims, metrics) by name and type."""
+    dates: list[str] = []
+    dims: list[str] = []
+    metrics: list[str] = []
+    for c in cols:
+        name = str(c.get("name", ""))
+        ctype = str(c.get("type", "")).lower()
+        if not name:
+            continue
+        if "date" in ctype or "timestamp" in ctype or _DATE_NAME_RE.search(name):
+            dates.append(name)
+        elif _NUMERIC_TYPE_RE.search(ctype):
+            metrics.append(name)
+        elif _TEXT_TYPE_RE.search(ctype) and not _ID_NAME_RE.search(name):
+            dims.append(name)
+    return dates, dims, metrics
+
+
+def suggest_questions(meta: dict[str, Any]) -> dict[str, list[str]]:
+    """Generate example questions from a source's introspected schema.
+
+    RideGo keeps its hand-tuned defaults; uploaded CSV/Excel and PostgreSQL
+    sources get questions built from their actual columns: top-N by metric,
+    totals per dimension, trends over time, row counts.
+    """
+    if meta.get("kind") == "ridego":
+        return dict(_RIDEGO_SUGGESTIONS)
+
+    # Normalise tables: CSV sources carry a flat column list, PG a table list.
+    raw_tables = meta.get("columns") or []
+    if raw_tables and isinstance(raw_tables[0], dict) and "columns" in raw_tables[0]:
+        tables = raw_tables  # postgres: [{name, columns: [...]}]
+    else:
+        tables = [{"name": meta.get("table_name") or "данные", "columns": raw_tables}]
+
+    ru: list[str] = []
+    en: list[str] = []
+    # Rank tables by analytical "richness" so the juiciest fact tables
+    # (measures + dims + dates) drive the suggestions, not the first alphabetically.
+    scored = []
+    for t in tables:
+        dates, dims, metrics = _classify_columns(t.get("columns") or [])
+        measures = [m for m in metrics if not _ID_NAME_RE.search(m)]
+        scored.append((len(measures) * 2 + len(dims) + len(dates), t))
+    scored.sort(key=lambda x: x[0], reverse=True)
+
+    for _, t in scored[:2]:
+        dates, dims, metrics = _classify_columns(t.get("columns") or [])
+        # Prefer real measures; never suggest aggregating over id/_id keys.
+        measures = [m for m in metrics if not _ID_NAME_RE.search(m)]
+        metric = measures[0] if measures else None
+        dim = dims[0] if dims else None
+        date_col = dates[0] if dates else None
+        if metric and dim:
+            ru.append(f"Топ-10 {dim} по {metric}")
+            en.append(f"Top-10 {dim} by {metric}")
+            ru.append(f"Сумма {metric} по {dim}")
+            en.append(f"Total {metric} by {dim}")
+        if metric and date_col:
+            ru.append(f"Динамика {metric} по месяцам")
+            en.append(f"{metric} trend by month")
+        if metric and not dim and not date_col:
+            ru.append(f"Среднее {metric}")
+            en.append(f"Average {metric}")
+        if len(tables) > 1 or not ru:
+            ru.append("Сколько всего записей?")
+            en.append("How many rows are there?")
+    if not ru:
+        ru, en = ["Что есть в этих данных?"], ["What is in this data?"]
+    # Dedupe preserving order, cap at 4.
+    ru = list(dict.fromkeys(ru))[:4]
+    en = list(dict.fromkeys(en))[:4]
+    return {"ru": ru, "en": en}
