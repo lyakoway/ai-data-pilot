@@ -120,7 +120,7 @@ export default function App() {
   const [model, setModel] = useState('mock')
   const [scenarios, setScenarios] = useState<Scenario[]>([])
   const [datasources, setDatasources] = useState<DataSourceInfo[]>([])
-  const [datasourceId, setDatasourceId] = useState('ridego')
+  const [datasourceId, setDatasourceId] = useState('auto')
   const [uploading, setUploading] = useState(false)
   const [kpis, setKpis] = useState<Kpis | null>(null)
   const [turns, setTurns] = useState<Turn[]>([])
@@ -167,9 +167,14 @@ export default function App() {
   const [sourceSuggestions, setSourceSuggestions] = useState<string[]>([])
   const [suggestionsLoading, setSuggestionsLoading] = useState(false)
   useEffect(() => {
+    if (!datasourceId || datasourceId === 'auto') {
+      setSourceSuggestions([])
+      setSuggestionsLoading(false)
+      return
+    }
     const fallback = datasources.find((d) => d.id === datasourceId)?.suggestions?.[lang] ?? []
     setSourceSuggestions(fallback)
-    if (datasourceId && datasourceId !== 'ridego') {
+    if (datasourceId !== 'ridego') {
       setSuggestionsLoading(true)
       api
         .sourceSuggestions(datasourceId, model, lang)
@@ -220,6 +225,14 @@ export default function App() {
             typeof step.detail.decision === 'string'
           ) {
             setAgent(step.detail.decision as AgentId)
+          }
+          // Auto source: show which data source the router picked.
+          if (
+            step.tool === 'source_router' &&
+            step.detail &&
+            typeof step.detail.decision === 'string'
+          ) {
+            setDatasourceId(step.detail.decision)
           }
           setTurns((prev) =>
             prev.map((t) => {
@@ -518,6 +531,7 @@ export default function App() {
               }}
               title={t.dataSource}
             >
+              <option value="auto">Авто-источник</option>
               {datasources.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name}
