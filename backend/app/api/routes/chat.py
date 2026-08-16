@@ -43,7 +43,46 @@ async def _resolve_agent(body: ChatRequest, msg: str) -> tuple[str, dict[str, An
     return agent, step
 
 
-async def _run_agent(body: ChatRequest, msg: str, agent: str, on_step=None) -> dict[str, Any]:
+async def _resolve_datasource(
+    body: ChatRequest, agent: str, msg: str
+) -> tuple[str, dict[str, Any] | None]:
+    """Auto-route the data source for Oleg when the user hasn't pinned one.
+
+    Returns ``(datasource_id, router_step)``. Only active when datasource_id
+    is 'auto' (or unset) and the agent is Oleg.
+    """
+    if agent != "oleg":
+        return body.datasource_id or "ridego", None
+    ds = body.datasource_id
+    if ds and ds not in {"", "auto"}:
+        return ds, None  # user pinned a source manually
+
+    from app.agents.source_router import route_source
+
+    t0 = time.perf_counter()
+    source_id = await route_source(msg, model_id=body.model)
+    ru = body.lang != "en"
+    from app.db.datasources import get_source_meta
+
+    meta = None
+    try:
+        meta = get_source_meta(source_id)
+    except Exception:  # noqa: BLE001
+        pass
+    src_name = (meta["name"] if meta else source_id)
+    step = {
+        "id": "step_0_source",
+        "title": "Выбираю источник данных" if ru else "Picking data source",
+        "tool": "source_router",
+        "status": "done",
+        "summary": f"→ {src_name}",
+        "detail": {"decision": source_id},
+        "duration_ms": int((time.perf_counter() - t0) * 1000),
+    }
+    return source_id, step
+
+
+async def _run_agent(body: ChatRequest, msg: str, agent: str, on_step=None, datasource_id=None) -> dict[str, Any]:
     """Run the resolved agent with the request's parameters."""
     from app.agents.ksyusha import _noop_step as _ks_noop
     from app.agents.oleg import _noop_step as _ol_noop
@@ -58,7 +97,7 @@ async def _run_agent(body: ChatRequest, msg: str, agent: str, on_step=None) -> d
         model_id=body.model,
         lang=body.lang,
         force_excel=body.force_excel,
-        datasource_id=body.datasource_id or "ridego",
+        datasource_id=datasource_id or body.datasource_id or "ridego",
         on_step=on_step if on_step is not None else _ol_noop,
     )
 
@@ -70,7 +109,10 @@ async def chat(body: ChatRequest) -> ChatResponse:
         raise HTTPException(400, "Empty message")
 
     agent, router_step = await _resolve_agent(body, msg)
-    data = await _run_agent(body, msg, agent)
+    ds_id, ds_step = await _resolve_datasource(body, agent, msg)
+    data = await _run_agent(body, msg, agent, datasource_id=ds_id)
+    if ds_step is not None:
+        data.setdefault("steps", []).insert(0, ds_step)
     if router_step is not None:
         data.setdefault("steps", []).insert(0, router_step)
     return ChatResponse(**data)
@@ -100,7 +142,12 @@ async def chat_stream(body: ChatRequest) -> StreamingResponse:
             agent, router_step = await _resolve_agent(body, msg)
             if router_step is not None:
                 await queue.put(("step", dict(router_step)))
-            data = await _run_agent(body, msg, agent, on_step=on_step)
+            ds_id, ds_step = await _resolve_datasource(body, agent, msg)
+            if ds_step is not None:
+                await queue.put(("step", dict(ds_step)))
+            data = await _run_agent(body, msg, agent, on_step=on_step, datasource_id=ds_id)
+            if ds_step is not None:
+                data.setdefault("steps", []).insert(0, ds_step)
             if router_step is not None:
                 data.setdefault("steps", []).insert(0, router_step)
             await queue.put(("done", data))
