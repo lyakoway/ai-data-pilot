@@ -70,19 +70,37 @@ def load_chunks() -> list[DocChunk]:
 
 
 def retrieve(query: str, top_k: int = 4) -> list[DocChunk]:
-    """Search uploaded documents (BM25-IDF) + built-in docs, merged ranked."""
+    """Hybrid search: BM25-IDF keywords + vector embeddings (cosine similarity).
+
+    Vector search catches semantic matches that keywords miss (cross-lingual,
+    synonyms, paraphrase). Falls back to keyword-only when fastembed is
+    unavailable or fails.
+    """
     q = _tokenize(query)
     if not q:
         return []
 
-    all_scored: list[DocChunk] = []
+    # --- Embed the query (for vector search) ---
+    from app.core.embeddings import cosine_similarity, embed_query, embeddings_available
 
-    # --- Uploaded documents (BM25-IDF scoring) ---
+    query_vec = None
+    if embeddings_available():
+        query_vec = embed_query(query)
+
+    all_scored: dict[str, DocChunk] = {}  # doc_id -> DocChunk (dedup by id)
+
+    def _add(doc_id: str, title: str, text: str, score: float, page: int = 1) -> None:
+        if doc_id in all_scored:
+            all_scored[doc_id].score += score  # hybrid: accumulate scores
+        else:
+            all_scored[doc_id] = DocChunk(doc_id, title, text, score, page)
+
+    # --- Uploaded documents: BM25 + Vector ---
     try:
         from app.db import app_db
         uploaded = app_db.get_chunks_for_search()
         if uploaded:
-            # Compute IDF per query token across all chunks.
+            # BM25-IDF scoring
             df: dict[str, int] = {}
             chunk_tokens: list[set[str]] = []
             for ch in uploaded:
@@ -92,44 +110,66 @@ def retrieve(query: str, top_k: int = 4) -> list[DocChunk]:
                     if t in toks:
                         df[t] = df.get(t, 0) + 1
             N = len(uploaded)
-            for ch, toks in zip(uploaded, chunk_tokens):
-                score = 0.0
+
+            # Vector scoring (batch embed all chunk texts)
+            chunk_vecs = None
+            if query_vec is not None:
+                from app.core.embeddings import embed_texts
+                chunk_vecs = embed_texts([ch["text"][:512] for ch in uploaded])
+
+            for i, (ch, toks) in enumerate(zip(uploaded, chunk_tokens)):
+                doc_id = f"{ch['document_id']}#{ch['chunk_index']}"
+                label = ch.get("label") or f"{ch['filename']} стр. {ch['page']}"
+
+                # BM25 score
+                bm25_score = 0.0
                 for t in q:
                     if t in toks:
                         idf = 1.0 + (N / (df.get(t, 1)))
-                        score += idf
-                if score > 0:
-                    label = ch.get("label") or f"{ch['filename']} стр. {ch['page']}"
-                    all_scored.append(DocChunk(
-                        doc_id=f"{ch['document_id']}#{ch['chunk_index']}",
-                        title=label,
-                        text=ch["text"],
-                        score=score * 2.0,  # uploaded docs get a relevance boost
-                        page=ch.get("page", 1),
-                    ))
+                        bm25_score += idf
+
+                # Vector score
+                vec_score = 0.0
+                if query_vec is not None and chunk_vecs and chunk_vecs[i]:
+                    vec_score = cosine_similarity(query_vec, chunk_vecs[i])
+
+                # Hybrid: weighted combination (vector slightly more important)
+                score = bm25_score * 0.4 + vec_score * 10.0 * 0.6
+                if score > 0.01:
+                    _add(doc_id, label, ch["text"], score, ch.get("page", 1))
     except Exception:  # noqa: BLE001 — uploaded search is additive, never blocks
         pass
 
-    # --- Built-in docs (existing keyword search) ---
-    for ch in load_chunks():
-        tokens = _tokenize(ch.title + " " + ch.text)
-        overlap = len(q & tokens)
-        if overlap == 0:
-            continue
-        title_hit = len(q & _tokenize(ch.title))
-        score = overlap + title_hit * 2
-        all_scored.append(DocChunk(ch.doc_id, ch.title, ch.text, float(score)))
+    # --- Built-in docs: keyword + vector ---
+    builtin = load_chunks()
+    if builtin:
+        builtin_vecs = None
+        if query_vec is not None:
+            from app.core.embeddings import embed_texts
+            builtin_vecs = embed_texts([ch.text[:512] for ch in builtin])
 
-    all_scored.sort(key=lambda c: c.score, reverse=True)
-    top = all_scored[:top_k]
+        for i, ch in enumerate(builtin):
+            tokens = _tokenize(ch.title + " " + ch.text)
+            overlap = len(q & tokens)
+            title_hit = len(q & _tokenize(ch.title))
+            kw_score = float(overlap + title_hit * 2)
 
-    # Fallback: for vague questions or weak matches, ensure uploaded documents
-    # are represented — users asking about "this file" want THEIR document.
+            vec_score = 0.0
+            if query_vec is not None and builtin_vecs and builtin_vecs[i]:
+                vec_score = cosine_similarity(query_vec, builtin_vecs[i])
+
+            score = kw_score * 0.4 + vec_score * 10.0 * 0.6
+            if score > 0.01:
+                _add(ch.doc_id, ch.title, ch.text, score)
+
+    ranked = sorted(all_scored.values(), key=lambda c: c.score, reverse=True)
+    top = ranked[:top_k]
+
+    # Fallback: for vague questions, ensure uploaded documents are represented.
     _VAGUE_RE = re.compile(r"(файл|документ|данные|этот|эта|what.*this|about.*file)", re.I)
     need_fallback = not top or _VAGUE_RE.search(query)
     if need_fallback:
         fallback = _fallback_chunks(top_k)
-        # Merge: fallback chunks not already in results, appended with lower scores.
         existing_ids = {c.doc_id for c in top}
         for fc in fallback:
             if fc.doc_id not in existing_ids and len(top) < top_k:
