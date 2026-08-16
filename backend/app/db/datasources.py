@@ -39,6 +39,9 @@ from app.db.seed import get_engine as get_ridego_engine
 # The built-in source id. Always present; cannot be deleted.
 RIDEGO_SOURCE_ID = "ridego"
 
+# Virtual source id: all uploaded CSV/Excel tables in one schema (for JOINs).
+ALL_UPLOADS_ID = "all_uploads"
+
 # SQLite column type affinity chosen per detected column kind.
 _SQLITE_TYPE = {
     "integer": "INTEGER",
@@ -58,6 +61,17 @@ _MAX_ROWS = 50_000
 def list_sources() -> list[dict[str, Any]]:
     """Return metadata for all known sources (for the UI selector)."""
     out = []
+    # Virtual "All uploads" source appears when CSV/Excel tables exist.
+    csv_sources = [s for s in app_db.list_datasources() if s["kind"] == "csv"]
+    if csv_sources:
+        out.append({
+            "id": ALL_UPLOADS_ID,
+            "name": "Все загрузки",
+            "kind": "virtual",
+            "description": f"Все загруженные таблицы ({len(csv_sources)}) — JOIN между файлами",
+            "row_count": sum(s.get("row_count") or 0 for s in csv_sources),
+            "created_at": None,
+        })
     for s in app_db.list_datasources():
         out.append(
             {
@@ -79,6 +93,9 @@ def get_source_meta(source_id: str) -> dict[str, Any] | None:
 
 def get_engine_for(source_id: str) -> Engine:
     """Return the SQLAlchemy engine backing ``source_id``."""
+    if source_id == ALL_UPLOADS_ID:
+        # Virtual source: all uploaded tables share the same SQLite DB.
+        return _uploaded_engine()
     meta = get_source_meta(source_id)
     if meta is None:
         raise KeyError(f"Unknown data source: {source_id!r}")
@@ -93,6 +110,8 @@ def get_engine_for(source_id: str) -> Engine:
 
 def get_schema_catalog(source_id: str) -> str:
     """Return the schema text to inject into Oleg's prompt for ``source_id``."""
+    if source_id == ALL_UPLOADS_ID:
+        return _build_all_uploads_catalog()
     meta = get_source_meta(source_id)
     if meta is None:
         raise KeyError(f"Unknown data source: {source_id!r}")
@@ -108,6 +127,8 @@ def get_schema_catalog(source_id: str) -> str:
 
 def get_dialect(source_id: str) -> str:
     """Return 'sqlite' or 'postgresql' for the source (for dialect-aware prompts)."""
+    if source_id == ALL_UPLOADS_ID:
+        return "sqlite"
     meta = get_source_meta(source_id)
     if meta is None:
         return "sqlite"
@@ -925,3 +946,36 @@ async def suggest_questions_smart(
     except Exception:  # noqa: BLE001 — any LLM failure falls back to heuristics
         pass
     return suggest_questions(meta).get(lang) or suggest_questions(meta)["ru"]
+
+
+def _build_all_uploads_catalog() -> str:
+    """Build a combined schema catalog from ALL uploaded CSV/Excel tables.
+
+    This is what Oleg sees when the virtual 'all_uploads' source is selected —
+    every table from every uploaded file, enabling cross-file JOINs.
+    """
+    csv_sources = [s for s in app_db.list_datasources() if s["kind"] == "csv"]
+    if not csv_sources:
+        return "# No uploaded tables\n\nUpload CSV or Excel files to create tables."
+
+    lines = ["# All uploaded tables (JOIN between files is allowed)", ""]
+    total_rows = 0
+    for s in csv_sources:
+        cols = s.get("columns") or []
+        if not cols:
+            continue
+        table = s.get("table_name") or s["id"]
+        row_count = s.get("row_count") or 0
+        total_rows += row_count
+        lines.append(f"## {table}")
+        lines.append(f"Source file: {s['name']} · {row_count} rows")
+        for c in cols:
+            lines.append(f"- {c['name']} {c.get('type', 'text').upper()}")
+        lines.append("")
+
+    lines.append("Notes:")
+    lines.append(f"- Total: {len(csv_sources)} tables, {total_rows} rows.")
+    lines.append("- Use SQLite syntax. Quote table/column names if unsure.")
+    lines.append("- You can JOIN tables from different files using common columns.")
+    lines.append("- Only SELECT / WITH queries are allowed.")
+    return "\n".join(lines)
