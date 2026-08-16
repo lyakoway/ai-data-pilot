@@ -47,11 +47,14 @@ def _chunk_segments(segments, char_size: int = 1500, overlap: int = 200) -> list
     return chunks
 
 
+DATA_EXT = {".csv", ".xlsx", ".xls"}  # Files that also become SQL sources for Oleg
+
+
 @router.post("")
 async def upload_document(file: UploadFile = File(...)) -> dict:
     ext = Path(file.filename or "").suffix.lower()
     if ext not in ALLOWED_EXT:
-        raise HTTPException(400, f"Формат {ext or '?'} не поддерживается. Разрешены: PDF, Word, TXT, MD.")
+        raise HTTPException(400, f"Формат {ext or '?'} не поддерживается. Разрешены: PDF, Word, Excel, TXT, MD.")
 
     raw = await file.read()
     if len(raw) > _MAX_BYTES:
@@ -71,6 +74,7 @@ async def upload_document(file: UploadFile = File(...)) -> dict:
         "status": "processing",
         "error": None,
         "created_at": datetime.utcnow().isoformat(timespec="seconds"),
+        "datasource_id": None,  # set if CSV/Excel also becomes a SQL source
     }
 
     from app.parsers.base import ParseError, parse_document
@@ -82,6 +86,23 @@ async def upload_document(file: UploadFile = File(...)) -> dict:
         doc["page_count"] = max((s.page for s in segments), default=0)
         doc["chunk_count"] = len(chunks)
         doc["status"] = "ready"
+
+        # CSV/Excel: also create a SQL data source so Oleg can query it.
+        if ext in DATA_EXT:
+            try:
+                from app.db.datasources import ingest_csv, ingest_xlsx
+                filename = file.filename or "upload"
+                if ext == ".csv":
+                    text = raw.decode("utf-8-sig")
+                    meta = ingest_csv(filename, text)
+                    sources = [meta]
+                else:
+                    sources = ingest_xlsx(filename, raw)
+                if sources:
+                    doc["datasource_id"] = sources[0]["id"]
+            except Exception:  # noqa: BLE001 — SQL ingestion is additive
+                pass
+
     except ParseError as e:
         doc["status"] = "error"
         doc["error"] = str(e)
@@ -121,5 +142,13 @@ def delete_document(document_id: str) -> dict:
     ext = Path(doc["filename"]).suffix.lower()
     path = _upload_dir() / f"{document_id}{ext}"
     path.unlink(missing_ok=True)
+    # Also remove the linked SQL data source (CSV/Excel files).
+    ds_id = doc.get("datasource_id")
+    if ds_id:
+        try:
+            from app.db.datasources import delete_source
+            delete_source(ds_id)
+        except Exception:  # noqa: BLE001
+            pass
     app_db.delete_document_row(document_id)
     return {"ok": True}

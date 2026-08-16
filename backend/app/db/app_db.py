@@ -59,15 +59,16 @@ CREATE TABLE IF NOT EXISTS feedback (
 );
 
 CREATE TABLE IF NOT EXISTS documents (
-    id           TEXT PRIMARY KEY,
-    filename     TEXT NOT NULL,
-    content_type TEXT NOT NULL DEFAULT '',
-    size_bytes   INTEGER NOT NULL DEFAULT 0,
-    page_count   INTEGER NOT NULL DEFAULT 0,
-    chunk_count  INTEGER NOT NULL DEFAULT 0,
-    status       TEXT NOT NULL DEFAULT 'processing',
-    error        TEXT,
-    created_at   TEXT NOT NULL
+    id            TEXT PRIMARY KEY,
+    filename      TEXT NOT NULL,
+    content_type  TEXT NOT NULL DEFAULT '',
+    size_bytes    INTEGER NOT NULL DEFAULT 0,
+    page_count    INTEGER NOT NULL DEFAULT 0,
+    chunk_count   INTEGER NOT NULL DEFAULT 0,
+    status        TEXT NOT NULL DEFAULT 'processing',
+    error         TEXT,
+    datasource_id TEXT,
+    created_at    TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS chunks (
@@ -124,6 +125,7 @@ def _init_db(engine: Engine) -> None:
         _ensure_column(conn, "scenarios", "parameters", "TEXT")
         # Migration: add the connection column to datasources (for postgres sources).
         _ensure_column(conn, "datasources", "connection", "TEXT")
+        _ensure_column(conn, "documents", "datasource_id", "TEXT")
         # Seed the built-in ridego source if absent.
         exists = conn.execute(
             text("SELECT 1 FROM datasources WHERE id = 'ridego'")
@@ -362,13 +364,13 @@ def list_documents() -> list[dict[str, Any]]:
     eng = get_app_engine()
     with eng.connect() as conn:
         rows = conn.execute(
-            text("SELECT id, filename, content_type, size_bytes, page_count, chunk_count, status, error, created_at FROM documents ORDER BY created_at DESC")
+            text("SELECT id, filename, content_type, size_bytes, page_count, chunk_count, status, error, datasource_id, created_at FROM documents ORDER BY created_at DESC")
         ).fetchall()
     return [
         {
             "id": r[0], "filename": r[1], "content_type": r[2],
             "size_bytes": r[3], "page_count": r[4], "chunk_count": r[5],
-            "status": r[6], "error": r[7], "created_at": r[8],
+            "status": r[6], "error": r[7], "datasource_id": r[8], "created_at": r[9],
         }
         for r in rows
     ]
@@ -378,7 +380,7 @@ def get_document(doc_id: str) -> dict[str, Any] | None:
     eng = get_app_engine()
     with eng.connect() as conn:
         row = conn.execute(
-            text("SELECT id, filename, content_type, size_bytes, page_count, chunk_count, status, error, created_at FROM documents WHERE id = :id"),
+            text("SELECT id, filename, content_type, size_bytes, page_count, chunk_count, status, error, datasource_id, created_at FROM documents WHERE id = :id"),
             {"id": doc_id},
         ).fetchone()
     if not row:
@@ -386,7 +388,7 @@ def get_document(doc_id: str) -> dict[str, Any] | None:
     return {
         "id": row[0], "filename": row[1], "content_type": row[2],
         "size_bytes": row[3], "page_count": row[4], "chunk_count": row[5],
-        "status": row[6], "error": row[7], "created_at": row[8],
+        "status": row[6], "error": row[7], "datasource_id": row[8], "created_at": row[9],
     }
 
 
@@ -395,8 +397,8 @@ def save_document(doc: dict[str, Any]) -> dict[str, Any]:
     with eng.begin() as conn:
         conn.execute(
             text(
-                "INSERT OR REPLACE INTO documents (id, filename, content_type, size_bytes, page_count, chunk_count, status, error, created_at) "
-                "VALUES (:id, :filename, :content_type, :size_bytes, :page_count, :chunk_count, :status, :error, :created_at)"
+                "INSERT OR REPLACE INTO documents (id, filename, content_type, size_bytes, page_count, chunk_count, status, error, datasource_id, created_at) "
+                "VALUES (:id, :filename, :content_type, :size_bytes, :page_count, :chunk_count, :status, :error, :datasource_id, :created_at)"
             ),
             doc,
         )

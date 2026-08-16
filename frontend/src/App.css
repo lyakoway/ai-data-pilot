@@ -917,3 +917,14 @@ th { background: var(--bg-soft); color: var(--text-soft); font-weight: 600; }
   font-weight: 600;
   color: var(--text);
 }
+
+.doc-badges { display: flex; gap: 3px; flex-shrink: 0; }
+.doc-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: var(--r-full);
+  text-transform: uppercase;
+}
+.badge-sql { color: #6366f1; background: rgba(99,102,241,0.12); }
+.badge-docs { color: #8b5cf6; background: rgba(139,92,246,0.12); }

@@ -15,13 +15,14 @@ export function DocumentsPanel({
   const inputRef = useRef<HTMLInputElement>(null)
 
   const t = {
-    drop: lang === 'en' ? 'Drop files or click to upload' : 'Перетащите файлы или нажмите для загрузки',
-    formats: lang === 'en' ? 'PDF, Word, Excel, TXT, MD' : 'PDF, Word, Excel, TXT, MD',
+    drop: lang === 'en' ? 'Drop files or click to upload' : 'Перетащите файлы или нажмите',
+    formats: lang === 'en' ? 'PDF, Word, Excel, CSV, TXT, MD' : 'PDF, Word, Excel, CSV, TXT, MD',
     uploading: lang === 'en' ? 'Uploading…' : 'Загрузка…',
     delete: lang === 'en' ? 'Delete' : 'Удалить',
-    ready: lang === 'en' ? 'ready' : 'готов',
     processing: lang === 'en' ? 'processing…' : 'обработка…',
     pages: lang === 'en' ? 'p.' : 'стр.',
+    sqlBadge: lang === 'en' ? 'SQL' : 'SQL',
+    docsBadge: lang === 'en' ? 'Docs' : 'Docs',
   }
 
   async function refresh() {
@@ -32,8 +33,9 @@ export function DocumentsPanel({
     }
   }
 
-  // Initial load
-  useEffect(() => { void refresh() }, [])
+  useEffect(() => {
+    void refresh()
+  }, [])
 
   async function upload(files: FileList | File[]) {
     setUploading(true)
@@ -55,6 +57,7 @@ export function DocumentsPanel({
     try {
       await api.deleteDocument(id)
       await refresh()
+      onUploaded()
     } catch {
       // ignore
     }
@@ -82,7 +85,7 @@ export function DocumentsPanel({
           ref={inputRef}
           type="file"
           multiple
-          accept=".pdf,.docx,.doc,.txt,.md,.xlsx,.xls"
+          accept=".pdf,.docx,.doc,.xlsx,.xls,.csv,.txt,.md"
           hidden
           onChange={(e) => {
             if (e.target.files?.length) void upload(e.target.files)
@@ -104,6 +107,10 @@ export function DocumentsPanel({
                   {d.status === 'processing' && t.processing}
                   {d.status === 'error' && (d.error || 'error')}
                 </span>
+              </div>
+              <div className="doc-badges">
+                {d.datasource_id && <span className="doc-badge badge-sql" title="Oleg can query this">{t.sqlBadge}</span>}
+                <span className="doc-badge badge-docs" title="Ksyusha can search this">{t.docsBadge}</span>
               </div>
               <button
                 type="button"

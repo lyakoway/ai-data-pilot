@@ -432,7 +432,13 @@ export default function App() {
         </label>
 
         <div className="section-label">{t.docsLabel}</div>
-        <DocumentsPanel lang={lang} onUploaded={() => undefined} />
+        <DocumentsPanel
+          lang={lang}
+          onUploaded={() => {
+            // Refresh data sources too (CSV/Excel files create SQL sources).
+            api.datasources().then(setDatasources).catch(() => undefined)
+          }}
+        />
 
         <div className="section-label">{t.scenarios}</div>
         <div className="scenario-list">
@@ -519,26 +525,6 @@ export default function App() {
                 </option>
               ))}
             </select>
-            <input
-              ref={csvInputRef}
-              type="file"
-              accept=".csv,.xlsx"
-              className="csv-input-hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0]
-                if (f) void handleFileUpload(f)
-                e.target.value = ''
-              }}
-            />
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={() => csvInputRef.current?.click()}
-              disabled={uploading}
-              title={t.uploadHint}
-            >
-              {uploading ? t.uploading : `+ ${t.uploadCsv}`}
-            </button>
             <button
               type="button"
               className="btn btn-ghost btn-sm"
