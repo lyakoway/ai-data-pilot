@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { api } from '../lib/api'
 
 export type ViewerSource = {
@@ -81,7 +82,7 @@ export function DocumentViewer({
     return () => window.removeEventListener('keydown', handler)
   }, [onClose])
 
-  return (
+  return createPortal(
     <div className="viewer-overlay" onClick={onClose}>
       <div className="viewer" onClick={(e) => e.stopPropagation()}>
         <div className="viewer-header">
@@ -123,6 +124,7 @@ export function DocumentViewer({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
