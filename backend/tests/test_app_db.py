@@ -107,7 +107,12 @@ def test_feedback_stats_counts_votes(tmp_db):
     app_db.save_feedback({"vote": "up", "agent": "oleg", "lang": "ru"})
     app_db.save_feedback({"vote": "down", "agent": "ksyusha", "lang": "en"})
     stats = app_db.feedback_stats()
-    assert stats == {"up": 2, "down": 1}
+    assert stats["up"] == 2
+    assert stats["down"] == 1
+    assert stats["total"] == 3
+    assert stats["satisfaction"] == 66.7
+    assert stats["per_agent"]["oleg"] == {"up": 2, "down": 0}
+    assert stats["per_agent"]["ksyusha"] == {"up": 0, "down": 1}
 
 
 def test_feedback_truncates_long_text(tmp_db):

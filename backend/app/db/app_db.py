@@ -346,13 +346,57 @@ def save_feedback(fb: dict[str, Any]) -> dict[str, Any]:
     return fb
 
 
-def feedback_stats() -> dict[str, int]:
-    """Aggregate counts for the UI / monitoring."""
+def feedback_stats() -> dict[str, Any]:
+    """Aggregate feedback counts: total + per-agent breakdown."""
     eng = get_app_engine()
     with eng.connect() as conn:
         up = conn.execute(text("SELECT COUNT(*) FROM feedback WHERE vote = 'up'")).scalar() or 0
         down = conn.execute(text("SELECT COUNT(*) FROM feedback WHERE vote = 'down'")).scalar() or 0
-    return {"up": int(up), "down": int(down)}
+        # Per-agent breakdown
+        rows = conn.execute(
+            text(
+                "SELECT agent, vote, COUNT(*) as n FROM feedback "
+                "GROUP BY agent, vote"
+            )
+        ).fetchall()
+        per_agent: dict[str, dict[str, int]] = {}
+        for agent, vote, n in rows:
+            per_agent.setdefault(agent, {"up": 0, "down": 0})
+            per_agent[agent][vote] = int(n)
+
+    return {
+        "up": int(up),
+        "down": int(down),
+        "total": int(up + down),
+        "satisfaction": round(int(up) / max(int(up + down), 1) * 100, 1),
+        "per_agent": per_agent,
+    }
+
+
+def feedback_list(limit: int = 20, agent: str | None = None) -> list[dict[str, Any]]:
+    """Recent feedback entries for the analytics panel."""
+    eng = get_app_engine()
+    query = (
+        "SELECT id, vote, agent, message, answer, model, lang, created_at "
+        "FROM feedback"
+    )
+    params: dict[str, Any] = {"limit": limit}
+    if agent:
+        query += " WHERE agent = :agent"
+        params["agent"] = agent
+    query += " ORDER BY created_at DESC LIMIT :limit"
+
+    with eng.connect() as conn:
+        rows = conn.execute(text(query), params).fetchall()
+    return [
+        {
+            "id": r[0], "vote": r[1], "agent": r[2],
+            "message": (r[3] or "")[:120],
+            "answer": (r[4] or "")[:160],
+            "model": r[5], "lang": r[6], "created_at": r[7],
+        }
+        for r in rows
+    ]
 
 
 # --------------------------------------------------------------------------- #

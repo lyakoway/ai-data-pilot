@@ -10,6 +10,7 @@ import {
 } from 'recharts'
 import { AgentTrace } from './components/AgentTrace'
 import { DocumentsPanel } from './components/DocumentsPanel'
+import { FeedbackPanel } from './components/FeedbackPanel'
 import { PostgresModal } from './components/PostgresModal'
 import { ProviderErrorModal, isProviderError } from './components/ProviderErrorModal'
 import { ResultCard } from './components/ResultCard'
@@ -453,7 +454,9 @@ export default function App() {
           }}
         />
 
-        <div className="section-label">{t.scenarios}</div>
+        <FeedbackPanel lang={lang} />
+
+        <div className="section-label" style={{ marginTop: 8 }}>{t.scenarios}</div>
         <div className="scenario-list">
           {visibleScenarios.map((sc) => (
             <button
