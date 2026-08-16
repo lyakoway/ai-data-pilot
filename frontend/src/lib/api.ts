@@ -12,6 +12,7 @@ export type DocumentItem = {
   chunk_count: number
   status: 'processing' | 'ready' | 'error'
   error: string | null
+  datasource_id?: string | null
   created_at: string
 }
 
