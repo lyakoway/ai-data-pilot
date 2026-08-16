@@ -878,3 +878,42 @@ th { background: var(--bg-soft); color: var(--text-soft); font-weight: 600; }
   text-align: left;
   color: var(--text-soft);
 }
+
+/* XLSX viewer */
+.viewer-xlsx { padding: 12px; overflow: auto; }
+.viewer-xlsx-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.viewer-xlsx-tab {
+  padding: 5px 12px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg-soft);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.viewer-xlsx-tab.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+.viewer-xlsx-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.viewer-xlsx-table td {
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  white-space: nowrap;
+  color: var(--text-soft);
+}
+.viewer-xlsx-table .header-row td {
+  background: var(--bg-soft);
+  font-weight: 600;
+  color: var(--text);
+}

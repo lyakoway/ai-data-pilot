@@ -22,6 +22,77 @@ function viewerMode(ext: string): 'pdf' | 'docx' | 'text' | 'xlsx' | 'fallback' 
   return 'fallback'
 }
 
+function XlsxPreview({ fileUrl }: { fileUrl: string }) {
+  const [sheets, setSheets] = useState<{ name: string; rows: string[][] }[]>([])
+  const [activeSheet, setActiveSheet] = useState(0)
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  const MAX_ROWS = 500
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([
+      import('xlsx'),
+      fetch(fileUrl).then((r) => r.arrayBuffer()),
+    ])
+      .then(([{ utils, read }, buffer]) => {
+        if (cancelled) return
+        const wb = read(buffer, { type: 'array' })
+        const result = wb.SheetNames.map((name) => {
+          const ws = wb.Sheets[name]
+          const json = utils.sheet_to_json<string[]>(ws, { header: 1, raw: false })
+          return { name, rows: json.slice(0, MAX_ROWS) }
+        })
+        setSheets(result)
+        setStatus('ready')
+      })
+      .catch(() => {
+        if (!cancelled) setStatus('error')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [fileUrl])
+
+  if (status === 'loading') return <div className="viewer-status">Loading spreadsheet…</div>
+  if (status === 'error') return <div className="viewer-status">Could not load Excel file.</div>
+  if (!sheets.length) return <div className="viewer-status">Empty spreadsheet.</div>
+
+  const sheet = sheets[Math.min(activeSheet, sheets.length - 1)]
+
+  return (
+    <div className="viewer-xlsx">
+      {sheets.length > 1 && (
+        <div className="viewer-xlsx-tabs">
+          {sheets.map((s, i) => (
+            <button
+              key={s.name}
+              type="button"
+              className={`viewer-xlsx-tab ${i === activeSheet ? 'active' : ''}`}
+              onClick={() => setActiveSheet(i)}
+            >
+              {s.name}
+            </button>
+          ))}
+        </div>
+      )}
+      <table className="viewer-xlsx-table">
+        <tbody>
+          {sheet.rows.map((row, ri) => (
+            <tr key={ri} className={ri === 0 ? 'header-row' : ''}>
+              {row.map((cell, ci) => (
+                <td key={ci}>{cell}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {sheet.rows.length >= MAX_ROWS && (
+        <div className="viewer-status">Showing first {MAX_ROWS} rows</div>
+      )}
+    </div>
+  )
+}
+
 function DocxPreview({ fileUrl }: { fileUrl: string }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
@@ -106,14 +177,7 @@ export function DocumentViewer({
           {mode === 'text' && (
             <iframe className="viewer-frame" src={fileUrl} title={source.filename} />
           )}
-          {mode === 'xlsx' && (
-            <div className="viewer-fallback">
-              <blockquote>{source.snippet}</blockquote>
-              <a className="btn btn-primary" href={fileUrl} download>
-                Download Excel
-              </a>
-            </div>
-          )}
+          {mode === 'xlsx' && <XlsxPreview fileUrl={fileUrl} />}
           {mode === 'fallback' && (
             <div className="viewer-fallback">
               <blockquote>{source.snippet}</blockquote>
