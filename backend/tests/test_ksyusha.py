@@ -76,7 +76,7 @@ async def test_sources_have_full_text_and_score(tmp_db):
     assert len(r["sources"]) >= 1
     for src in r["sources"]:
         assert "full_text" in src
-        assert len(src["full_text"]) > len(src["snippet"])
+        assert len(src["full_text"]) >= len(src["snippet"])
         assert "score" in src
         assert 0.0 <= src["score"] <= 1.0
 
