@@ -122,12 +122,56 @@ def retrieve(query: str, top_k: int = 4) -> list[DocChunk]:
 
     all_scored.sort(key=lambda c: c.score, reverse=True)
     top = all_scored[:top_k]
+
+    # Fallback: for vague questions or weak matches, ensure uploaded documents
+    # are represented — users asking about "this file" want THEIR document.
+    _VAGUE_RE = re.compile(r"(файл|документ|данные|этот|эта|what.*this|about.*file)", re.I)
+    need_fallback = not top or _VAGUE_RE.search(query)
+    if need_fallback:
+        fallback = _fallback_chunks(top_k)
+        # Merge: fallback chunks not already in results, appended with lower scores.
+        existing_ids = {c.doc_id for c in top}
+        for fc in fallback:
+            if fc.doc_id not in existing_ids and len(top) < top_k:
+                top.append(fc)
+
     # Normalise scores to 0..1.
     if top:
         max_score = top[0].score or 1.0
         for ch in top:
             ch.score = round(ch.score / max_score, 3)
     return top
+
+
+def _fallback_chunks(top_k: int) -> list[DocChunk]:
+    """When keyword search finds nothing, return representative chunks from
+    uploaded documents (first chunk of each) + first built-in doc — so vague
+    questions like 'о чём этот файл' still get useful context."""
+    results: list[DocChunk] = []
+    try:
+        from app.db import app_db
+        uploaded = app_db.get_chunks_for_search()
+        seen_docs: set[str] = set()
+        for ch in uploaded:
+            if ch["document_id"] not in seen_docs:
+                seen_docs.add(ch["document_id"])
+                label = ch.get("label") or ch["filename"]
+                results.append(DocChunk(
+                    doc_id=f"{ch['document_id']}#{ch['chunk_index']}",
+                    title=label,
+                    text=ch["text"],
+                    score=0.5,
+                    page=ch.get("page", 1),
+                ))
+                if len(results) >= top_k:
+                    return results
+    except Exception:  # noqa: BLE001
+        pass
+    # Also include the first built-in doc as context.
+    built_in = load_chunks()
+    if built_in:
+        results.append(DocChunk(built_in[0].doc_id, built_in[0].title, built_in[0].text, 0.1))
+    return results[:top_k]
 
 
 def ensure_docs() -> None:
