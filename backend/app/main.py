@@ -24,9 +24,11 @@ async def lifespan(_: FastAPI):
 
     get_app_engine()
     # Register a pre-configured PostgreSQL source if POSTGRES_URL is set.
-    from app.db.datasources import register_env_postgres
+    from app.db.datasources import register_env_postgres, register_clickhouse_playground
 
     register_env_postgres()
+    # ClickHouse Playground (public demo) — register on startup.
+    register_clickhouse_playground()
     yield
 
 

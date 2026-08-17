@@ -9,6 +9,7 @@ import {
   YAxis,
 } from 'recharts'
 import { AgentTrace } from './components/AgentTrace'
+import { ClickHouseModal } from './components/ClickHouseModal'
 import { DocumentsPanel } from './components/DocumentsPanel'
 import { FeedbackPanel } from './components/FeedbackPanel'
 import { PostgresModal } from './components/PostgresModal'
@@ -131,6 +132,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [scenarioModal, setScenarioModal] = useState<Scenario | null>(null)
   const [pgModal, setPgModal] = useState(false)
+  const [chModal, setChModal] = useState(false)
   const [providerError, setProviderError] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const csvInputRef = useRef<HTMLInputElement>(null)
@@ -550,6 +552,14 @@ export default function App() {
             >
               {lang === 'en' ? 'PostgreSQL' : 'PostgreSQL'}
             </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => setChModal(true)}
+              title={lang === 'en' ? 'Connect a ClickHouse database' : 'Подключить ClickHouse'}
+            >
+              ClickHouse
+            </button>
             <select
               className="select"
               value={model}
@@ -775,17 +785,34 @@ export default function App() {
           lang={lang}
           onAdded={(source, tables) => {
             setPgModal(false)
-            // Refetch to pick up schema-based suggestions for the new source.
             api.datasources().then(setDatasources).catch(() => undefined)
             setDatasourceId(source.id)
             setKpis(null)
             window.alert(
               lang === 'en'
-                ? `Connected! ${tables} tables found. Oleg can now query this database.`
-                : `Подключено! Найдено таблиц: ${tables}. Олег может делать запросы к этой базе.`,
+                ? `Connected! ${tables} tables found.`
+                : `Подключено! Найдено таблиц: ${tables}.`,
             )
           }}
           onClose={() => setPgModal(false)}
+        />
+      )}
+
+      {chModal && (
+        <ClickHouseModal
+          lang={lang}
+          onAdded={(source, tables) => {
+            setChModal(false)
+            api.datasources().then(setDatasources).catch(() => undefined)
+            setDatasourceId(source.id)
+            setKpis(null)
+            window.alert(
+              lang === 'en'
+                ? `Connected! ${tables} tables found.`
+                : `Подключено! Найдено таблиц: ${tables}.`,
+            )
+          }}
+          onClose={() => setChModal(false)}
         />
       )}
     </div>

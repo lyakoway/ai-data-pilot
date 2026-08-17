@@ -125,6 +125,40 @@ def add_postgres(body: PostgresConnection) -> dict:
     }
 
 
+class ClickHouseConnection(BaseModel):
+    name: str
+    host: str
+    port: int = 8123
+    database: str = "default"
+    username: str = "default"
+    password: str = ""
+    secure: bool = False
+
+
+@router.post("/clickhouse")
+def add_clickhouse(body: ClickHouseConnection) -> dict:
+    """Register a ClickHouse source: test connection → introspect → save."""
+    try:
+        meta = datasources.register_clickhouse(
+            name=body.name,
+            host=body.host,
+            port=body.port,
+            database=body.database,
+            username=body.username,
+            password=body.password,
+            secure=body.secure,
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    return {
+        "id": meta["id"],
+        "name": meta["name"],
+        "kind": meta["kind"],
+        "description": meta["description"],
+        "tables": len(meta.get("columns") or []),
+    }
+
+
 @router.post("/{source_id}/refresh")
 def refresh_schema(source_id: str) -> dict:
     """Re-introspect the schema for an existing PostgreSQL source."""
