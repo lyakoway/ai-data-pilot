@@ -546,19 +546,25 @@ export default function App() {
             </select>
             <button
               type="button"
-              className="btn btn-ghost btn-sm"
+              className="btn btn-ghost btn-sm db-btn"
               onClick={() => setPgModal(true)}
-              title={lang === 'en' ? 'Connect a PostgreSQL database' : 'Подключить базу PostgreSQL'}
+              title={lang === 'en'
+                ? 'PostgreSQL — for transactional data: users, orders, records. Best for point lookups and updates.'
+                : 'PostgreSQL — для транзакционных данных: пользователи, заказы, записи. Быстрый поиск и обновление.'}
             >
-              {lang === 'en' ? 'PostgreSQL' : 'PostgreSQL'}
+              <span className="db-btn-name">PostgreSQL</span>
+              <small className="db-btn-hint">{lang === 'en' ? 'transactions' : 'записи · CRM'}</small>
             </button>
             <button
               type="button"
-              className="btn btn-ghost btn-sm"
+              className="btn btn-ghost btn-sm db-btn"
               onClick={() => setChModal(true)}
-              title={lang === 'en' ? 'Connect a ClickHouse database' : 'Подключить ClickHouse'}
+              title={lang === 'en'
+                ? 'ClickHouse — for analytics on billions of rows: reports, trends, aggregations. Blazing fast GROUP BY.'
+                : 'ClickHouse — для аналитики на миллиардах строк: отчёты, тренды, агрегации. Мгновенный GROUP BY.'}
             >
-              ClickHouse
+              <span className="db-btn-name">ClickHouse</span>
+              <small className="db-btn-hint">{lang === 'en' ? 'analytics' : 'аналитика · BI'}</small>
             </button>
             <select
               className="select"
