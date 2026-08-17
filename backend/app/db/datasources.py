@@ -42,6 +42,16 @@ RIDEGO_SOURCE_ID = "ridego"
 # Virtual source id: all uploaded CSV/Excel tables in one schema (for JOINs).
 ALL_UPLOADS_ID = "all_uploads"
 
+# ClickHouse Playground (public, read-only, for demo).
+CLICKHOUSE_PLAYGROUND = {
+    "host": "play.clickhouse.com",
+    "port": 443,
+    "database": "default",
+    "username": "explorer",
+    "password": "",
+    "secure": True,
+}
+
 # SQLite column type affinity chosen per detected column kind.
 _SQLITE_TYPE = {
     "integer": "INTEGER",
@@ -91,10 +101,9 @@ def get_source_meta(source_id: str) -> dict[str, Any] | None:
     return app_db.get_datasource(source_id)
 
 
-def get_engine_for(source_id: str) -> Engine:
-    """Return the SQLAlchemy engine backing ``source_id``."""
+def get_engine_for(source_id: str) -> Any:
+    """Return the engine backing ``source_id`` (SQLAlchemy or ClickHouse wrapper)."""
     if source_id == ALL_UPLOADS_ID:
-        # Virtual source: all uploaded tables share the same SQLite DB.
         return _uploaded_engine()
     meta = get_source_meta(source_id)
     if meta is None:
@@ -105,6 +114,8 @@ def get_engine_for(source_id: str) -> Engine:
         return _uploaded_engine()
     if meta["kind"] == "postgres":
         return _postgres_engine(meta)
+    if meta["kind"] == "clickhouse":
+        return _clickhouse_engine(meta)
     raise ValueError(f"Unsupported source kind: {meta['kind']!r}")
 
 
@@ -120,19 +131,24 @@ def get_schema_catalog(source_id: str) -> str:
     if meta["kind"] == "csv":
         return _build_uploaded_catalog(meta)
     if meta["kind"] == "postgres":
-        # Catalog is cached in metadata at registration time.
         return _build_postgres_catalog(meta)
+    if meta["kind"] == "clickhouse":
+        return _build_clickhouse_catalog(meta)
     raise ValueError(f"Unsupported source kind: {meta['kind']!r}")
 
 
 def get_dialect(source_id: str) -> str:
-    """Return 'sqlite' or 'postgresql' for the source (for dialect-aware prompts)."""
+    """Return 'sqlite', 'postgresql' or 'clickhouse' for dialect-aware prompts."""
     if source_id == ALL_UPLOADS_ID:
         return "sqlite"
     meta = get_source_meta(source_id)
     if meta is None:
         return "sqlite"
-    return "postgresql" if meta.get("kind") == "postgres" else "sqlite"
+    if meta.get("kind") == "postgres":
+        return "postgresql"
+    if meta.get("kind") == "clickhouse":
+        return "clickhouse"
+    return "sqlite"
 
 
 def delete_source(source_id: str) -> None:
@@ -536,9 +552,9 @@ _pg_engine_cache: dict[str, Engine] = {}
 
 
 def get_query_timeout(source_id: str) -> float:
-    """Query timeout budget for a source: PostgreSQL gets a longer one."""
+    """Query timeout budget: external DBs (PostgreSQL, ClickHouse) get longer."""
     meta = get_source_meta(source_id)
-    if meta and meta.get("kind") == "postgres":
+    if meta and meta.get("kind") in ("postgres", "clickhouse"):
         return get_settings().sql_timeout_pg_sec
     return get_settings().sql_timeout_sec
 
@@ -979,3 +995,131 @@ def _build_all_uploads_catalog() -> str:
     lines.append("- You can JOIN tables from different files using common columns.")
     lines.append("- Only SELECT / WITH queries are allowed.")
     return "\n".join(lines)
+
+
+# --------------------------------------------------------------------------- #
+# ClickHouse sources
+# --------------------------------------------------------------------------- #
+
+
+def _clickhouse_engine(meta: dict[str, Any]) -> Any:
+    """Create a ClickHouse engine wrapper for a registered source."""
+    from app.core.clickhouse_engine import ClickHouseEngine
+
+    conn = meta.get("connection") or {}
+    if not conn.get("host"):
+        raise ValueError("ClickHouse source missing connection info.")
+    _ch_engine_cache[meta["id"]] = ClickHouseEngine(
+        host=conn["host"],
+        port=conn.get("port", 8123),
+        database=conn.get("database", "default"),
+        username=conn.get("username", "default"),
+        password=conn.get("password", ""),
+        secure=conn.get("secure", True),
+    )
+    return _ch_engine_cache[meta["id"]]
+
+
+_ch_engine_cache: dict[str, Any] = {}
+
+
+def _introspect_clickhouse(engine: Any, database: str, max_tables: int = 30) -> list[dict[str, Any]]:
+    """Introspect ClickHouse tables via system.columns."""
+    with engine.connect() as conn:
+        rows = conn.execute(
+            f"SELECT table, name, type FROM system.columns "
+            f"WHERE database = '{database}' "
+            f"ORDER BY table, name"
+        ).fetchall()
+
+    tables_dict: dict[str, list[dict]] = {}
+    for table, col_name, col_type in rows:
+        tables_dict.setdefault(table, []).append({
+            "name": col_name, "type": col_type, "nullable": "Nullable" in col_type,
+        })
+    # Sort by column count descending (most interesting tables first)
+    sorted_tables = sorted(tables_dict.items(), key=lambda x: -len(x[1]))[:max_tables]
+    return [{"name": t, "columns": cols} for t, cols in sorted_tables]
+
+
+def _build_clickhouse_catalog(meta: dict[str, Any]) -> str:
+    """Build a schema catalog for a ClickHouse source."""
+    tables = meta.get("columns") or []
+    conn = meta.get("connection") or {}
+    lines = [f"# ClickHouse source: {meta['name']}", ""]
+    lines.append(f"Database: {conn.get('database', '?')} @ {conn.get('host', '?')}")
+    lines.append("")
+    for t in tables[:20]:
+        lines.append(f"## {t['name']}")
+        for c in t.get("columns", [])[:12]:
+            lines.append(f"- {c['name']} {c['type']}")
+        if len(t.get("columns", [])) > 12:
+            lines.append(f"  ... and {len(t['columns']) - 12} more columns")
+        lines.append("")
+    lines.append("Notes:")
+    lines.append("- Use ClickHouse SQL syntax (toDate, countIf, sumIf, toStartOfMonth, LIMIT x BY y).")
+    lines.append("- Arrays: arrayJoin, groupArray, arrayStringConcat.")
+    lines.append("- Only SELECT queries are allowed.")
+    return "\n".join(lines)
+
+
+def register_clickhouse(
+    *,
+    name: str,
+    host: str,
+    port: int = 8123,
+    database: str = "default",
+    username: str = "default",
+    password: str = "",
+    secure: bool = False,
+    source_id: str | None = None,
+) -> dict[str, Any]:
+    """Test the connection, introspect, and register a ClickHouse source."""
+    from app.core.clickhouse_engine import ClickHouseEngine
+
+    try:
+        engine = ClickHouseEngine(host=host, port=port, database=database,
+                                  username=username, password=password, secure=secure)
+        # Test the connection
+        with engine.connect() as conn:
+            conn.execute("SELECT 1")
+        tables = _introspect_clickhouse(engine, database)
+    except ValueError:
+        raise
+    except Exception as e:
+        raise ValueError(f"Could not connect to ClickHouse: {e}") from e
+    if not tables:
+        raise ValueError("Connected, but no tables found.")
+
+    sid = source_id or f"ch_{uuid.uuid4().hex[:10]}"
+    conn_info = {
+        "host": host, "port": port, "database": database,
+        "username": username, "password": password, "secure": secure,
+    }
+    meta = {
+        "id": sid,
+        "name": name,
+        "kind": "clickhouse",
+        "description": f"ClickHouse: {database}@{host}, {len(tables)} таблиц(ы).",
+        "table_name": None,
+        "columns": tables,
+        "row_count": None,
+        "created_at": datetime.utcnow().isoformat(timespec="seconds"),
+        "connection": conn_info,
+    }
+    app_db.save_datasource(meta)
+    safe = dict(meta)
+    safe["connection"] = {**conn_info, "password": "****"}
+    return safe
+
+
+def register_clickhouse_playground() -> dict[str, Any] | None:
+    """Register the free ClickHouse Playground as a demo source."""
+    try:
+        return register_clickhouse(
+            name="ClickHouse Playground (demo)",
+            source_id="clickhouse-playground",
+            **CLICKHOUSE_PLAYGROUND,
+        )
+    except ValueError:
+        return None

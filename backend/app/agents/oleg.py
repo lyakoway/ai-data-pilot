@@ -64,6 +64,9 @@ def _dialect_note(datasource_id: str) -> str:
         dialect = "sqlite"
     if dialect == "postgresql":
         return "- PostgreSQL синтаксис (DATE_TRUNC, EXTRACT, ::cast, ILIKE, NOW())."
+    if dialect == "clickhouse":
+        return ("- ClickHouse SQL синтаксис (toDate, toDateTime, countIf, sumIf, "
+                "toStartOfMonth, LIMIT x BY y, arrayJoin).")
     return "- SQLite синтаксис (date(), strftime(), julianday и т.п. допустимы)."
 
 

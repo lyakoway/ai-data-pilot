@@ -46,7 +46,7 @@ export type Scenario = {
 export type DataSourceInfo = {
   id: string
   name: string
-  kind: 'ridego' | 'csv' | 'postgres'
+  kind: 'ridego' | 'csv' | 'postgres' | 'clickhouse' | 'virtual'
   description: string
   row_count: number | null
   created_at: string | null
