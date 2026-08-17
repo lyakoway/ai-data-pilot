@@ -28,8 +28,12 @@ export function PostgresModal({
     title: lang === 'en' ? 'Connect PostgreSQL' : 'Подключить PostgreSQL',
     hint:
       lang === 'en'
-        ? 'Pre-filled with a public demo DB — press Connect to try it, or enter your own credentials.'
-        : 'Предзаполнено публичной демо-базой — нажмите «Подключить» для проверки, или введите свои данные.',
+        ? 'For transactional data: users, orders, inventory. Best for point lookups, joins, and frequent updates.'
+        : 'Для транзакционных данных: пользователи, заказы, склад. Быстрый поиск, JOIN, частые обновления.',
+    demo:
+      lang === 'en'
+        ? 'Prefilled with a public demo DB — press Connect to try it, or enter your own.'
+        : 'Предзаполнено публичной демо-базой — нажмите «Подключить», или введите свои данные.',
     name: lang === 'en' ? 'Display name' : 'Название',
     host: 'Host',
     port: 'Port',
@@ -80,7 +84,11 @@ export function PostgresModal({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
         <h3 className="modal-title">{t.title}</h3>
-        <p className="modal-desc">{t.hint}</p>
+        <div className="db-why">
+          <span className="db-why-icon">💡</span>
+          <span className="db-why-text">{t.hint}</span>
+        </div>
+        <p className="modal-desc">{t.demo}</p>
         <div className="modal-params">
           <label className="modal-field">
             <span className="modal-field-label">{t.name}</span>

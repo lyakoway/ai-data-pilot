@@ -985,3 +985,28 @@ th { background: var(--bg-soft); color: var(--text-soft); font-weight: 600; }
 .feedback-meta { display: block; font-size: 9px; color: var(--text-muted); }
 [data-theme='dark'] .fill-up { background: #4ade80; }
 [data-theme='dark'] .fill-down { background: #f87171; }
+
+/* DB buttons with hints */
+.db-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding: 6px 10px;
+}
+.db-btn-name { font-size: 12px; font-weight: 600; line-height: 1.2; }
+.db-btn-hint { font-size: 9px; color: var(--text-muted); line-height: 1.2; }
+
+/* "Why this DB" hint in modals */
+.db-why {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  background: rgba(99, 102, 241, 0.08);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  margin-bottom: 10px;
+}
+.db-why-icon { font-size: 14px; flex-shrink: 0; }
+.db-why-text { font-size: 12px; color: var(--text-soft); line-height: 1.4; }

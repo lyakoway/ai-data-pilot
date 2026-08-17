@@ -27,8 +27,12 @@ export function ClickHouseModal({
     title: lang === 'en' ? 'Connect ClickHouse' : 'Подключить ClickHouse',
     hint:
       lang === 'en'
-        ? 'Prefilled with the public ClickHouse Playground — press Connect, or enter your own server.'
-        : 'Предзаполнено публичным ClickHouse Playground — нажмите «Подключить», или введите свой сервер.',
+        ? 'For analytics on billions of rows: reports, trends, aggregations. Columnar storage makes GROUP BY blazing fast.'
+        : 'Для аналитики на миллиардах строк: отчёты, тренды, агрегации. Колоночное хранение — мгновенный GROUP BY.',
+    demo:
+      lang === 'en'
+        ? 'Prefilled with ClickHouse Playground (public) — press Connect, or enter your own server.'
+        : 'Предзаполнено ClickHouse Playground (публичный) — нажмите «Подключить», или введите свой сервер.',
     name: lang === 'en' ? 'Display name' : 'Название',
     host: 'Host',
     port: 'Port',
@@ -84,7 +88,11 @@ export function ClickHouseModal({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
         <h3 className="modal-title">{t.title}</h3>
-        <p className="modal-desc">{t.hint}</p>
+        <div className="db-why">
+          <span className="db-why-icon">💡</span>
+          <span className="db-why-text">{t.hint}</span>
+        </div>
+        <p className="modal-desc">{t.demo}</p>
         <div className="modal-params">
           <label className="modal-field">
             <span className="modal-field-label">{t.name}</span>
