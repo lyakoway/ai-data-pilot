@@ -8,37 +8,41 @@ app_port: 7860
 pinned: false
 ---
 
-# 📊 AI Data Pilot — аналитические агенты Олег и Ксюша
+# 📊 AI Data Pilot — мультиагентная аналитическая платформа
 
-> Дашборд с двумя AI-агентами: **Олег** ходит в БД (NL → SQL → таблица / график / Excel),
-> **Ксюша** отвечает по внутренней документации. Сохранённые сценарии — в один клик.
+> **Live demo:** [lyakoway-ai-data-pilot.hf.space](https://lyakoway-ai-data-pilot.hf.space/)
 
-[![Demo](https://img.shields.io/badge/demo-🤗%20Hugging%20Face%20Spaces-ff9d00)](https://huggingface.co/spaces)
+Два AI-агента и авто-роутер: система сама понимает вопрос и направляет его нужному агенту —
+**Олег** (Text-to-SQL: базы данных, SQL, графики, Excel) или **Ксюша** (RAG: документация, поиск по загруженным файлам).
+
+[![Demo](https://img.shields.io/badge/demo-lyakoway--ai--data--pilot.hf.space-ff9d00)](https://lyakoway-ai-data-pilot.hf.space/)
 ![backend](https://img.shields.io/badge/backend-FastAPI-009688)
 ![frontend](https://img.shields.io/badge/frontend-React%2019%20%2B%20Vite-61dafb)
-![sql](https://img.shields.io/badge/Text--to--SQL-ready-6366f1)
+![tests](https://img.shields.io/badge/tests-161%20passed-brightgreen)
+![sources](https://img.shields.io/badge/sources-PostgreSQL%20·%20ClickHouse%20·%20CSV%20·%20Excel-6366f1)
 
-<sub>Демо на бесплатном тарифе может «засыпать» — первый заход после простоя поднимается ~1 мин.</sub>
+<sub>Демо на бесплатном тарифе может «засыпать» — первый заход после простоя поднимается ~1 мин.
+Векторная модель (fastembed) загружается при первом поиске Ксюши (~10 сек).</sub>
 
 ## Возможности
 
-- 👤 **Аналитик Олег** — Text-to-SQL, KPI, Recharts, Excel, показ SQL и методологии
-  - **Agent Loop (ReAct)** — для сложных вопросов («Почему выручка упала?», «Сравни периоды») агент сам решает какие инструменты вызвать и в каком порядке: `database_query → calculate → analyze → finish`. Простые вопросы идут по быстрому линейному path. Prompt-based tool-calling работает со всеми провайдерами включая Demo (scripted сценарий)
-  - **Execution trace (SSE)** — пользователь видит пошаговую работу агента в реальном времени: «Анализирую запрос ✓ → Получаю данные ✓ (6 строк) → Считаю метрики ✓ → Готовлю визуализацию ✓ → Формирую ответ ✓». Каждый шаг раскрывается (SQL, инсайты, row_count). Self-correction виден как отдельный шаг «Исправляю запрос»
-  - **Self-correction** — если SQL упал, агент видит ошибку и переписывает запрос (до 2 попыток) вместо молчаливой подмены данных
-  - **Детерминированная аналитика** — тренды, топ-N, аномалии (z-score) считает Python; LLM только оформляет текст. Цифры в ответе всегда точные
-  - **Прозрачные статусы** — каждый ответ помечен: `Реальный ответ` / `Демо-режим` / `С коррекцией` / `Ошибка`
-  - **Таймаут запросов** — долгие SQL не вешают endpoint
-  - **Мульти-источники** — работайте со встроенной демо-БД RideGo, **загрузите свой файл** (CSV или Excel `.xlsx`) или **подключите внешнюю PostgreSQL** (🐘 кнопка в интерфейсе). Схема БД интроспектируется автоматически, промпт адаптируется под диалект (SQLite vs PostgreSQL синтаксис)
-- 👍 **Голосовалка** — оценки 👍/👎 сохраняются на backend (для мониторинга качества ответов)
-- 👩‍💻 **Ксюша** — RAG по фейковой док-базе (метрики, lineage, backend)
-  - **Inline-цитаты `[1]`** — ответ содержит кликабельные ссылки на источники, клик → скролл к фрагменту + подсветка
-  - **Раскрываемые фрагменты** — каждый источник раскрывается по клику: полный текст + релевантность (%) + хайлайт слов запроса
-  - **Execution trace** — пользователь видит «Ищу по документам ✓ (N фрагментов) → Формирую ответ ✓»
-- ⚡ **Сценарии** — one-click отчёты + сохранение своих + **параметризованные сценарии** (период, группировка, метрика — меняйте параметры в форме и переиспользуйте один сценарий для разных срезов)
+- 🧭 **Авто-роутинг** — двойной: агент (данные → Олег, документация → Ксюша) и источник данных (по смыслу вопроса выбирается нужная БД). Переключатели остаются как ручной override
+- 👤 **Аналитик Олег**
+  - **Agent Loop (ReAct)** — для сложных вопросов агент сам решает какие tools вызвать: `database_query → calculate → analyze → chart → finish`. Prompt-based tool-calling работает со всеми провайдерами, включая Demo (scripted сценарий)
+  - **Execution trace (SSE)** — пошаговая работа в реальном времени; каждый шаг раскрывается (SQL, row_count, инсайты)
+  - **Self-correction** — упавший SQL агент переписывает сам (до 2 попыток), вместо молчаливой подмены данных
+  - **Детерминированная аналитика** — тренды, топ-N, аномалии (z-score) считает Python; LLM только оформляет текст. Цифры всегда точные
+- 👩‍💻 **Ксюша**
+  - **Гибридный поиск** — BM25-IDF + векторные эмбеддинги (fastembed, мультиязычная модель, 50+ языков): находит по смыслу и на другом языке
+  - **Загрузка документов** — PDF, Word, Excel, CSV, TXT, MD (drag&drop); Excel одновременно становится SQL-таблицей для Олега
+  - **Inline-цитаты `[1]`** и просмотрщик документов: PDF на нужной странице, DOCX рендер, Excel как таблица
+- 🗄️ **Источники данных**
+  - PostgreSQL и ClickHouse (кнопки в интерфейсе, автосхема через интроспекцию, диалект-зависимые промпты)
+  - Виртуальный источник **«Все загрузки»** — Олег видит все загруженные таблицы и строит JOIN между файлами
+- ⚡ **Параметризованные сценарии** — шаблоны с `{period}`, `{group_by}`; один сценарий — бесконечное переиспользование
+- 👍 **Витрина фидбека** — аналитика оценок 👍/👎 по агентам с фильтрами
 - 🤖 **Модели** — Demo (offline), OpenAI, Anthropic, Z.ai (GLM), Ollama
-- 🎨 UI в стиле RAG Chat — dark/light, RU/EN, мобильное меню
-- 🧪 **Тесты** — pytest (122 теста) покрывают аналитический слой, SQL guard, self-correction, Agent Loop (ReAct), execution trace, мульти-источники (CSV + Excel + PostgreSQL), параметризованные сценарии, RAG Ксюши и app-БД
+- 🧪 **161 тест** — pytest: Agent Loop, self-correction, SQL guard, execution trace, все типы источников, RAG, параметризованные сценарии
 
 ## Быстрый старт (локально)
 
@@ -68,23 +72,28 @@ DEMO_SCALE=small   # или full для более плотных данных
 
 ```
 [React dashboard] ──/api──▶ [FastAPI]
-                              ├─ Oleg: schema → SQL → guard → analytics → chart/xlsx
-                              │         ↑ Agent Loop (ReAct): сложные вопросы → multi-step tool-calling
-                              │         ↑ self-correction (2 retry rounds)
-                              │         ↑ deterministic insights (Python, not LLM math)
-                              │         ↑ execution trace streamed via SSE (step events)
-                              ├─ DataSources: RideGo (built-in) | user-uploaded CSV / Excel
-                              └─ Ksyusha: keyword RAG over data/docs/*.md
+                              ├─ Авто-роутер агента: данные → Олег, документация → Ксюша
+                              ├─ Олег: schema → SQL → guard → analytics → chart/xlsx
+                              │    ↑ Agent Loop (ReAct): multi-step tool-calling
+                              │    ↑ self-correction (2 retry rounds)
+                              │    ↑ deterministic insights (Python, not LLM math)
+                              │    ↑ execution trace streamed via SSE (step events)
+                              ├─ Авто-роутер источника: вопрос → нужная БД
+                              ├─ DataSources: RideGo | PostgreSQL | ClickHouse
+                              │              | CSV/Excel (SQL + RAG) | «Все загрузки» (JOIN)
+                              └─ Ксюша: hybrid RAG (BM25-IDF + vector fastembed)
+                                        over built-in docs + uploaded files
 
-App DB (SQLite): scenarios · datasource metadata · feedback votes
+App DB (SQLite): scenarios · datasource metadata · feedback · documents · chunks
 Analytics DB:    RideGo (seeded) · uploaded CSV/Excel tables
+Files:           data/uploads/ (originals for the document viewer)
 ```
 
-**Хранилище:** Сценарии, метаданные источников и голоса (👍/👎) — в `app.db` (SQLite). Данные аналитики — в `ridego.db` (встроенный демо-домен) и `csv_sources.db` (загруженные CSV).
+**Хранилище:** Сценарии, метаданные источников, документы, чанки и голоса — в `app.db`. Данные аналитики — в `ridego.db` (демо-домен) и `csv_sources.db` (загруженные таблицы).
 
-**Источники данных:** RideGo (демо, ~21k поездок) — встроенный. CSV/Excel загружаются через UI → автодетекция типов → SQLite-таблица → автогенерация схемы. **PostgreSQL** — через кнопку 🐘 в интерфейсе (host/port/db/user/password) или env `POSTGRES_URL` → тест соединения → автоинтроспекция схемы через SQLAlchemy `inspect()` → Олег строит PostgreSQL-синтаксис SQL. Пароль хранится server-side и никогда не возвращается на фронтенд. Сценарии привязаны к источнику.
+**Источники данных:** RideGo (демо) — встроенный. CSV/Excel — через drag&drop, попадают **в оба pipeline**: SQL-таблица для Олега + текстовые чанки для Ксюши. **PostgreSQL** и **ClickHouse** — кнопки в интерфейсе (или env `POSTGRES_URL`), автосхема через интроспекцию, диалект-зависимые промпты. Пароли хранятся server-side, никогда не возвращаются на фронтенд.
 
-**Тестовый PostgreSQL** (локально): `docker compose -f docker-compose.test.yml up -d` → поднимет `demo:demo@localhost:5433/shop` с e-commerce схемой (products, customers, orders).
+**Тестовый PostgreSQL** (локально): `docker compose -f docker-compose.test.yml up -d` → `demo:demo@localhost:5433/shop` (e-commerce: products, customers, orders).
 
 Демо-домен: **RideGo** (микромобильность) — `dim_city`, `dim_user`, `fact_rides`, `fact_subscriptions`.
 
