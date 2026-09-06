@@ -18,7 +18,7 @@ pinned: false
 [![Demo](https://img.shields.io/badge/demo-lyakoway--ai--data--pilot.hf.space-ff9d00)](https://lyakoway-ai-data-pilot.hf.space/)
 ![backend](https://img.shields.io/badge/backend-FastAPI-009688)
 ![frontend](https://img.shields.io/badge/frontend-React%2019%20%2B%20Vite-61dafb)
-![tests](https://img.shields.io/badge/tests-161%20passed-brightgreen)
+![tests](https://img.shields.io/badge/tests-174%20passed-brightgreen)
 ![sources](https://img.shields.io/badge/sources-PostgreSQL%20·%20ClickHouse%20·%20CSV%20·%20Excel-6366f1)
 
 <sub>Демо на бесплатном тарифе может «засыпать» — первый заход после простоя поднимается ~1 мин.
@@ -42,7 +42,7 @@ pinned: false
 - ⚡ **Параметризованные сценарии** — шаблоны с `{period}`, `{group_by}`; один сценарий — бесконечное переиспользование
 - 👍 **Витрина фидбека** — аналитика оценок 👍/👎 по агентам с фильтрами
 - 🤖 **Модели** — Demo (offline), OpenAI, Anthropic, Z.ai (GLM), Ollama
-- 🧪 **161 тест** — pytest: Agent Loop, self-correction, SQL guard, execution trace, все типы источников, RAG, параметризованные сценарии
+- 🧪 **174 теста + LLM evaluation** — pytest (Agent Loop, SQL guard, retrieval Recall@1/5·MRR по режимам BM25/Vector/Hybrid, числовые contract-тесты аналитики) + golden set (30 SQL-вопросов, 20 routing) с метриками Execution/Result Accuracy, Self-Correction Rate, p50/p95 — `backend/scripts/evaluate.py` и [EVALUATION.md](backend/EVALUATION.md)
 
 ## Быстрый старт (локально)
 

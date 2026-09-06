@@ -69,12 +69,12 @@ def load_chunks() -> list[DocChunk]:
     return chunks
 
 
-def retrieve(query: str, top_k: int = 4) -> list[DocChunk]:
+def retrieve(query: str, top_k: int = 4, mode: str = "hybrid") -> list[DocChunk]:
     """Hybrid search: BM25-IDF keywords + vector embeddings (cosine similarity).
 
-    Vector search catches semantic matches that keywords miss (cross-lingual,
-    synonyms, paraphrase). Falls back to keyword-only when fastembed is
-    unavailable or fails.
+    ``mode``: "hybrid" (default), "bm25" (keywords only) or "vector" (embeddings
+    only) — the comparison powers the retrieval-quality evaluation. Falls back
+    to keyword-only when fastembed is unavailable or fails.
     """
     q = _tokenize(query)
     if not q:
@@ -84,7 +84,7 @@ def retrieve(query: str, top_k: int = 4) -> list[DocChunk]:
     from app.core.embeddings import cosine_similarity, embed_query, embeddings_available
 
     query_vec = None
-    if embeddings_available():
+    if mode in ("vector", "hybrid") and embeddings_available():
         query_vec = embed_query(query)
 
     all_scored: dict[str, DocChunk] = {}  # doc_id -> DocChunk (dedup by id)
@@ -123,10 +123,11 @@ def retrieve(query: str, top_k: int = 4) -> list[DocChunk]:
 
                 # BM25 score
                 bm25_score = 0.0
-                for t in q:
-                    if t in toks:
-                        idf = 1.0 + (N / (df.get(t, 1)))
-                        bm25_score += idf
+                if mode in ("bm25", "hybrid"):
+                    for t in q:
+                        if t in toks:
+                            idf = 1.0 + (N / (df.get(t, 1)))
+                            bm25_score += idf
 
                 # Vector score
                 vec_score = 0.0
@@ -149,10 +150,12 @@ def retrieve(query: str, top_k: int = 4) -> list[DocChunk]:
             builtin_vecs = embed_texts([ch.text[:512] for ch in builtin])
 
         for i, ch in enumerate(builtin):
-            tokens = _tokenize(ch.title + " " + ch.text)
-            overlap = len(q & tokens)
-            title_hit = len(q & _tokenize(ch.title))
-            kw_score = float(overlap + title_hit * 2)
+            kw_score = 0.0
+            if mode in ("bm25", "hybrid"):
+                tokens = _tokenize(ch.title + " " + ch.text)
+                overlap = len(q & tokens)
+                title_hit = len(q & _tokenize(ch.title))
+                kw_score = float(overlap + title_hit * 2)
 
             vec_score = 0.0
             if query_vec is not None and builtin_vecs and builtin_vecs[i]:

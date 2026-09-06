@@ -26,3 +26,6 @@ backend/static/
 
 # Examples (local screenshots — keep out of repo if large)
 пример работы ai агента/
+
+# Evaluation artifacts
+backend/evaluation_results.json

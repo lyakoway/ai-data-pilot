@@ -1,0 +1,20 @@
+{"id": "rt_001", "question": "Выручка по регионам за месяц", "expected_agent": "oleg"}
+{"id": "rt_002", "question": "Топ-10 городов по поездкам", "expected_agent": "oleg"}
+{"id": "rt_003", "question": "Сколько пользователей зарегистрировалось в мае?", "expected_agent": "oleg"}
+{"id": "rt_004", "question": "Сравни выручку июня и июля", "expected_agent": "oleg"}
+{"id": "rt_005", "question": "Динамика подписок по месяцам", "expected_agent": "oleg"}
+{"id": "rt_006", "question": "Какой город самый прибыльный?", "expected_agent": "oleg"}
+{"id": "rt_007", "question": "Сколько отменённых подписок у бренда boost?", "expected_agent": "oleg"}
+{"id": "rt_008", "question": "Построй график поездок по регионам", "expected_agent": "oleg"}
+{"id": "rt_009", "question": "Сколько партнёрских поездок за квартал?", "expected_agent": "oleg"}
+{"id": "rt_010", "question": "Распределение поездок по типам транспорта", "expected_agent": "oleg"}
+{"id": "rt_011", "question": "Как считается utilization?", "expected_agent": "ksyusha"}
+{"id": "rt_012", "question": "Где хранится подписка пользователя?", "expected_agent": "ksyusha"}
+{"id": "rt_013", "question": "Какой TTL у Redis pricing cache?", "expected_agent": "ksyusha"}
+{"id": "rt_014", "question": "Что делает кнопка Reset errors в админке?", "expected_agent": "ksyusha"}
+{"id": "rt_015", "question": "Как работает антифрод по serial номеру АКБ?", "expected_agent": "ksyusha"}
+{"id": "rt_016", "question": "Что такое PositionCodes?", "expected_agent": "ksyusha"}
+{"id": "rt_017", "question": "Из чего состоит data lineage RideGo?", "expected_agent": "ksyusha"}
+{"id": "rt_018", "question": "Какие поля у MongoDB customer_subscription?", "expected_agent": "ksyusha"}
+{"id": "rt_019", "question": "Почему критические ошибки сбрасываются только при активной SIM?", "expected_agent": "ksyusha"}
+{"id": "rt_020", "question": "Где описан словарь метрик RideGo?", "expected_agent": "ksyusha"}
