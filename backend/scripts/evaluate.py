@@ -123,49 +123,93 @@ def run_and_normalize(engine, sql: str) -> tuple[list[str], list[list[Any]]]:
     return columns, rows
 
 
-async def eval_sql_suite(model_id: str, limit: int | None) -> dict[str, Any]:
-    from app.db.datasources import RIDEGO_SOURCE_ID
+async def eval_sql_suite(
+    model_id: str, limit: int | None,
+) -> dict[str, Any]:
+    from app.db.datasources import ALL_UPLOADS_ID, RIDEGO_SOURCE_ID, get_schema_catalog, ingest_csv, get_source_meta, delete_source
 
     provider = get_provider(model_id)
     if provider.provider == "mock":
         print("WARNING: mock provider — SQL numbers are a plumbing check only.\n")
-    schema_catalog = get_schema_catalog(RIDEGO_SOURCE_ID)
-    engine = get_engine_for(RIDEGO_SOURCE_ID)
     cases = load_jsonl(GOLDEN_DIR / "sql_golden.jsonl")
     if limit:
         cases = cases[:limit]
 
+    # --- Cross-source preparation: deterministic CSV sources, created once ---
+    created_sources: list[str] = []
+    markers: dict[str, str] = {}
+    needs_cross = any(c.get("prepare") for c in cases)
+    if needs_cross:
+        preps: dict[str, str] = {}
+        for c in cases:
+            for prep in c.get("prepare", []):
+                if prep["name"] not in preps:
+                    meta = ingest_csv(prep["name"] + ".csv", prep["csv"])
+                    preps[prep["name"]] = meta["table_name"]
+                    created_sources.append(meta["id"])
+        markers = {f"{{{{{name}}}}}": table for name, table in preps.items()}
+
+    engines = {
+        RIDEGO_SOURCE_ID: (get_schema_catalog(RIDEGO_SOURCE_ID), get_engine_for(RIDEGO_SOURCE_ID)),
+        ALL_UPLOADS_ID: (get_schema_catalog(ALL_UPLOADS_ID), get_engine_for(ALL_UPLOADS_ID)),
+    }
+
     results: list[dict[str, Any]] = []
     for i, case in enumerate(cases, 1):
-        expected = run_and_normalize(engine, case["reference_sql"])
-        expected_set = normalize_rows(expected[1])
-        run = await run_sql_case(
-            provider, case["question"], "ru", schema_catalog, engine,
-            RIDEGO_SOURCE_ID, allow_mock=(provider.provider == "mock"),
-        )
-        actual_set = normalize_rows(run["rows"])
-        result_match = bool(executed := run["executed"]) and actual_set == expected_set
-        results.append({
-            "id": case["id"],
-            "category": case["category"],
-            "question": case["question"],
-            "executed": run["executed"],
-            "result_match": result_match,
-            "attempts": run["attempts"],
-            "latency_ms": run["latency_ms"],
-            "schema_match": sorted(set(t.lower() for t in run["tables_used"]))
-            == sorted(t.lower() for t in case["expected_tables"]),
-            "error": (run["error"] or "")[:160] if not executed else None,
-            "_expected_rows": len(expected_set),
-            "_actual_rows": len(actual_set),
-        })
-        status = "EXEC" if executed else "FAIL"
-        mark = "MATCH" if result_match else "diff "
-        print(f"  [{i:>2}/{len(cases)}] {status} {mark} attempts={run['attempts']} "
-              f"{run['latency_ms']:>5}ms  {case['id']} {case['question'][:40]}")
+        try:
+            case_ds = ALL_UPLOADS_ID if case.get("prepare") else RIDEGO_SOURCE_ID
+            case_schema, case_engine = engines[case_ds]
+
+            ref_sql = case["reference_sql"]
+            for marker, table in markers.items():
+                ref_sql = ref_sql.replace(marker, table)
+            check = case.get("check", "result")
+
+            expected_cols, expected_rows = run_and_normalize(case_engine, ref_sql)
+            expected_set = normalize_rows(expected_rows)
+
+            run = await run_sql_case(
+                provider, case["question"], "ru", case_schema, case_engine,
+                case_ds, allow_mock=(provider.provider == "mock"),
+            )
+            actual_set = normalize_rows(run["rows"])
+            executed = run["executed"]
+
+            if check == "result":
+                result_match: bool | None = executed and actual_set == expected_set
+            else:
+                result_match = None  # execution-only (ambiguous cases)
+
+            results.append({
+                "id": case["id"],
+                "category": case["category"],
+                "question": case["question"],
+                "executed": executed,
+                "result_match": result_match,
+                "attempts": run["attempts"],
+                "latency_ms": run["latency_ms"],
+                "schema_match": sorted(set(t.lower() for t in run["tables_used"]))
+                == sorted(t.lower() for t in case["expected_tables"]),
+                "error": (run["error"] or "")[:160] if not executed else None,
+                "_expected_rows": len(expected_set),
+                "_actual_rows": len(actual_set),
+            })
+            status = "EXEC" if executed else "FAIL"
+            mark = ("MATCH" if result_match else "diff ") if result_match is not None else "exec "
+            print(f"  [{i:>2}/{len(cases)}] {status} {mark} attempts={run['attempts']} "
+                  f"{run['latency_ms']:>5}ms  {case['id']} {case['question'][:40]}")
+        except Exception as e:  # noqa: BLE001 — a broken case must not kill the suite
+            results.append({
+                "id": case.get("id", "?"), "category": case.get("category", "?"),
+                "question": case.get("question", "?"), "executed": False,
+                "result_match": False, "attempts": 0, "latency_ms": 0,
+                "schema_match": False, "error": f"harness error: {e}"[:160],
+            })
+            print(f"  [{i:>2}/{len(cases)}] FAIL harness: {e}"[:120])
 
     executed_n = sum(1 for r in results if r["executed"])
-    matched_n = sum(1 for r in results if r["result_match"])
+    matched = [r for r in results if r["result_match"] is not None]
+    matched_n = sum(1 for r in matched if r["result_match"])
     repaired = [r for r in results if r["attempts"] > 1]
     repaired_ok = sum(1 for r in repaired if r["executed"])
     latencies = sorted(r["latency_ms"] for r in results)
@@ -179,12 +223,19 @@ async def eval_sql_suite(model_id: str, limit: int | None) -> dict[str, Any]:
         idx = min(int(len(latencies) * p / 100), len(latencies) - 1)
         return latencies[idx]
 
+    # --- Cleanup cross-source fixtures created for this run ---
+    for sid in created_sources:
+        try:
+            delete_source(sid)
+        except Exception:  # noqa: BLE001
+            pass
+
     return {
         "suite": "sql",
         "model": model_id,
         "n": len(results),
         "sql_execution_accuracy": pct(executed_n, len(results)),
-        "result_accuracy": pct(matched_n, len(results)),
+        "result_accuracy": pct(matched_n, len(matched)),
         "self_correction_rate": pct(repaired_ok, len(repaired)) if repaired else None,
         "repaired_cases": len(repaired),
         "task_completion_rate": pct(executed_n, len(results)),

@@ -19,7 +19,7 @@ _DOCS_RE = re.compile(
     r"(как\s+(считается|работает|хранится|устроен|считать|настроить|выглядит)|"
     r"где\s+(хранится|лежит|найти)|что\s+(делает|такое|значит)|"
     r"документац|словар|метрик[ау]?\s+(называется|определ)|определени|"
-    r"lineage|utilization|redis|ttl|антифрод|antifraud|reset\s+errors|positioncodes|"
+    r"lineage|utilization|redis|ttl|антифрод|antifraud|reset\s+errors|positioncodes|mongodb|customer_subscription|критическ|сбрасыва|"
     r"backend|логика\s+работы|почему\s+в\s+админке)",
     re.IGNORECASE,
 )
