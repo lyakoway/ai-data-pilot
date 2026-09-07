@@ -952,7 +952,8 @@ async def run_oleg_streaming(
     step["summary"] = (answer[:140] + "…") if len(answer) > 140 else answer
     await emit(step)
 
-    status = "demo" if is_mock else "ok"
+    # "partial" = the answer is ready but the agent had to self-correct on the way.
+    status = "partial" if warnings else ("demo" if is_mock else "ok")
     return _ok_response(
         answer=answer,
         plan=plan,

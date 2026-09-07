@@ -84,7 +84,7 @@ async def test_self_correction_repairs_broken_sql(tmp_db, monkeypatch, fake_prov
 
     r = await run_oleg("test", model_id="openai:gpt-4o-mini", lang="ru")
 
-    assert r["status"] == "ok"  # NOT demo — real-model path
+    assert r["status"] == "partial"  # repaired after self-correction
     assert r["row_count"] == 5
     assert fake.calls == 3  # plan + repair + answer
     assert any("коррекц" in w.lower() for w in r["warnings"])
