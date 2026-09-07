@@ -41,6 +41,22 @@ _SPECS: list[ModelSpec] = [
         "Сбалансированная модель Anthropic", AnthropicProvider,
     ),
     ModelSpec(
+        "anthropic:claude-opus-4-8", "anthropic", "claude-opus-4-8", "Claude Opus 4.8",
+        "Мощная модель Anthropic для сложных задач", AnthropicProvider,
+    ),
+    ModelSpec(
+        "zai:glm-5.3-flash", "zai", "glm-5.3-flash", "GLM-5.3 Flash (Z.ai)",
+        "Быстрое поколение GLM-5.x через Z.ai", ZaiProvider,
+    ),
+    ModelSpec(
+        "zai:glm-5.3", "zai", "glm-5.3", "GLM-5.3 (Z.ai)",
+        "Флагманское поколение GLM-5.x через Z.ai", ZaiProvider,
+    ),
+    ModelSpec(
+        "zai:glm-5.2", "zai", "glm-5.2", "GLM-5.2 (Z.ai)",
+        "Мощная GLM-5.2 через Z.ai", ZaiProvider,
+    ),
+    ModelSpec(
         "zai:glm-4.5-flash", "zai", "glm-4.5-flash", "GLM-4.5 Flash (Z.ai, бесплатно)",
         "Бесплатная модель Zhipu GLM через Z.ai", ZaiProvider,
     ),
