@@ -42,7 +42,8 @@ pinned: false
 - ⚡ **Параметризованные сценарии** — шаблоны с `{period}`, `{group_by}`; один сценарий — бесконечное переиспользование
 - 👍 **Витрина фидбека** — аналитика оценок 👍/👎 по агентам с фильтрами
 - 🤖 **Модели** — Demo (offline), OpenAI, Anthropic, Z.ai (GLM), Ollama
-- 🧪 **174 теста + LLM evaluation** — pytest (Agent Loop, SQL guard, retrieval Recall@1/5·MRR по режимам BM25/Vector/Hybrid, числовые contract-тесты аналитики) + golden set (30 SQL-вопросов, 20 routing) с метриками Execution/Result Accuracy, Self-Correction Rate, p50/p95 — `backend/scripts/evaluate.py` и [EVALUATION.md](backend/EVALUATION.md)
+- 🧪 **174 теста + LLM evaluation** — pytest (Agent Loop, SQL guard, retrieval Recall@1/5·MRR по режимам BM25/Vector/Hybrid, числовые contract-тесты аналитики) + golden set (50 SQL-сценариев: JOIN, ambiguous, cross-source; 20 routing) с метриками Execution/Result Accuracy, Self-Correction Rate, p50/p95 — `backend/scripts/evaluate.py` и [EVALUATION.md](backend/EVALUATION.md)
+- 📊 **Живой прогон GLM-4.6** (Golden Set 50 SQL + 20 routing): SQL Execution Accuracy **100%** (50/50) · Agent Routing Accuracy **100%** · Result Accuracy 42% exact-match · p95 32s — воспроизводимо: `python scripts/evaluate.py --suite all --model zai:glm-4.6`
 
 ## Быстрый старт (локально)
 
