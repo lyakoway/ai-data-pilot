@@ -42,9 +42,10 @@ Recall@1, Recall@5, MRR для трёх режимов (**bm25**, **vector**, **
 
 ## Golden set
 
-- `tests/golden/sql_golden.jsonl` — 30 вопросов: simple(10) + join(6) + agg(2) +
-  temporal(5) + edge(3) + cross-file(4). Каждому — `reference_sql` (эталон)
-  и `expected_tables`.
+- `tests/golden/sql_golden.jsonl` — 50 вопросов: simple(12) + join(7) +
+  join_complex/multi-table(10) + temporal(5) + agg(1) + edge(3) +
+  ambiguous(5, execution-only) + cross-source(5, фикстуры clients/orders).
+  Каждому — `reference_sql` (эталон) и `expected_tables`.
 - `tests/golden/routing_golden.jsonl` — 20 вопросов: oleg(10) / ksyusha(10).
 
 Формат совпадения результатов — execution match: множества строк
