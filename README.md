@@ -41,9 +41,20 @@ pinned: false
   - Виртуальный источник **«Все загрузки»** — Олег видит все загруженные таблицы и строит JOIN между файлами
 - ⚡ **Параметризованные сценарии** — шаблоны с `{period}`, `{group_by}`; один сценарий — бесконечное переиспользование
 - 👍 **Витрина фидбека** — аналитика оценок 👍/👎 по агентам с фильтрами
-- 🤖 **Модели** — Demo (offline), OpenAI, Anthropic, Z.ai (GLM), Ollama
+- 🤖 **Модели (13)** — Demo (offline), OpenAI (GPT-4o/4o-mini), Anthropic (Claude Sonnet 5, Opus 4.8), Z.ai (GLM-5.3/5.2/4.6/4.5-flash), Ollama (Llama, Mistral) — переключение на лету
 - 🧪 **174 теста + LLM evaluation** — pytest (Agent Loop, SQL guard, retrieval Recall@1/5·MRR по режимам BM25/Vector/Hybrid, числовые contract-тесты аналитики) + golden set (50 SQL-сценариев: JOIN, ambiguous, cross-source; 20 routing) с метриками Execution/Result Accuracy, Self-Correction Rate, p50/p95 — `backend/scripts/evaluate.py` и [EVALUATION.md](backend/EVALUATION.md)
 - 📊 **Живой прогон GLM-4.6** (Golden Set 50 SQL + 20 routing): SQL Execution Accuracy **100%** (50/50) · Agent Routing Accuracy **100%** · Result Accuracy 42% exact-match · p95 32s — воспроизводимо: `python scripts/evaluate.py --suite all --model zai:glm-4.6`
+
+### Системные замеры — живой прогон по моделям
+
+| Модель | План (LLM) | Выполнение (БД) | Ответ (LLM) | Итого | SQL ok |
+|---|---|---|---|---|---|
+| GLM-5.2 (Z.ai) | 4.9 с | 14 мс | 13.6 с | ~18.5 с | ✓ |
+| GLM-4.6 (Z.ai) | 12.1 с | 7 мс | 10.3 с | ~22.4 с | ✓ |
+| GLM-5.3-flash (Z.ai) | 9.0 с | — | 5.4 с | ~14.4 с | ✗ |
+| GLM-5.3 (Z.ai) | 7.9 с | — | 4.2 с | ~12.2 с | ✗ |
+
+<sub>Единичный прогон одного вопроса через полный цикл (план → БД → ответ) — латентность внешнего API варьируется между запусками. GLM-5.3-flash и GLM-5.3 сгенерировали SQL, не совпавший с эталонным результатом. Скрипт замера: `python scripts/latency_benchmark.py --models zai:glm-5.3-flash,zai:glm-4.6`.</sub>
 
 ## Быстрый старт (локально)
 
