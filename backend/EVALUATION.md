@@ -17,7 +17,7 @@ python scripts/evaluate.py --suite sql --model openai:gpt-4o-mini --limit 10   #
 
 Результаты: консольный отчёт + `evaluation_results.json`.
 
-## Метрики LLM-прогона (SQL suite — 30 golden-вопросов)
+## Метрики LLM-прогона (SQL suite — 50 golden-вопросов)
 
 | Метрика | Что показывает |
 |---|---|
@@ -38,12 +38,14 @@ python scripts/evaluate.py --suite sql --model openai:gpt-4o-mini --limit 10   #
 
 `tests/test_retrieval_quality.py` — 8 golden-пар «вопрос → документ»:
 Recall@1, Recall@5, MRR для трёх режимов (**bm25**, **vector**, **hybrid**).
-Гарантия: hybrid Recall@5 = 100%, hybrid не хуже компонентов.
+Гарантия тестами: hybrid Recall@5 = 100% и hybrid не хуже каждого из компонентов.
+Замер на текущем сете: bm25 / vector / hybrid — все Recall@1 = Recall@5 = MRR = 1.0
+(сет маленький и не дискриминирует режимы — см. «Ограничения»).
 
 ## Golden set
 
-- `tests/golden/sql_golden.jsonl` — 50 вопросов: simple(12) + join(7) +
-  join_complex/multi-table(10) + temporal(5) + agg(1) + edge(3) +
+- `tests/golden/sql_golden.jsonl` — 50 вопросов: simple(12) + join(8) +
+  join_complex/multi-table(10) + temporal(6) + agg(1) + edge(3) +
   ambiguous(5, execution-only) + cross-source(5, фикстуры clients/orders).
   Каждому — `reference_sql` (эталон) и `expected_tables`.
 - `tests/golden/routing_golden.jsonl` — 20 вопросов: oleg(10) / ksyusha(10).
@@ -58,3 +60,5 @@ Recall@1, Recall@5, MRR для трёх режимов (**bm25**, **vector**, **
   точные формулировки в вопросах.
 - Embeddings загружаются при первом прогоне retrieval-тестов (~10 сек).
 - Прогон LLM-суит требует рабочего провайдера (GLM / OpenAI / Ollama).
+- Retrieval-сет из 8 пар маленький: все режимы дают на нём 1.0 — он пока
+  не дискриминирует режимы поиска; нужен более сложный сет.
