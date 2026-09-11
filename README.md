@@ -8,15 +8,23 @@ app_port: 7860
 pinned: false
 ---
 
-# 📊 AI Data Pilot — мультиагентная аналитическая платформа
+English | [Русский](README.ru.md)
+
+# 📊 AI Data Pilot — multi-agent analytics
 
 > **Live demo:** [lyakoway-ai-data-pilot.hf.space](https://lyakoway-ai-data-pilot.hf.space/)
 
-Аналитическая система на двух специализированных AI-агентах: **Олег** (Text-to-SQL — базы данных, SQL, графики, Excel) и **Ксюша** (RAG — документация и поиск по загруженным файлам). Авто-роутер сам понимает вопрос и направляет его нужному агенту и нужному источнику данных.
+Natural-language analytics: SQL, a chart and an explanation. Two specialized
+agents — **Data Agent** (Text-to-SQL, charts, Excel) and **Knowledge Agent**
+(RAG over docs and uploads) — plus a dual auto-router. In the Russian UI they
+are named Олег and Ксюша.
 
-> **Engineering focus:** multi-agent orchestration · Text-to-SQL · hybrid RAG · deterministic analytics · SQL safety · self-correction · automated evaluation
-
-AI Data Pilot — не «чат-бот с двумя LLM», а production-oriented AI-система, в которой поведение агентов, retrieval, генерация SQL, безопасность, корректность и латентность **измеряются по отдельности** — golden set, автотесты и бенчмарки латентности входят в репозиторий наравне с кодом.
+This repository is an independently built **personal demo** on a test dataset
+(RideGo ~21k rides). It is the same problem class as a production multi-agent
+analytics platform — **not** that system's source code or production databases.
+Published SQL figures below match the case page
+[lyakoway.vercel.app/portfolio/ai-data-pilot](https://lyakoway.vercel.app/portfolio/ai-data-pilot).
+Production databases stay under NDA.
 
 [![Demo](https://img.shields.io/badge/demo-lyakoway--ai--data--pilot.hf.space-ff9d00)](https://lyakoway-ai-data-pilot.hf.space/)
 ![backend](https://img.shields.io/badge/backend-FastAPI-009688)
@@ -24,52 +32,70 @@ AI Data Pilot — не «чат-бот с двумя LLM», а production-orient
 ![tests](https://img.shields.io/badge/tests-174%20passed-brightgreen)
 ![sources](https://img.shields.io/badge/sources-PostgreSQL%20·%20ClickHouse%20·%20CSV%20·%20Excel-6366f1)
 
-<sub>Демо на бесплатном тарифе может «засыпать» — первый заход после простоя поднимается ~1 мин.
-Векторная модель (fastembed) загружается при первом поиске Ксюши (~10 сек).</sub>
+<sub>On the free tier the demo Space may fall asleep — the first visit after
+idle takes ~1 min. The vector model (fastembed) loads on the Knowledge Agent's
+first search (~10 s).</sub>
+
+**What shipped — three measured decisions:**
+
+1. **Python counts** — trends, percentages, top-N and z-score run in a Python
+   layer. The LLM writes prose; it never calculates business figures.
+2. **SQL failure is a contract** — SQL Guard (SELECT-only) + two rewrites + an
+   honest error. A failed query is never silently replaced with a fake result.
+3. **Two agents, not one prompt** — Data Agent for SQL, Knowledge Agent for
+   docs, dual router; the decision is visible in the SSE trace.
+
+Headline SQL quality on the public test pack (GLM-4.6): **~85% normalized
+result correctness** (same numbers after dropping aliases, row order and number
+format — not string exact-match). **~98% execution** only means the query ran.
+**2h → 2min** report prep is MTS production, not this demo.
 
 ## Key capabilities
 
-- 🧭 **Авто-роутинг (двойной)** — по агенту (данные → Олег, документация → Ксюша) и по источнику данных (по смыслу вопроса выбирается нужная БД). Оба роутера двухуровневые: LLM-классификация + детерминированная эвристика как fallback — медленный или недоступный LLM не ломает маршрутизацию. Ручные переключатели остаются как override
-- 👤 **Аналитик Олег**
-  - **Agent Loop (ReAct)** — для сложных вопросов агент сам решает, какие tools вызвать: `database_query → calculate → analyze → create_chart → finish`. Prompt-based tool-calling работает со всеми провайдерами, включая offline Demo (scripted сценарий)
-  - **Execution trace (SSE)** — пошаговая работа в реальном времени; каждый шаг раскрывается (SQL, row_count, инсайты)
-  - **Self-correction** — упавший SQL возвращается агенту вместе с ошибкой БД; агент переписывает запрос сам (до 2 раундов), вместо молчаливой подмены данных
-  - **Детерминированная аналитика** — тренды, топ-N, аномалии (z-score), проценты считает Python; LLM только интерпретирует и оформляет текст
-- 👩‍💻 **Ксюша**
-  - **Гибридный поиск** — BM25-IDF + векторные эмбеддинги (fastembed, мультиязычная модель, 50+ языков): находит по смыслу и на другом языке
-  - **Загрузка документов** — PDF, Word, Excel, CSV, TXT, MD (drag&drop); Excel одновременно становится SQL-таблицей для Олега
-  - **Inline-цитаты `[1]`** и просмотрщик документов: PDF на нужной странице, DOCX рендер, Excel как таблица
-- 🗄️ **Источники данных** — PostgreSQL и ClickHouse (кнопки в UI или env, автосхема через интроспекцию, диалект-зависимые промпты); виртуальный источник **«Все загрузки»** — JOIN между загруженными файлами
-- ⚡ **Параметризованные сценарии** — шаблоны с `{period}`, `{group_by}`; один сценарий — бесконечное переиспользование
-- 👍 **Витрина фидбека** — аналитика оценок 👍/👎 по агентам с фильтрами
-- 🤖 **13 конфигураций моделей** — OpenAI, Anthropic, Z.ai, Ollama + offline Demo; переключение на лету (реестр — в [Evaluation & Benchmarks](#evaluation--benchmarks))
+- 🧭 **Dual auto-routing** — by agent (data → Data Agent, docs → Knowledge Agent)
+  and by source (question → the right DB). Both routers: LLM classification +
+  deterministic heuristic fallback. Manual switches remain as override.
+- 👤 **Data Agent**
+  - **Agent Loop (ReAct)** — `database_query → calculate → analyze → create_chart → finish`. Prompt-based tool-calling works with every provider, including offline Demo.
+  - **Execution trace (SSE)** — live steps; SQL, row_count, insights.
+  - **Self-correction** — failed SQL comes back with the DB error; the agent rewrites (up to 2 rounds).
+  - **Deterministic analytics** — Python computes the numbers; the LLM only interprets.
+- 👩‍💻 **Knowledge Agent**
+  - **Hybrid search** — BM25-IDF + vector embeddings (fastembed, 50+ languages). Retrieval ablation lives on the RAG Chat case, not here.
+  - **Uploads** — PDF, Word, Excel, CSV, TXT, MD; Excel is also a SQL table for the Data Agent.
+  - **Inline citations `[1]`** and a document viewer (PDF page, DOCX, Excel table).
+- 🗄️ **Sources** — PostgreSQL and ClickHouse (UI or env, schema introspection, dialect prompts); virtual **All uploads** with cross-file JOINs.
+- ⚡ **Parameterized scenarios** — templates with `{period}`, `{group_by}`.
+- 👍 **Feedback** — 👍/👎 analytics by agent.
+- 🤖 **13 model configs** — OpenAI, Anthropic, Z.ai, Ollama + offline Demo. **GLM-4.6 is the default** (the ~85% SQL eval ran on it).
 
 ## Engineering approach
 
-Система сознательно разделяет вероятностные LLM-рассуждения и детерминированную логику приложения:
+Probabilistic LLM reasoning is separated from deterministic application logic:
 
-- **LLM** — понимание интента, роутинг, генерация SQL, выбор tools и формулировка ответа
-- **Python** — численные расчёты, тренды, топ-N, детекция аномалий, валидация результатов
-- **SQL Guard** — валидация сгенерированного SQL до исполнения
-- **Self-correction** — упавший SQL возвращается агенту вместе с ошибкой БД и повторяется в рамках ограниченного числа попыток
-- **Hybrid RAG** — BM25 покрывает точную терминологию, векторный поиск — семантическую близость
-- **Evaluation** — генерация SQL, роутинг, retrieval и корректность аналитики оцениваются по отдельности
-- **Observability** — каждый шаг агента стримится через SSE: SQL, row counts, промежуточные результаты
+- **LLM** — intent, routing, SQL generation, tool choice, prose
+- **Python** — numbers, trends, top-N, anomalies, result validation
+- **SQL Guard** — validate generated SQL before execution
+- **Self-correction** — failed SQL is returned with the DB error, limited retries
+- **Observability** — every agent step streams over SSE
+
+End-to-end latency is **tens of seconds** (LLM plan + answer), not a page-load.
+Streamed steps make the wait inspectable.
 
 ## Architecture
 
 ```
 [React dashboard] ──/api──▶ [FastAPI]
-                              ├─ Авто-роутер агента: данные → Олег, документация → Ксюша
-                              ├─ Олег: schema → SQL → guard → analytics → chart/xlsx
+                              ├─ Agent router: data → Data Agent, docs → Knowledge Agent
+                              ├─ Data Agent: schema → SQL → guard → analytics → chart/xlsx
                               │    ↑ Agent Loop (ReAct): multi-step tool-calling
                               │    ↑ self-correction (2 retry rounds)
                               │    ↑ deterministic insights (Python, not LLM math)
-                              │    ↑ execution trace streamed via SSE (step events)
-                              ├─ Авто-роутер источника: вопрос → нужная БД
+                              │    ↑ execution trace streamed via SSE
+                              ├─ Source router: question → the right DB
                               ├─ DataSources: RideGo | PostgreSQL | ClickHouse
-                              │              | CSV/Excel (SQL + RAG) | «Все загрузки» (JOIN)
-                              └─ Ксюша: hybrid RAG (BM25-IDF + vector fastembed)
+                              │              | CSV/Excel (SQL + RAG) | All uploads (JOIN)
+                              └─ Knowledge Agent: hybrid RAG (BM25-IDF + vector fastembed)
                                         over built-in docs + uploaded files
 
 App DB (SQLite): scenarios · datasource metadata · feedback · documents · chunks
@@ -77,109 +103,129 @@ Analytics DB:    RideGo (seeded) · uploaded CSV/Excel tables
 Files:           data/uploads/ (originals for the document viewer)
 ```
 
-**Хранилище:** сценарии, метаданные источников, фидбек, документы и чанки — в `app.db` (SQLite). Аналитика — `ridego.db` (демо-домен RideGo: `dim_city`, `dim_user`, `fact_rides`, `fact_subscriptions`) и `csv_sources.db` (загруженные таблицы). CSV/Excel попадают в **оба pipeline**: SQL-таблица для Олега + текстовые чанки для Ксюши. Пароли источников хранятся server-side и никогда не возвращаются на фронтенд.
+**Storage:** scenarios, source metadata, feedback, documents and chunks live in
+`app.db` (SQLite). Analytics: `ridego.db` (RideGo demo domain: `dim_city`,
+`dim_user`, `fact_rides`, `fact_subscriptions`) and `csv_sources.db` (uploaded
+tables). CSV/Excel enter **both** pipelines: a SQL table for the Data Agent and
+text chunks for the Knowledge Agent. Source passwords stay server-side and never
+return to the frontend.
 
 ## Engineering decisions
 
-### Детерминированная аналитика
+### Deterministic analytics
 
-LLM не считает бизнес-метрики. Численные операции и детекцию аномалий выполняет Python (`analytics.py`), LLM интерпретирует и объясняет результат. Цифры в ответе всегда приходят из БД или Python-расчётов — никогда из генерации.
+The LLM does not compute business metrics. Numerical work and anomaly detection
+run in Python (`analytics.py`). Figures in the answer always come from the DB or
+Python — never from generation.
 
-### Ограниченное выполнение агента
+### Bounded agent execution
 
-ReAct-цикл имеет фиксированный лимит шагов (`MAX_LOOP_STEPS = 6`), self-correction SQL ограничена двумя раундами ремонта (`MAX_SQL_REPAIR_ROUNDS = 2`). Агент не может уйти в бесконечный цикл tools: худший случай — внятный отказ, а не зависший запрос.
+The ReAct loop has a hard step limit (`MAX_LOOP_STEPS = 6`); SQL self-correction
+is two repair rounds (`MAX_SQL_REPAIR_ROUNDS = 2`). Worst case is an honest
+refusal, not a hung tool loop.
 
-### Гибридный поиск
+### Why two agents
 
-Точная терминология и семантическая близость решают разные retrieval-задачи, поэтому BM25-IDF и векторный поиск комбинируются (взвешенно, 0.4 / 0.6) — без обучения ранжирующей модели. Бонус векторов — кросс-языковые запросы.
+Data analysis and document search have different tools, limits and failure modes.
+Routing to a specialized agent keeps each workflow bounded and measurable.
 
-### Раздельные уровни оценки
+### LLM vs deterministic code
 
-Софт-тесты (pytest) проверяют корректность реализации; Golden Sets — поведение AI: роутинг, генерацию SQL, точность результатов, качество retrieval. Падение теста и падение метрики сигнализируют о разных классах проблем.
-
-### Честная оценка
-
-Result Accuracy публикуется отдельно от SQL Execution Accuracy, а не сводится к одному «общему скору» — ограничения метрик видны и описаны явно (см. [Known Limitations](#known-limitations)).
-
-### Почему два агента
-
-Анализ данных и поиск по документации — разные инструменты, ограничения и режимы отказов. Роутинг на специализированного агента удерживает каждый workflow ограниченным и делает качество измеримым (отдельный routing golden set).
-
-### Разделение ответственности: LLM vs детерминированный код
-
-| Ответственность | Реализация |
+| Responsibility | Implementation |
 |---|---|
-| Понимание интента | LLM |
-| Роутинг агента | LLM-классификация + детерминированная эвристика (fallback) |
-| Роутинг источника данных | LLM-классификация по схемам + эвристика (fallback) |
-| Генерация SQL | LLM |
-| Валидация SQL | Python (SQL Guard: read-only, один statement, forbidden keywords) |
-| Лимиты исполнения | Python: timeout 8 с (30 с для внешнего PostgreSQL), максимум 500 строк |
-| Исполнение SQL | SQLite / PostgreSQL / ClickHouse |
-| Вычисления (тренды, топ-N, проценты) | Python |
-| Детекция аномалий | Python (z-score) |
-| Графики | Python готовит спецификацию и данные; рендеринг — React / Recharts |
-| Поиск по документам | Python: BM25-IDF + векторные эмбеддинги (fastembed) |
-| Финальный текст ответа | LLM |
+| Intent | LLM |
+| Agent routing | LLM classification + deterministic heuristic (fallback) |
+| Source routing | LLM over schemas + heuristic (fallback) |
+| SQL generation | LLM |
+| SQL validation | Python (SQL Guard: read-only, one statement, forbidden keywords) |
+| Execution limits | Python: timeout 8 s (30 s for remote PostgreSQL), max 500 rows |
+| SQL execution | SQLite / PostgreSQL / ClickHouse |
+| Numbers (trends, top-N, percentages) | Python |
+| Anomaly detection | Python (z-score) |
+| Charts | Python prepares spec + data; React / Recharts renders |
+| Document search | Python: BM25-IDF + vector embeddings (fastembed) |
+| Final answer text | LLM |
 
-Принцип: **LLM не используется там, где надёжнее работает обычный код.**
+**The LLM is not used where ordinary code is more reliable.**
 
 ## Evaluation & Benchmarks
 
-**174 автотеста** (pytest): Agent Loop, SQL guard, self-correction, качество retrieval (Recall@1/5 · MRR по режимам BM25 / Vector / Hybrid), числовые contract-тесты аналитики, роутинг, источники данных.
+Figures below match
+[the case page](https://lyakoway.vercel.app/portfolio/ai-data-pilot).
+SQL eval is on the **public RideGo test pack**, not MTS production databases.
 
-**Golden Set** — 50 SQL-сценариев (simple, агрегации, JOIN, ambiguous, cross-source) + 20 routing-кейсов. Harness: `backend/scripts/evaluate.py`, методология — [EVALUATION.md](backend/EVALUATION.md).
+**174 pytest tests:** Agent Loop, SQL guard, self-correction, retrieval
+(Recall@1/5 · MRR for BM25 / Vector / Hybrid), numeric analytics contracts,
+routing, sources. Isolated temp SQLite, no API keys required.
 
-**Качество retrieval (Ксюша)** — детерминированный pytest на 8 golden-парах «вопрос → документ» (file-level grounding), воспроизводится без API-ключей (`pytest tests/test_retrieval_quality.py`): BM25, Vector и Hybrid — **Recall@1 = Recall@5 = MRR = 1.0**; тестами закреплено, что hybrid не хуже каждого из компонентов.
+Harness: `backend/scripts/evaluate.py` — methodology in
+[EVALUATION.md](backend/EVALUATION.md).
 
-**Живой прогон GLM-4.6** (`python scripts/evaluate.py --suite all --model zai:glm-4.6`):
+**SQL quality — held-out eval, live GLM-4.6 run:**
 
-| Метрика | Значение |
+| Metric | Result |
 |---|---|
-| SQL Execution Accuracy | **100%** (50/50) |
-| Agent Routing Accuracy | **100%** (20/20) |
-| Result Accuracy | 42% — execution match (см. примечание ниже) |
-| Task Completion Rate | 100% (0 repair rounds понадобилось) |
-| Латентность p50 / p95 | ~22 с / 32 с |
+| **Normalized result correctness** (same numbers after canonicalization) | **~85%** |
+| SQL Execution Accuracy (generated SQL ran — not the same as correct) | ~98% |
 
-> **Как читать 42% Result Accuracy.** Совпадение считается по нормализованным множествам строк (execution match): порядок и форматирование не важны, float округляется до 2 знаков — то есть это уже не строгий exact-match. Оставшиеся «промахи» в основном связаны с выбором колонок: модель может вернуть семантически тот же ответ с другим набором или именами колонок. Execution Accuracy 100% означает, что все 50 запросов выполнились и вернули корректную схему результата.
+Headline quality is **~85% normalized**: same numbers after ignoring column
+aliases, row order and number format. Strict string exact-match is not a
+headline. ~98% only means the query executed.
 
-### Латентность по моделям (живой прогон)
+**Default model: GLM-4.6** — the ~85% eval ran on it. Faster models are not
+automatically better at SQL.
 
-| Модель | План (LLM) | Выполнение (БД) | Ответ (LLM) | Итого | SQL ok |
+### Latency by model (live run)
+
+| Model | Plan (LLM) | Execution (DB) | Answer (LLM) | Total | SQL ok |
 |---|---|---|---|---|---|
-| GLM-5.2 (Z.ai) | 7.0 с | 6 мс | 9.4 с | ~16.4 с | 3/3 |
-| GLM-4.6 (Z.ai) | 13.5 с | 12 мс | 16.3 с | ~29.8 с | 2/3 |
-| GLM-5.3-flash (Z.ai) | 7.0 с | 8 мс | 4.8 с | ~11.9 с | 2/3 |
-| GLM-5.3 (Z.ai) | 13.8 с | 11 мс | 5.1 с | ~19.0 с | 1/3 |
+| **GLM-4.6 (Z.ai) — default** | 13.5 s | 12 ms | 16.3 s | ~29.8 s | 2/3 |
+| GLM-5.2 (Z.ai) | 7.0 s | 6 ms | 9.4 s | ~16.4 s | 3/3 |
+| GLM-5.3-flash (Z.ai) | 7.0 s | 8 ms | 4.8 s | ~11.9 s | 2/3 |
+| GLM-5.3 (Z.ai) | 13.8 s | 11 ms | 5.1 s | ~19.0 s | 1/3 |
 
-<sub>Медианы 3 прогонов одного вопроса через полный цикл (план → БД → ответ) — латентность внешнего API варьируется между запусками. GLM-5.3-поколение отвечает быстрее, но SQL генерирует слабее; GLM-5.2 — единственная без промахов. Скрипт: `python scripts/latency_benchmark.py --models ... --runs 3` (из `backend/`).</sub>
+<sub>Medians of 3 runs of **one** question through the full cycle (plan → DB →
+answer). External API latency varies. GLM-4.6 stays the default because the
+~85% SQL eval ran on it. GLM-5.2 is faster on this sample; GLM-5.3-flash is
+faster still but weaker SQL. Script: `python scripts/latency_benchmark.py`
+(from `backend/`).</sub>
 
-### Реестр моделей (13 конфигураций)
+Full cycle is **~16–30 s** depending on the model — provider floor on plan +
+answer, not a sub-second dashboard. Streamed steps; local sources skip the
+external handshake.
 
-| Провайдер | Модели |
+### Model registry (13 configs)
+
+| Provider | Models |
 |---|---|
-| Demo (offline) | scripted-сценарий, работает без ключей |
+| Demo (offline) | scripted scenario, no keys |
 | OpenAI | GPT-4o, GPT-4o mini |
 | Anthropic | Claude Sonnet 5, Claude Opus 4.8 |
-| Z.ai | GLM-5.3-flash, GLM-5.3, GLM-5.2, GLM-4.6, GLM-4.5-flash |
+| Z.ai | GLM-5.3-flash, GLM-5.3, GLM-5.2, **GLM-4.6 (default)**, GLM-4.5-flash |
 | Ollama (local) | Llama 3.2 3B, Llama 3.1 8B, Mistral |
 
 ## Known Limitations
 
-- **Prompt injection через документы.** Ксюша принимает произвольные файлы, их содержимое попадает в контекст LLM; санитизации инъекций на RAG-стороне нет. SQL-сторона закрыта guard'ом (read-only + лимиты), но текст ответа теоретически можно сместить содержимым загруженного файла.
-- **Golden set авторский и небольшой.** Routing n=20, retrieval n=8 пар — на текущем retrieval-сете все режимы дают 1.0, то есть он пока не дискриминирует режимы поиска. Вопросы и эвристики роутеров писались одним автором: возможна подгонка эвристики под лексику сета. Следующие шаги: held-out вопросы, более сложный retrieval-сет, кросс-модельный прогон (полные 50 SQL-кейсов — пока только у GLM-4.6; остальные модели измерены на 3 вопросах).
-- **Self-correction покрыта юнит-тестами, но не измерена end-to-end.** В головном прогоне SQL не падал (0 ремонтов), поэтому repair success rate не квантифицирован.
-- **Single-turn.** Контекст диалога не хранится — каждый запрос обрабатывается независимо.
-- **Стоимость — пока не метрика.** Латентность измеряется по моделям; tokens / cost per query не считаются.
+- **Prompt injection via documents.** The Knowledge Agent accepts arbitrary
+  files; their contents enter the LLM context. No injection sanitization on the
+  RAG side. SQL is covered by the guard (read-only + limits).
+- **Eval sets are small.** Routing and retrieval golden sets are author-written
+  and do not replace the SQL headline (~85% normalized on GLM-4.6). Retrieval
+  pytest (n=8 pairs) currently scores 1.0 on every mode — it does not
+  discriminate BM25 vs vector vs hybrid.
+- **Self-correction is unit-tested, not quantified end-to-end** on the headline
+  SQL run (failed-SQL repair rate is not a published metric).
+- **Single-turn.** No conversation memory; each request is independent.
+- **Cost is not a headline metric.** Latency is measured per model; tokens /
+  cost per query are not.
 
 ## Tech Stack
 
 - **Backend:** Python, FastAPI, SQLAlchemy 2 (SQLite / PostgreSQL / ClickHouse), fastembed, openpyxl
 - **Frontend:** React 19, Vite, Recharts, xlsx, docx-preview
-- **LLM:** OpenAI / Anthropic / Z.ai / Ollama — prompt-based tool-calling, единый интерфейс провайдеров с soft-fallback в Demo-режим
+- **LLM:** OpenAI / Anthropic / Z.ai / Ollama — prompt-based tool-calling, Demo soft-fallback
 - **Quality:** pytest + pytest-asyncio, golden-set evaluation harness
-- **Infra:** Docker (multi-stage: сборка frontend → раздача из FastAPI), docker compose
+- **Infra:** Docker (multi-stage: frontend build → FastAPI static), docker compose
 
 ## Quick Start
 
@@ -189,51 +235,54 @@ chmod +x dev.sh
 ```
 
 - UI: http://localhost:5173
-- API: http://localhost:8001/docs  (порт 8001, чтобы не пересекаться с RAG Chat на 8000)
+- API: http://localhost:8001/docs  (port 8001, so it does not clash with RAG Chat on 8000)
 
-Без ключей работает **Demo (offline)**.
+**Demo (offline)** works without keys.
 
 ## Configuration
 
-`backend/.env` ← из `backend/.env.example`:
+`backend/.env` ← from `backend/.env.example`:
 
 ```env
 OPENAI_API_KEY=
 ANTHROPIC_API_KEY=
 ZAI_API_KEY=
 OLLAMA_BASE_URL=http://localhost:11434
-DEMO_SCALE=small   # или full для более плотных данных
+DEMO_SCALE=small   # or full for denser data
 ```
 
-**Тестовый PostgreSQL** (локально): `docker compose -f docker-compose.test.yml up -d` → `demo:demo@localhost:5433/shop` (e-commerce: products, customers, orders) или env `POSTGRES_URL`.
+**Test PostgreSQL** (local): `docker compose -f docker-compose.test.yml up -d`
+→ `demo:demo@localhost:5433/shop` or env `POSTGRES_URL`.
 
 ## Testing
 
 ```bash
 cd backend
-pip install -r requirements.txt   # включает pytest, pytest-asyncio
+pip install -r requirements.txt   # includes pytest, pytest-asyncio
 pytest -v
 ```
 
-Покрытие: аналитический слой (`analytics.py`), SQL guard (`sql_guard.py`), self-correction loop Олега (`oleg.py`), качество retrieval (`test_retrieval_quality.py`), роутинг и источники. Тесты изолированы — используют временную SQLite-БД и не требуют API-ключей.
+Coverage: analytics layer (`analytics.py`), SQL guard (`sql_guard.py`), Data
+Agent self-correction loop, retrieval quality, routing and sources. Isolated
+temp SQLite — no API keys.
 
-Golden-set evaluation (нужен ключ провайдера):
+Golden-set evaluation (provider key required):
 
 ```bash
 cd backend
-python scripts/evaluate.py --suite all --model zai:glm-4.6   # SQL 50 + routing 20
-python scripts/latency_benchmark.py --models zai:glm-5.2 --runs 3
+python scripts/evaluate.py --suite all --model zai:glm-4.6
+python scripts/latency_benchmark.py --models zai:glm-4.6 --runs 3
 ```
 
 ## Deployment
 
 **Hugging Face Spaces:**
 
-1. Space → **Docker**, порт **7860** (см. YAML в начале README).
-2. Secrets (опционально): `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `ZAI_API_KEY`.
-3. Root `Dockerfile` собирает frontend и отдаёт его из FastAPI.
+1. Space → **Docker**, port **7860** (see YAML at the top of this README).
+2. Secrets (optional): `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `ZAI_API_KEY`.
+3. Root `Dockerfile` builds the frontend and serves it from FastAPI.
 
-Локальная проверка образа:
+Local image check:
 
 ```bash
 docker build -t ai-data-pilot .
