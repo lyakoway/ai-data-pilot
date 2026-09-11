@@ -39,11 +39,11 @@ first search (~10 s).</sub>
 **What shipped — three measured decisions:**
 
 1. **Python counts** — trends, percentages, top-N and z-score run in a Python
-   layer. The LLM writes prose; it never calculates business figures.
+   layer. The LLM writes prose. It never calculates business figures.
 2. **SQL failure is a contract** — SQL Guard (SELECT-only) + two rewrites + an
    honest error. A failed query is never silently replaced with a fake result.
 3. **Two agents, not one prompt** — Data Agent for SQL, Knowledge Agent for
-   docs, dual router; the decision is visible in the SSE trace.
+   docs. Dual router — the decision is visible in the SSE trace.
 
 Headline SQL quality on the public test pack (GLM-4.6): **~85% normalized
 result correctness** (same numbers after dropping aliases, row order and number
@@ -54,17 +54,17 @@ format — not string exact-match). **~98% execution** only means the query ran.
 
 - 🧭 **Dual auto-routing** — by agent (data → Data Agent, docs → Knowledge Agent)
   and by source (question → the right DB). Both routers: LLM classification +
-  deterministic heuristic fallback. Manual switches remain as override.
+  deterministic heuristic fallback. Manual switches remain as an override.
 - 👤 **Data Agent**
   - **Agent Loop (ReAct)** — `database_query → calculate → analyze → create_chart → finish`. Prompt-based tool-calling works with every provider, including offline Demo.
-  - **Execution trace (SSE)** — live steps; SQL, row_count, insights.
-  - **Self-correction** — failed SQL comes back with the DB error; the agent rewrites (up to 2 rounds).
-  - **Deterministic analytics** — Python computes the numbers; the LLM only interprets.
+  - **Execution trace (SSE)** — live steps: SQL, row_count, insights.
+  - **Self-correction** — failed SQL comes back with the DB error. The agent rewrites (up to 2 rounds).
+  - **Deterministic analytics** — Python computes the numbers. The LLM only interprets.
 - 👩‍💻 **Knowledge Agent**
   - **Hybrid search** — BM25-IDF + vector embeddings (fastembed, 50+ languages). Retrieval ablation lives on the RAG Chat case, not here.
-  - **Uploads** — PDF, Word, Excel, CSV, TXT, MD; Excel is also a SQL table for the Data Agent.
+  - **Uploads** — PDF, Word, Excel, CSV, TXT, MD. Excel is also a SQL table for the Data Agent.
   - **Inline citations `[1]`** and a document viewer (PDF page, DOCX, Excel table).
-- 🗄️ **Sources** — PostgreSQL and ClickHouse (UI or env, schema introspection, dialect prompts); virtual **All uploads** with cross-file JOINs.
+- 🗄️ **Sources** — PostgreSQL and ClickHouse (UI or env, schema introspection, dialect prompts), virtual **All uploads** with cross-file JOINs.
 - ⚡ **Parameterized scenarios** — templates with `{period}`, `{group_by}`.
 - 👍 **Feedback** — 👍/👎 analytics by agent.
 - 🤖 **13 model configs** — OpenAI, Anthropic, Z.ai, Ollama + offline Demo. **GLM-4.6 is the default** (the ~85% SQL eval ran on it).
@@ -120,7 +120,7 @@ Python — never from generation.
 
 ### Bounded agent execution
 
-The ReAct loop has a hard step limit (`MAX_LOOP_STEPS = 6`); SQL self-correction
+The ReAct loop has a hard step limit (`MAX_LOOP_STEPS = 6`). SQL self-correction
 is two repair rounds (`MAX_SQL_REPAIR_ROUNDS = 2`). Worst case is an honest
 refusal, not a hung tool loop.
 
@@ -142,7 +142,7 @@ Routing to a specialized agent keeps each workflow bounded and measurable.
 | SQL execution | SQLite / PostgreSQL / ClickHouse |
 | Numbers (trends, top-N, percentages) | Python |
 | Anomaly detection | Python (z-score) |
-| Charts | Python prepares spec + data; React / Recharts renders |
+| Charts | Python prepares spec + data, React / Recharts renders |
 | Document search | Python: BM25-IDF + vector embeddings (fastembed) |
 | Final answer text | LLM |
 
@@ -186,12 +186,12 @@ automatically better at SQL.
 
 <sub>Medians of 3 runs of **one** question through the full cycle (plan → DB →
 answer). External API latency varies. GLM-4.6 stays the default because the
-~85% SQL eval ran on it. GLM-5.2 is faster on this sample; GLM-5.3-flash is
-faster still but weaker SQL. Script: `python scripts/latency_benchmark.py`
+~85% SQL eval ran on it. GLM-5.2 is faster on this sample. GLM-5.3-flash is
+faster still but weaker at SQL. Script: `python scripts/latency_benchmark.py`
 (from `backend/`).</sub>
 
 Full cycle is **~16–30 s** depending on the model — provider floor on plan +
-answer, not a sub-second dashboard. Streamed steps; local sources skip the
+answer, not a sub-second dashboard. Streamed steps — local sources skip the
 external handshake.
 
 ### Model registry (13 configs)
@@ -207,7 +207,7 @@ external handshake.
 ## Known Limitations
 
 - **Prompt injection via documents.** The Knowledge Agent accepts arbitrary
-  files; their contents enter the LLM context. No injection sanitization on the
+  files. Their contents enter the LLM context. No injection sanitization on the
   RAG side. SQL is covered by the guard (read-only + limits).
 - **Eval sets are small.** Routing and retrieval golden sets are author-written
   and do not replace the SQL headline (~85% normalized on GLM-4.6). Retrieval
@@ -215,9 +215,9 @@ external handshake.
   discriminate BM25 vs vector vs hybrid.
 - **Self-correction is unit-tested, not quantified end-to-end** on the headline
   SQL run (failed-SQL repair rate is not a published metric).
-- **Single-turn.** No conversation memory; each request is independent.
-- **Cost is not a headline metric.** Latency is measured per model; tokens /
-  cost per query are not.
+- **Single-turn.** No conversation memory. Each request is independent.
+- **Cost is not a headline metric.** Latency is measured per model. Tokens and
+  cost per query are not published.
 
 ## Tech Stack
 
