@@ -42,6 +42,11 @@ const COPY = {
   ru: {
     title: 'AI Data Pilot',
     subtitleAuto: 'Авто-роутер · данные → Олег, документация → Ксюша',
+    brandSub: 'RideGo · Oleg & Ksyusha',
+    agentOleg: 'Олег',
+    agentKsyusha: 'Ксюша',
+    titleOleg: 'Аналитик Олег',
+    titleKsyusha: 'Ксюша',
     autoModeLabel: 'Авто-выбор агента',
     autoModeHint: 'Роутер сам направляет вопрос Олегу или Ксюше',
     emptyAuto:
@@ -75,16 +80,24 @@ const COPY = {
     settings: 'Настройки',
     modelLabel: 'Модель',
     close: 'Закрыть',
+    themeLight: 'Светлая тема',
+    themeDark: 'Тёмная тема',
+    langSwitch: 'English',
   },
   en: {
     title: 'AI Data Pilot',
-    subtitleAuto: 'Auto-router · data → Oleg, docs → Ksyusha',
+    subtitleAuto: 'Auto-router · data → Data Agent, docs → Agent (RAG)',
+    brandSub: 'RideGo · Data Agent & Agent (RAG)',
+    agentOleg: 'Data Agent',
+    agentKsyusha: 'Agent (RAG)',
+    titleOleg: 'Data Agent',
+    titleKsyusha: 'Agent (RAG)',
     autoModeLabel: 'Auto-select agent',
-    autoModeHint: 'The router sends each question to Oleg or Ksyusha',
+    autoModeHint: 'The router sends each question to Data Agent or Agent (RAG)',
     emptyAuto:
-      'Ask anything — the router sends data questions to Oleg (SQL) and docs questions to Ksyusha.',
-    subtitleOleg: 'Analyst Oleg · SQL, metrics, Excel',
-    subtitleKsyusha: 'Ksyusha · docs & backend logic',
+      'Ask anything — the router sends data questions to Data Agent (SQL) and docs questions to Agent (RAG).',
+    subtitleOleg: 'Data Agent · SQL, metrics, Excel',
+    subtitleKsyusha: 'Agent (RAG) · docs & backend logic',
     scenarios: 'Scenarios',
     docsLabel: 'Documents',
     run: 'Run',
@@ -101,9 +114,9 @@ const COPY = {
     uploadError: 'Failed to upload file',
     loadingSuggestions: 'Picking questions for your data…',
     emptyOleg:
-      'Oleg queries the RideGo demo DB: SQL, table, chart, Excel. Run a scenario or ask a question.',
+      'Data Agent queries the RideGo demo DB: SQL, table, chart, Excel. Run a scenario or ask a question.',
     emptyKsyusha:
-      'Ksyusha answers from a fake internal docs base (metrics, lineage, backend).',
+      'Agent (RAG) answers from a fake internal docs base (metrics, lineage, backend).',
     sendHint: 'Enter to send · Shift+Enter for newline',
     loading: 'Agent is thinking…',
     saveName: 'Scenario name',
@@ -112,6 +125,9 @@ const COPY = {
     settings: 'Settings',
     modelLabel: 'Model',
     close: 'Close',
+    themeLight: 'Light theme',
+    themeDark: 'Dark theme',
+    langSwitch: 'Русский',
   },
 } as const
 
@@ -526,7 +542,7 @@ export default function App() {
           <div className="brand-logo">DP</div>
           <div>
             <h1>{t.title}</h1>
-            <p>RideGo · Oleg & Ksyusha</p>
+            <p>{t.brandSub}</p>
           </div>
           <button
             type="button"
@@ -557,7 +573,7 @@ export default function App() {
             className={`agent-btn ${agent === 'oleg' ? 'active' : ''}`}
             onClick={() => selectAgent('oleg')}
           >
-            Олег
+            {t.agentOleg}
             <small>SQL · Excel</small>
           </button>
           <button
@@ -565,7 +581,7 @@ export default function App() {
             className={`agent-btn ${agent === 'ksyusha' ? 'active' : ''}`}
             onClick={() => selectAgent('ksyusha')}
           >
-            Ксюша
+            {t.agentKsyusha}
             <small>Docs · RAG</small>
           </button>
         </div>
@@ -613,28 +629,35 @@ export default function App() {
         <div className="sidebar-footer">
           <button
             type="button"
-            className="icon-btn"
-            onClick={() => setLang(lang === 'ru' ? 'en' : 'ru')}
-            title="Language"
-          >
-            {lang === 'ru' ? 'EN' : 'RU'}
-          </button>
-          <button
-            type="button"
-            className="icon-btn theme-btn"
+            className="theme-toggle"
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            title="Theme"
+            title={theme === 'dark' ? t.themeLight : t.themeDark}
           >
             {theme === 'dark' ? (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                 <circle cx="12" cy="12" r="4" />
                 <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
               </svg>
             ) : (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
               </svg>
             )}
+            {theme === 'dark' ? t.themeLight : t.themeDark}
+          </button>
+          <button
+            type="button"
+            className="theme-toggle"
+            onClick={() => setLang(lang === 'ru' ? 'en' : 'ru')}
+            title={t.langSwitch}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M2 12h20" />
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+            </svg>
+            {/* Like ai-RAG-chat: show the language you will switch to. */}
+            {lang === 'ru' ? 'English' : 'Русский'}
           </button>
         </div>
       </aside>
@@ -679,7 +702,7 @@ export default function App() {
               </svg>
             </button>
             <div>
-              <h2>{agent === 'oleg' ? 'Аналитик Олег' : 'Ксюша'}</h2>
+              <h2>{agent === 'oleg' ? t.titleOleg : t.titleKsyusha}</h2>
               <p className="sub">
                 {agentMode === 'auto'
                   ? t.subtitleAuto
