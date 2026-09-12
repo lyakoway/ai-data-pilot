@@ -28,6 +28,7 @@ import {
   type Step,
 } from './lib/api'
 import { loadLang, loadTheme, saveLang, saveTheme, type Lang, type Theme } from './lib/prefs'
+import { scenarioDescription, scenarioName } from './lib/scenarioI18n'
 import './App.css'
 
 type Turn = {
@@ -366,7 +367,7 @@ export default function App() {
     setLastUserPrompt(displayPrompt)
     setTurns((prev) => [
       ...prev,
-      { id: crypto.randomUUID(), role: 'user', text: `▶ ${sc.name}` },
+      { id: crypto.randomUUID(), role: 'user', text: `▶ ${scenarioName(sc, lang)}` },
     ])
     try {
       const result = await api.runScenario(sc.id, model, lang, values)
@@ -619,8 +620,8 @@ export default function App() {
               }}
               disabled={loading}
             >
-              <strong>{sc.name}</strong>
-              <span>{sc.description || sc.prompt.slice(0, 80)}</span>
+              <strong>{scenarioName(sc, lang)}</strong>
+              <span>{scenarioDescription(sc, lang)}</span>
               <div className="run">{t.run} →</div>
             </button>
           ))}
@@ -804,26 +805,46 @@ export default function App() {
               <div className="suggestions">
                 {(sourceSuggestions.length > 0
                   ? agentMode === 'auto' && agent !== 'oleg'
-                    ? [...sourceSuggestions.slice(0, 3), 'Как считается utilization?']
+                    ? [...sourceSuggestions.slice(0, 3),
+                       lang === 'en' ? 'How is utilization calculated?' : 'Как считается utilization?']
                     : sourceSuggestions.slice(0, 4)
                   : agentMode === 'auto'
-                    ? [
-                        'Топ-10 городов по поездкам',
-                        'Как считается utilization?',
-                        'Выручка по регионам за 30 дней',
-                        'Какой TTL у Redis pricing cache?',
-                      ]
+                    ? (lang === 'en'
+                        ? [
+                            'Top-10 cities by rides',
+                            'How is utilization calculated?',
+                            'Revenue by region for 30 days',
+                            'What is the TTL of the Redis pricing cache?',
+                          ]
+                        : [
+                            'Топ-10 городов по поездкам',
+                            'Как считается utilization?',
+                            'Выручка по регионам за 30 дней',
+                            'Какой TTL у Redis pricing cache?',
+                          ])
                     : agent === 'oleg'
-                      ? [
-                          'Выручка по регионам за 30 дней',
-                          'Топ-10 городов по поездкам',
-                          'Проникновение подписок в InHouse городах',
-                        ]
-                      : [
-                          'Где хранится utilization и как она считается?',
-                          'Как работает Redis pricing cache?',
-                          'Что делает Reset errors в админке?',
-                        ]
+                      ? (lang === 'en'
+                          ? [
+                              'Revenue by region for 30 days',
+                              'Top-10 cities by rides',
+                              'Subscription penetration in InHouse cities',
+                            ]
+                          : [
+                              'Выручка по регионам за 30 дней',
+                              'Топ-10 городов по поездкам',
+                              'Проникновение подписок в InHouse городах',
+                            ])
+                      : (lang === 'en'
+                          ? [
+                              'Where is utilization stored and how is it calculated?',
+                              'How does the Redis pricing cache work?',
+                              'What does Reset errors do in the admin?',
+                            ]
+                          : [
+                              'Где хранится utilization и как она считается?',
+                              'Как работает Redis pricing cache?',
+                              'Что делает Reset errors в админке?',
+                            ])
                 ).map((s) => (
                   <button key={s} type="button" className="chip" onClick={() => ask(s)}>
                     {s}

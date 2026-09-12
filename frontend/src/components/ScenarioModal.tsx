@@ -1,5 +1,11 @@
 import { useState } from 'react'
 import type { Scenario, ScenarioParameter } from '../lib/api'
+import {
+  scenarioDescription,
+  scenarioName,
+  scenarioOptionLabel,
+  scenarioParamLabel,
+} from '../lib/scenarioI18n'
 
 export function ScenarioModal({
   scenario,
@@ -35,12 +41,14 @@ export function ScenarioModal({
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-        <h3 className="modal-title">{scenario.name}</h3>
-        {scenario.description && <p className="modal-desc">{scenario.description}</p>}
+        <h3 className="modal-title">{scenarioName(scenario, lang)}</h3>
+        {scenario.description && (
+          <p className="modal-desc">{scenarioDescription(scenario, lang)}</p>
+        )}
         <div className="modal-params">
           {params.map((p) => (
             <label key={p.name} className="modal-field">
-              <span className="modal-field-label">{p.label || p.name}</span>
+              <span className="modal-field-label">{scenarioParamLabel(scenario, p, lang)}</span>
               {p.type === 'select' && p.options ? (
                 <select
                   className="modal-input"
@@ -48,7 +56,9 @@ export function ScenarioModal({
                   onChange={(e) => handleParam(p, e.target.value)}
                 >
                   {p.options.map((opt) => (
-                    <option key={opt} value={opt}>{opt}</option>
+                    <option key={opt} value={opt}>
+                      {scenarioOptionLabel(scenario, p, opt, lang)}
+                    </option>
                   ))}
                 </select>
               ) : (
