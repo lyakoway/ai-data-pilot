@@ -173,11 +173,11 @@ export default function App() {
     setSettingsOpen(false)
   }
 
-  // The settings drawer only exists below 1370px; if the viewport grows past
+  // The settings drawer only exists below 1420px; if the viewport grows past
   // the breakpoint while it is open, close it so it cannot "reappear" stuck
   // open on the next resize down.
   useEffect(() => {
-    const mq = window.matchMedia('(max-width: 1369px)')
+    const mq = window.matchMedia('(max-width: 1419px)')
     const onChange = () => {
       if (!mq.matches) setSettingsOpen(false)
     }
@@ -450,7 +450,7 @@ export default function App() {
   }))
 
   // The same controls render in the topbar (desktop) and in the right-hand
-  // settings drawer (≤1369px); the topbar copy is hidden via CSS there.
+  // settings drawer (≤1419px); the topbar copy is hidden via CSS there.
   const datasourceControls = (
     <>
       <Dropdown
