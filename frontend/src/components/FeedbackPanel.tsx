@@ -33,7 +33,6 @@ export function FeedbackPanel({ lang }: { lang: 'ru' | 'en' }) {
     satisfaction: lang === 'en' ? 'satisfaction' : 'удовлетворённость',
     noData: lang === 'en' ? 'No feedback yet' : 'Пока нет оценок',
     showMore: lang === 'en' ? 'Show recent' : 'Последние оценки',
-    showLess: lang === 'en' ? 'Hide' : 'Свернуть',
     all: lang === 'en' ? 'All' : 'Все',
     negative: lang === 'en' ? '👎 only' : 'Только 👎',
   }
@@ -57,10 +56,12 @@ export function FeedbackPanel({ lang }: { lang: 'ru' | 'en' }) {
 
   if (!stats || stats.total === 0) {
     return (
-      <div className="feedback-panel">
+      <>
         <div className="section-label">{t.title}</div>
-        <p className="muted" style={{ fontSize: 12, margin: '4px 0' }}>{t.noData}</p>
-      </div>
+        <div className="feedback-panel">
+          <p className="muted" style={{ fontSize: 12, margin: '4px 0' }}>{t.noData}</p>
+        </div>
+      </>
     )
   }
 
@@ -71,10 +72,11 @@ export function FeedbackPanel({ lang }: { lang: 'ru' | 'en' }) {
   })
 
   return (
-    <div className="feedback-panel">
+    <>
       <div className="section-label">{t.title}</div>
 
-      <div className="feedback-summary">
+      <div className="feedback-panel">
+        <div className="feedback-summary">
         <div className="feedback-score">
           <span className="feedback-pct">{stats.satisfaction}%</span>
           <span className="feedback-sub">{t.satisfaction}</span>
@@ -115,10 +117,25 @@ export function FeedbackPanel({ lang }: { lang: 'ru' | 'en' }) {
 
       <button
         type="button"
-        className="btn btn-ghost btn-sm feedback-toggle"
+        className="feedback-toggle"
+        aria-expanded={expanded}
         onClick={() => setExpanded((v) => !v)}
       >
-        {expanded ? t.showLess : t.showMore}
+        {t.showMore}
+        <svg
+          className={`feedback-caret ${expanded ? 'up' : ''}`}
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
       </button>
 
       {expanded && (
@@ -155,6 +172,7 @@ export function FeedbackPanel({ lang }: { lang: 'ru' | 'en' }) {
           </div>
         </>
       )}
-    </div>
+      </div>
+    </>
   )
 }
