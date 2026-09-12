@@ -154,8 +154,12 @@
   place-items: center;
   font-size: 13px;
   font-weight: 600;
+  /* Hug the glyph so grid centering centers the visible symbol, not the
+     tall default line box (symbol fonts draw ⚙/☰ high in their em box). */
+  line-height: 1;
 }
 .icon-btn:hover { border-color: var(--border-strong); }
+.icon-btn svg { display: block; }
 
 .main {
   display: flex;
@@ -193,6 +197,7 @@
   background: var(--bg-soft);
   font-size: 13px;
   min-width: 220px;
+  height: 36px;
 }
 .select:focus {
   outline: none;
@@ -234,7 +239,7 @@
 
 .dash-charts {
   display: grid;
-  grid-template-columns: 1.2fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
 .panel {
@@ -576,11 +581,9 @@ th { background: var(--bg-soft); color: var(--text-soft); font-weight: 600; }
 /* Data source selector + CSV upload (Phase 2 multi-source) */
 .topbar-selects { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .btn-sm { padding: 7px 11px; font-size: 12px; }
+/* DB quick-connect buttons: single line, height-aligned with .select */
+.db-btn { padding: 8px 12px; font-size: 13px; height: 36px; }
 .csv-input-hidden { display: none; }
-@media (max-width: 720px) {
-  .topbar-selects { width: 100%; }
-  .topbar-selects .select { flex: 1; min-width: 0; }
-}
 
 .btn {
   display: inline-flex;
@@ -696,6 +699,14 @@ th { background: var(--bg-soft); color: var(--text-soft); font-weight: 600; }
   min-width: 0;
 }
 .menu-btn { display: none; }
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.settings-toggle { display: none; }
+.settings-drawer { display: none; }
+.brand-close { display: none; margin-left: auto; }
 .new-chat-btn {
   width: 100%;
   justify-content: center;
@@ -715,6 +726,51 @@ th { background: var(--bg-soft); color: var(--text-soft); font-weight: 600; }
   background: var(--bg-elev);
 }
 
+/* Topbar controls move into a right-hand drawer below 1370px (mirror of the
+   left sidebar pattern used at ≤1100px). */
+@media (max-width: 1369px) {
+  .topbar-selects { display: none; }
+  .settings-toggle { display: grid; }
+  .settings-drawer {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: fixed;
+    inset: 0 0 0 auto;
+    width: min(320px, 88vw);
+    z-index: 40;
+    background: var(--bg-elev);
+    border-left: 1px solid var(--border);
+    padding: 18px 14px;
+    overflow: auto;
+    transform: translateX(105%);
+    transition: transform 0.25s var(--ease);
+    box-shadow: var(--shadow-lg);
+  }
+  .settings-drawer.open { transform: translateX(0); }
+  .settings-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .settings-head strong { font-size: 16px; font-weight: 700; }
+  .settings-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .settings-drawer .select { width: 100%; min-width: 0; max-width: none; }
+  .settings-drawer .db-btn { width: 100%; justify-content: center; }
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    background: rgba(0, 0, 0, 0.45);
+    border: none;
+  }
+}
+
 @media (max-width: 1100px) {
   .app { grid-template-columns: 1fr; }
   .menu-btn { display: grid; }
@@ -728,14 +784,7 @@ th { background: var(--bg-soft); color: var(--text-soft); font-weight: 600; }
     box-shadow: var(--shadow-lg);
   }
   .sidebar.open { transform: translateX(0); }
-  .sidebar-backdrop {
-    display: block;
-    position: fixed;
-    inset: 0;
-    z-index: 30;
-    background: rgba(0, 0, 0, 0.45);
-    border: none;
-  }
+  .brand-close { display: grid; }
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .dash-charts { grid-template-columns: 1fr; }
   .select { min-width: 140px; max-width: 48vw; }
@@ -985,17 +1034,6 @@ th { background: var(--bg-soft); color: var(--text-soft); font-weight: 600; }
 .feedback-meta { display: block; font-size: 9px; color: var(--text-muted); }
 [data-theme='dark'] .fill-up { background: #4ade80; }
 [data-theme='dark'] .fill-down { background: #f87171; }
-
-/* DB buttons with hints */
-.db-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0;
-  padding: 6px 10px;
-}
-.db-btn-name { font-size: 12px; font-weight: 600; line-height: 1.2; }
-.db-btn-hint { font-size: 9px; color: var(--text-muted); line-height: 1.2; }
 
 /* "Why this DB" hint in modals */
 .db-why {
