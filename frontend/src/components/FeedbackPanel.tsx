@@ -105,16 +105,6 @@ export function FeedbackPanel({ lang }: { lang: 'ru' | 'en' }) {
         </div>
       </div>
 
-      {Object.keys(stats.per_agent).length > 1 && (
-        <div className="feedback-agents">
-          {Object.entries(stats.per_agent).map(([agent, counts]) => (
-            <span key={agent} className="feedback-agent-chip">
-              {agent}: 👍{counts.up} 👎{counts.down}
-            </span>
-          ))}
-        </div>
-      )}
-
       <button
         type="button"
         className="feedback-toggle"
