@@ -35,10 +35,10 @@
 :root[data-theme='dark'] {
   --bg: #0b0d14;
   --bg-elev: #12141d;
-  --bg-soft: #171a26;
+  --bg-soft: #1c2030;
   --panel: rgba(20, 23, 34, 0.72);
-  --border: #232739;
-  --border-strong: #313650;
+  --border: #2d3249;
+  --border-strong: #3f4566;
   --text: #eef0f7;
   --text-soft: #b3b8cc;
   --text-muted: #737a92;

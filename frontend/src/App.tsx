@@ -71,6 +71,9 @@ const COPY = {
     saveName: 'Название сценария',
     menu: 'Меню',
     newChat: 'Новый чат',
+    settings: 'Настройки',
+    modelLabel: 'Модель',
+    close: 'Закрыть',
   },
   en: {
     title: 'AI Data Pilot',
@@ -105,6 +108,9 @@ const COPY = {
     saveName: 'Scenario name',
     menu: 'Menu',
     newChat: 'New chat',
+    settings: 'Settings',
+    modelLabel: 'Model',
+    close: 'Close',
   },
 } as const
 
@@ -130,6 +136,7 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [lastUserPrompt, setLastUserPrompt] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [scenarioModal, setScenarioModal] = useState<Scenario | null>(null)
   const [pgModal, setPgModal] = useState(false)
   const [chModal, setChModal] = useState(false)
@@ -159,6 +166,33 @@ export default function App() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [turns, loading])
+
+  const closeDrawers = () => {
+    setSidebarOpen(false)
+    setSettingsOpen(false)
+  }
+
+  // The settings drawer only exists below 1370px; if the viewport grows past
+  // the breakpoint while it is open, close it so it cannot "reappear" stuck
+  // open on the next resize down.
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1369px)')
+    const onChange = () => {
+      if (!mq.matches) setSettingsOpen(false)
+    }
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+
+  useEffect(() => {
+    if (!sidebarOpen && !settingsOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeDrawers()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sidebarOpen, settingsOpen])
 
   const visibleScenarios = useMemo(
     () => (agentMode === 'auto' ? scenarios : scenarios.filter((s) => s.agent === agent)),
@@ -389,14 +423,77 @@ export default function App() {
   const lastSuggestions =
     [...turns].reverse().find((x) => x.result)?.result?.suggestions ?? []
 
+  // The same controls render in the topbar (desktop) and in the right-hand
+  // settings drawer (≤1369px); the topbar copy is hidden via CSS there.
+  const datasourceControls = (
+    <>
+      <select
+        className="select"
+        value={datasourceId}
+        onChange={(e) => {
+          const id = e.target.value
+          setDatasourceId(id)
+          // KPIs are only meaningful for the built-in RideGo source.
+          if (id !== 'ridego') {
+            setKpis(null)
+          } else {
+            api.kpis().then(setKpis).catch(() => undefined)
+          }
+        }}
+        title={t.dataSource}
+      >
+        <option value="auto">Авто-источник</option>
+        {datasources.map((d) => (
+          <option key={d.id} value={d.id}>
+            {d.name}
+            {d.row_count != null ? ` · ${d.row_count}` : ''}
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        className="btn btn-ghost btn-sm db-btn"
+        onClick={() => setPgModal(true)}
+        title={lang === 'en'
+          ? 'PostgreSQL — for transactional data: users, orders, records. Best for point lookups and updates.'
+          : 'PostgreSQL — для транзакционных данных: пользователи, заказы, записи. Быстрый поиск и обновление.'}
+      >
+        PostgreSQL
+      </button>
+      <button
+        type="button"
+        className="btn btn-ghost btn-sm db-btn"
+        onClick={() => setChModal(true)}
+        title={lang === 'en'
+          ? 'ClickHouse — for analytics on billions of rows: reports, trends, aggregations. Blazing fast GROUP BY.'
+          : 'ClickHouse — для аналитики на миллиардах строк: отчёты, тренды, агрегации. Мгновенный GROUP BY.'}
+      >
+        ClickHouse
+      </button>
+    </>
+  )
+  const modelControl = (
+    <select
+      className="select"
+      value={model}
+      onChange={(e) => setModel(e.target.value)}
+    >
+      {models.map((m) => (
+        <option key={m.id} value={m.id} disabled={!m.available}>
+          {m.available ? '●' : '○'} {m.label}
+        </option>
+      ))}
+    </select>
+  )
+
   return (
     <div className="app">
-      {sidebarOpen && (
+      {(sidebarOpen || settingsOpen) && (
         <button
           type="button"
           className="sidebar-backdrop"
-          aria-label="Close menu"
-          onClick={() => setSidebarOpen(false)}
+          aria-label={t.close}
+          onClick={closeDrawers}
         />
       )}
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
@@ -406,6 +503,16 @@ export default function App() {
             <h1>{t.title}</h1>
             <p>RideGo · Oleg & Ksyusha</p>
           </div>
+          <button
+            type="button"
+            className="icon-btn brand-close"
+            aria-label={t.close}
+            onClick={() => setSidebarOpen(false)}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
         </div>
 
         <button
@@ -489,13 +596,45 @@ export default function App() {
           </button>
           <button
             type="button"
-            className="icon-btn"
+            className="icon-btn theme-btn"
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             title="Theme"
           >
-            {theme === 'dark' ? '☀' : '☾'}
+            {theme === 'dark' ? (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+              </svg>
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+            )}
           </button>
         </div>
+      </aside>
+
+      <aside
+        className={`settings-drawer ${settingsOpen ? 'open' : ''}`}
+        aria-label={t.settings}
+      >
+        <div className="settings-head">
+          <strong>{t.settings}</strong>
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label={t.close}
+            onClick={() => setSettingsOpen(false)}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        </div>
+        <div className="section-label">{t.dataSource}</div>
+        <div className="settings-group">{datasourceControls}</div>
+        <div className="section-label">{t.modelLabel}</div>
+        <div className="settings-group">{modelControl}</div>
       </aside>
 
       <main className="main">
@@ -504,10 +643,15 @@ export default function App() {
             <button
               type="button"
               className="icon-btn menu-btn"
-              onClick={() => setSidebarOpen(true)}
+              onClick={() => {
+                setSidebarOpen(true)
+                setSettingsOpen(false)
+              }}
               aria-label={t.menu}
             >
-              ☰
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+                <path d="M4 7h16M4 12h16M4 17h16" />
+              </svg>
             </button>
             <div>
               <h2>{agent === 'oleg' ? 'Аналитик Олег' : 'Ксюша'}</h2>
@@ -520,63 +664,25 @@ export default function App() {
               </p>
             </div>
           </div>
-          <div className="topbar-selects">
-            <select
-              className="select"
-              value={datasourceId}
-              onChange={(e) => {
-                const id = e.target.value
-                setDatasourceId(id)
-                // KPIs are only meaningful for the built-in RideGo source.
-                if (id !== 'ridego') {
-                  setKpis(null)
-                } else {
-                  api.kpis().then(setKpis).catch(() => undefined)
-                }
+          <div className="topbar-right">
+            <div className="topbar-selects">
+              {datasourceControls}
+              {modelControl}
+            </div>
+            <button
+              type="button"
+              className="icon-btn settings-toggle"
+              aria-label={t.settings}
+              aria-expanded={settingsOpen}
+              onClick={() => {
+                setSettingsOpen(true)
+                setSidebarOpen(false)
               }}
-              title={t.dataSource}
             >
-              <option value="auto">Авто-источник</option>
-              {datasources.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                  {d.row_count != null ? ` · ${d.row_count}` : ''}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm db-btn"
-              onClick={() => setPgModal(true)}
-              title={lang === 'en'
-                ? 'PostgreSQL — for transactional data: users, orders, records. Best for point lookups and updates.'
-                : 'PostgreSQL — для транзакционных данных: пользователи, заказы, записи. Быстрый поиск и обновление.'}
-            >
-              <span className="db-btn-name">PostgreSQL</span>
-              <small className="db-btn-hint">{lang === 'en' ? 'transactions' : 'записи · CRM'}</small>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z" />
+              </svg>
             </button>
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm db-btn"
-              onClick={() => setChModal(true)}
-              title={lang === 'en'
-                ? 'ClickHouse — for analytics on billions of rows: reports, trends, aggregations. Blazing fast GROUP BY.'
-                : 'ClickHouse — для аналитики на миллиардах строк: отчёты, тренды, агрегации. Мгновенный GROUP BY.'}
-            >
-              <span className="db-btn-name">ClickHouse</span>
-              <small className="db-btn-hint">{lang === 'en' ? 'analytics' : 'аналитика · BI'}</small>
-            </button>
-            <select
-              className="select"
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-            >
-              {models.map((m) => (
-                <option key={m.id} value={m.id} disabled={!m.available}>
-                  {m.available ? '●' : '○'} {m.label}
-                </option>
-              ))}
-            </select>
           </div>
         </header>
 
