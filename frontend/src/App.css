@@ -716,9 +716,9 @@ th { background: var(--bg-soft); color: var(--text-soft); font-weight: 600; }
   background: var(--bg-elev);
 }
 
-/* Topbar controls move into a right-hand drawer below 1370px (mirror of the
+/* Topbar controls move into a right-hand drawer below 1420px (mirror of the
    left sidebar pattern used at ≤1100px). */
-@media (max-width: 1369px) {
+@media (max-width: 1419px) {
   .topbar-selects { display: none; }
   .settings-toggle { display: grid; }
   .settings-drawer {
@@ -786,6 +786,11 @@ th { background: var(--bg-soft); color: var(--text-soft); font-weight: 600; }
   .brand-close { display: grid; }
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .dash-charts { grid-template-columns: 1fr; }
+}
+
+/* Phones: KPI cards stack one per row */
+@media (max-width: 579px) {
+  .kpi-grid { grid-template-columns: 1fr; }
 }
 
 .suggestions-loading {
@@ -1116,4 +1121,10 @@ th { background: var(--bg-soft); color: var(--text-soft); font-weight: 600; }
   min-width: 0;
   max-height: none;
   box-shadow: none;
+}
+
+/* Narrow phones: both drawers take the full viewport width */
+@media (max-width: 479px) {
+  .sidebar,
+  .settings-drawer { width: 100%; }
 }
