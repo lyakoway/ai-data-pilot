@@ -11,6 +11,7 @@ import {
 import { AgentTrace } from './components/AgentTrace'
 import { ClickHouseModal } from './components/ClickHouseModal'
 import { DocumentsPanel } from './components/DocumentsPanel'
+import { Dropdown, type DropdownOption } from './components/Dropdown'
 import { FeedbackPanel } from './components/FeedbackPanel'
 import { PostgresModal } from './components/PostgresModal'
 import { ProviderErrorModal, isProviderError } from './components/ProviderErrorModal'
@@ -423,15 +424,39 @@ export default function App() {
   const lastSuggestions =
     [...turns].reverse().find((x) => x.result)?.result?.suggestions ?? []
 
+  const providerLabels: Record<string, string> = {
+    mock: lang === 'en' ? 'Demo' : 'Демо',
+    openai: 'OpenAI',
+    anthropic: 'Anthropic',
+    zai: 'Z.ai',
+    ollama: 'Ollama',
+  }
+  const datasourceOptions: DropdownOption[] = [
+    { value: 'auto', label: lang === 'en' ? 'Auto source' : 'Авто-источник' },
+    ...datasources.map((d) => ({
+      value: d.id,
+      label: d.name,
+      hint: d.row_count != null
+        ? `${d.row_count} ${lang === 'en' ? 'rows' : 'строк'}`
+        : undefined,
+    })),
+  ]
+  const modelOptions: DropdownOption[] = models.map((m) => ({
+    value: m.id,
+    label: m.label,
+    hint: providerLabels[m.provider] ?? m.provider,
+    disabled: !m.available,
+    badge: <span className={`dot ${m.available ? 'dot-on' : 'dot-off'}`} />,
+  }))
+
   // The same controls render in the topbar (desktop) and in the right-hand
   // settings drawer (≤1369px); the topbar copy is hidden via CSS there.
   const datasourceControls = (
     <>
-      <select
-        className="select"
+      <Dropdown
         value={datasourceId}
-        onChange={(e) => {
-          const id = e.target.value
+        options={datasourceOptions}
+        onChange={(id) => {
           setDatasourceId(id)
           // KPIs are only meaningful for the built-in RideGo source.
           if (id !== 'ridego') {
@@ -440,16 +465,15 @@ export default function App() {
             api.kpis().then(setKpis).catch(() => undefined)
           }
         }}
-        title={t.dataSource}
-      >
-        <option value="auto">Авто-источник</option>
-        {datasources.map((d) => (
-          <option key={d.id} value={d.id}>
-            {d.name}
-            {d.row_count != null ? ` · ${d.row_count}` : ''}
-          </option>
-        ))}
-      </select>
+        icon={
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <ellipse cx="12" cy="5" rx="8" ry="3" />
+            <path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5" />
+            <path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3" />
+          </svg>
+        }
+        label={t.dataSource}
+      />
       <button
         type="button"
         className="btn btn-ghost btn-sm db-btn"
@@ -473,17 +497,18 @@ export default function App() {
     </>
   )
   const modelControl = (
-    <select
-      className="select"
+    <Dropdown
       value={model}
-      onChange={(e) => setModel(e.target.value)}
-    >
-      {models.map((m) => (
-        <option key={m.id} value={m.id} disabled={!m.available}>
-          {m.available ? '●' : '○'} {m.label}
-        </option>
-      ))}
-    </select>
+      options={modelOptions}
+      onChange={setModel}
+      align="right"
+      icon={
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+          <path d="M12 3l1.9 5.8L20 10.5l-5.4 3.6L16 20l-4-3.5L8 20l1.4-5.9L4 10.5l6.1-1.7z" />
+        </svg>
+      }
+      label={t.modelLabel}
+    />
   )
 
   return (
