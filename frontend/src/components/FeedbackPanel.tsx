@@ -139,7 +139,7 @@ export function FeedbackPanel({ lang }: { lang: 'ru' | 'en' }) {
       </button>
 
       {expanded && (
-        <>
+        <div className="feedback-dropdown">
           <div className="feedback-filters">
             {(['all', 'oleg', 'ksyusha', 'down'] as const).map((f) => (
               <button
@@ -170,7 +170,7 @@ export function FeedbackPanel({ lang }: { lang: 'ru' | 'en' }) {
               <p className="muted" style={{ fontSize: 11, textAlign: 'center' }}>—</p>
             )}
           </div>
-        </>
+        </div>
       )}
       </div>
     </>

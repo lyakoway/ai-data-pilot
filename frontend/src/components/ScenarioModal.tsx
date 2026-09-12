@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Scenario, ScenarioParameter } from '../lib/api'
+import { Dropdown } from './Dropdown'
 import {
   scenarioDescription,
   scenarioName,
@@ -50,17 +51,14 @@ export function ScenarioModal({
             <label key={p.name} className="modal-field">
               <span className="modal-field-label">{scenarioParamLabel(scenario, p, lang)}</span>
               {p.type === 'select' && p.options ? (
-                <select
-                  className="modal-input"
+                <Dropdown
                   value={String(values[p.name] ?? '')}
-                  onChange={(e) => handleParam(p, e.target.value)}
-                >
-                  {p.options.map((opt) => (
-                    <option key={opt} value={opt}>
-                      {scenarioOptionLabel(scenario, p, opt, lang)}
-                    </option>
-                  ))}
-                </select>
+                  options={p.options.map((opt) => ({
+                    value: opt,
+                    label: scenarioOptionLabel(scenario, p, opt, lang),
+                  }))}
+                  onChange={(v) => handleParam(p, v)}
+                />
               ) : (
                 <input
                   className="modal-input"

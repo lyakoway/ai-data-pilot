@@ -166,6 +166,9 @@
 .icon-btn {
   width: 40px;
   height: 40px;
+  /* Round buttons must never shrink horizontally when the topbar runs out
+     of space on narrow screens — otherwise the circle becomes an oval. */
+  flex-shrink: 0;
   border-radius: var(--r-full);
   border: 1px solid var(--border);
   background: var(--bg-soft);
@@ -1049,6 +1052,17 @@ th { background: var(--bg-soft); color: var(--text-soft); font-weight: 600; }
 .feedback-toggle:hover { border-color: var(--border-strong); }
 .feedback-caret { color: var(--text-muted); transition: transform 0.2s; flex-shrink: 0; }
 .feedback-caret.up { transform: rotate(180deg); }
+/* Expanded section styled as a dropdown-menu surface (bg-elev inset on the
+   bg-soft card), like the option panels of the custom Dropdown. */
+.feedback-dropdown {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 8px;
+}
 .feedback-filters { display: flex; gap: 4px; }
 .feedback-filter {
   font-size: 10px;
@@ -1121,6 +1135,11 @@ th { background: var(--bg-soft); color: var(--text-soft); font-weight: 600; }
 }
 .dropdown-caret { color: var(--text-muted); transition: transform 0.2s; flex-shrink: 0; }
 .dropdown-caret.up { transform: rotate(180deg); }
+
+/* Dropdown inside the scenario-parameter modal: match .modal-input width */
+.modal-field .dropdown { width: 100%; }
+.modal-field .dropdown-trigger { width: 100%; }
+.modal-field .dropdown-menu { width: 100%; min-width: 0; }
 
 .dropdown-menu {
   position: absolute;
