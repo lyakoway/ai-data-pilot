@@ -18,7 +18,9 @@ export function saveTheme(t: Theme) {
 export function loadLang(): Lang {
   const q = new URLSearchParams(window.location.search).get('lang')
   if (q === 'en' || q === 'ru') return q
-  return (localStorage.getItem(LANG_KEY) as Lang) || 'ru'
+  // English is the default for first-time visitors; the choice persists
+  // after the user switches languages.
+  return (localStorage.getItem(LANG_KEY) as Lang) || 'en'
 }
 
 export function saveLang(l: Lang) {
