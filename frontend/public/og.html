@@ -1,0 +1,74 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+    <style>
+      body {
+        margin: 0;
+        width: 1200px;
+        height: 630px;
+        overflow: hidden;
+        background: radial-gradient(ellipse at 50% 130%, #1e1b4b 0%, #0b0d14 62%);
+        color: #eef0f7;
+        font-family: Inter, -apple-system, 'Segoe UI', sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+      }
+      .logo {
+        width: 96px;
+        height: 96px;
+        border-radius: 24px;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6 55%, #d946ef);
+        display: grid;
+        place-items: center;
+        font-size: 40px;
+        font-weight: 700;
+        box-shadow: 0 12px 60px rgba(139, 92, 246, 0.45);
+      }
+      h1 {
+        font-size: 56px;
+        margin: 4px 0 0;
+        letter-spacing: -0.02em;
+      }
+      p {
+        max-width: 780px;
+        text-align: center;
+        color: #b3b8cc;
+        font-size: 20px;
+        line-height: 1.5;
+        margin: 0;
+      }
+      .chips { display: flex; gap: 12px; margin-top: 6px; }
+      .chip {
+        padding: 8px 16px;
+        border-radius: 999px;
+        border: 1px solid #2d3249;
+        background: #12141d;
+        color: #b3b8cc;
+        font-size: 14px;
+      }
+      .chip b { color: #eef0f7; }
+      .url { margin-top: 8px; color: #8b5cf6; font-size: 15px; }
+    </style>
+  </head>
+  <body>
+    <div class="logo">DP</div>
+    <h1>AI Data Pilot</h1>
+    <p>
+      A multi-agent analytics platform that turns a natural-language question
+      into SQL, data analysis and a ready analytical result.
+    </p>
+    <div class="chips">
+      <div class="chip"><b>~85%</b> normalized SQL</div>
+      <div class="chip"><b>2h → 2min</b> report prep</div>
+      <div class="chip"><b>~15</b> analysts · MTS internal</div>
+    </div>
+    <div class="url">lyakoway-ai-data-pilot.hf.space</div>
+  </body>
+</html>
