@@ -30,3 +30,4 @@ backend/static/
 # Evaluation artifacts
 backend/evaluation_results.json
 latency_benchmark.json
+frontend/public/og-image.png

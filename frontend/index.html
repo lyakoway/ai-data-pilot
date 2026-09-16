@@ -1,13 +1,47 @@
 <!doctype html>
-<html lang="ru" data-theme="dark">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI Data Pilot</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Data Pilot — Text-to-SQL analytics agents</title>
+    <meta
+      name="description"
+      content="A multi-agent analytics platform that turns a natural-language question into SQL, data analysis and a ready analytical result. Text-to-SQL with guardrails — demo on RideGo test data."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://lyakoway-ai-data-pilot.hf.space/" />
+    <meta property="og:title" content="AI Data Pilot — Text-to-SQL analytics agents" />
+    <meta
+      property="og:description"
+      content="A multi-agent analytics platform that turns a natural-language question into SQL, data analysis and a ready analytical result."
+    />
+    <meta property="og:image" content="https://raw.githubusercontent.com/lyakoway/ai-data-pilot/main/frontend/public/og-image.png" />
+    <meta property="og:image:width" content="1230" />
+    <meta property="og:image:height" content="1290" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="AI Data Pilot — Text-to-SQL analytics agents" />
+    <meta
+      name="twitter:description"
+      content="A multi-agent analytics platform that turns a natural-language question into SQL, data analysis and a ready analytical result."
+    />
+    <meta name="twitter:image" content="https://raw.githubusercontent.com/lyakoway/ai-data-pilot/main/frontend/public/og-image.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script>
+      // Theme and language BEFORE first paint — same ladder as prefs.ts:
+      // URL ?theme=/&lang= → localStorage → dark theme / English.
+      (function () {
+        try {
+          var q = new URLSearchParams(location.search)
+          var t = q.get('theme') || localStorage.getItem('adp-theme')
+          document.documentElement.dataset.theme = t === 'light' ? 'light' : 'dark'
+          var l = q.get('lang') || localStorage.getItem('adp-lang')
+          document.documentElement.lang = l === 'ru' ? 'ru' : 'en'
+        } catch (e) {}
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>
