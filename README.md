@@ -173,25 +173,6 @@ cross-network connect plus handshake takes seconds.</sub>
 Data analysis and document search have different tools, limits and failure modes.
 Routing to a specialized agent keeps each workflow bounded and measurable.
 
-### LLM vs deterministic code
-
-| Responsibility | Implementation |
-|---|---|
-| Intent | LLM |
-| Agent routing | LLM classification + deterministic heuristic (fallback) |
-| Source routing | LLM over schemas + heuristic (fallback) |
-| SQL generation | LLM |
-| SQL validation | Python (SQL Guard: read-only, one statement, forbidden keywords) |
-| Execution limits | Python: timeout 8 s (30 s for remote PostgreSQL), max 500 rows |
-| SQL execution | SQLite / PostgreSQL / ClickHouse |
-| Numbers (trends, top-N, percentages) | Python |
-| Anomaly detection | Python (z-score) |
-| Charts | Python prepares spec + data, React / Recharts renders |
-| Document search | Python: BM25-IDF + vector embeddings (fastembed) |
-| Final answer text | LLM |
-
-**The LLM is not used where ordinary code is more reliable.**
-
 ## Engineering findings
 
 - **LLMs are unreliable at arithmetic.** Early versions produced plausible but
