@@ -14,10 +14,11 @@ English | [Русский](README.ru.md)
 
 > **Live demo:** [lyakoway-ai-data-pilot.hf.space](https://lyakoway-ai-data-pilot.hf.space/)
 
-Natural-language analytics: SQL, a chart and an explanation. Two specialized
-agents — **Data Agent** (Text-to-SQL, charts, Excel) and **Knowledge Agent**
-(RAG over docs and uploads) — plus a dual auto-router. In the Russian UI they
-are named Олег and Ксюша.
+A multi-agent analytics platform that turns a natural-language question into
+SQL, data analysis and a ready analytical result. Two specialized agents —
+**Data Agent** (Text-to-SQL, charts, Excel) and **Knowledge Agent** (RAG over
+docs and uploads) — plus a dual auto-router. In the Russian UI they are named
+Олег and Ксюша.
 
 [![Demo](https://img.shields.io/badge/demo-lyakoway--ai--data--pilot.hf.space-ff9d00)](https://lyakoway-ai-data-pilot.hf.space/)
 ![backend](https://img.shields.io/badge/backend-FastAPI-009688)
@@ -43,6 +44,20 @@ result correctness** (same numbers after dropping aliases, row order and number
 format — not string exact-match). **~98% execution** only means the query ran.
 **2h → 2min** report prep is from production experience, not this demo.
 
+**Scale and validation:**
+
+| | |
+|---|---|
+| **~15** | analysts · internal pilot |
+| **~80** | scenarios / week |
+| **~85%** | normalized SQL · held-out |
+| **2h → 2min** | report prep · production experience |
+| **174** | pytest tests |
+| **Python** | counts · LLM writes prose |
+
+<sub>Scale figures are from internal production experience; the demo and SQL
+eval in this repo run on a public test dataset (RideGo ~21k rides).</sub>
+
 ## Key capabilities
 
 - 🧭 **Dual auto-routing** — by agent (data → Data Agent, docs → Knowledge Agent)
@@ -54,13 +69,34 @@ format — not string exact-match). **~98% execution** only means the query ran.
   - **Self-correction** — failed SQL comes back with the DB error. The agent rewrites (up to 2 rounds).
   - **Deterministic analytics** — Python computes the numbers. The LLM only interprets.
 - 👩‍💻 **Knowledge Agent**
-  - **Hybrid search** — BM25-IDF + vector embeddings (fastembed, 50+ languages). Retrieval ablation lives on the RAG Chat case, not here.
+  - **Hybrid search** — BM25-IDF (Russian stemming) + vector embeddings (fastembed, 50+ languages). Retrieval ablation lives on the RAG Chat case, not here.
   - **Uploads** — PDF, Word, Excel, CSV, TXT, MD. Excel is also a SQL table for the Data Agent.
   - **Inline citations `[1]`** and a document viewer (PDF page, DOCX, Excel table).
 - 🗄️ **Sources** — PostgreSQL and ClickHouse (UI or env, schema introspection, dialect prompts), virtual **All uploads** with cross-file JOINs.
 - ⚡ **Parameterized scenarios** — templates with `{period}`, `{group_by}`.
 - 👍 **Feedback** — 👍/👎 analytics by agent.
+- 🚦 **Status transparency** — every response carries an explicit `ok / demo / partial / error` status. No silent fallback.
 - 🤖 **13 model configs** — OpenAI, Anthropic, Z.ai, Ollama + offline Demo. **GLM-4.6 is the default** (the ~85% SQL eval ran on it).
+
+## Use cases
+
+Data lives in databases and Excel, and getting a number usually means an
+analyst ticket. SQL quality and latency here are measured on a public test
+dataset.
+
+1. **Self-service analytics for business** — a manager asks "revenue by region
+   for 90 days" and gets a table with a chart — no analyst ticket, no queue.
+   End-to-end latency is tens of seconds (LLM plan + answer), not a page-load.
+2. **Root-cause analysis of metric drops** — "Why did revenue drop in July?" —
+   the agent compares periods, computes the change, finds contributing factors
+   via the agent loop and shows the analysis step by step.
+3. **Analyzing uploaded Excel exports** — drag a data file into the window and
+   ask questions about it: the Data Agent builds SQL over the auto-generated
+   schema, the Knowledge Agent searches the content, cross-file JOINs work out
+   of the box.
+4. **A single entry point to heterogeneous databases** — PostgreSQL for
+   transactions and ClickHouse for billion-row analytics under one interface,
+   with the SQL dialect adapted automatically per source.
 
 ## Engineering approach
 
@@ -117,6 +153,21 @@ The ReAct loop has a hard step limit (`MAX_LOOP_STEPS = 6`). SQL self-correction
 is two repair rounds (`MAX_SQL_REPAIR_ROUNDS = 2`). Worst case is an honest
 refusal, not a hung tool loop.
 
+### System limits
+
+| Mechanism | Value |
+|---|---|
+| SQL timeout: local sources | 8 s |
+| SQL timeout: remote PostgreSQL / ClickHouse | 30 s |
+| Row limit per query | 500 rows |
+| Self-correction rounds | 2 (up to 3 attempts total) |
+| Agent Loop: max steps | 6 |
+| Upload limit | 25 MB · 50,000 rows |
+
+<sub>Timeouts use a ThreadPoolExecutor with `future.result(timeout)` — a heavy
+query never blocks the event loop. Remote databases get a larger budget:
+cross-network connect plus handshake takes seconds.</sub>
+
 ### Why two agents
 
 Data analysis and document search have different tools, limits and failure modes.
@@ -141,6 +192,28 @@ Routing to a specialized agent keeps each workflow bounded and measurable.
 
 **The LLM is not used where ordinary code is more reliable.**
 
+## Engineering findings
+
+- **LLMs are unreliable at arithmetic.** Early versions produced plausible but
+  incorrect percentages. Decision: all numerical computation moved into a
+  deterministic Python layer.
+- **Silent fallbacks destroy trust.** An answer without a mode badge looked
+  like a real one. Decision: explicit `ok / demo / partial / error` statuses
+  on every response.
+- **Dirty Excel files are the norm.** A real upload broke on a merged header
+  row and duplicate columns. Decision: resilient parsers that detect the header
+  row, plus tests on dirty files.
+- **Keyword search without stemming is useless for Russian.** «Затраты» did
+  not match «расходы». Decision: Russian stemming for BM25 + a vector channel
+  for semantics and multilinguality.
+- **Routing saves trust, not steps.** A single universal prompt blurred the
+  agent's role. Decision: two specialized agents + two-level routing with a
+  visible decision in the trace.
+- **Model pick is a quality/latency trade-off, not a default from a blog.** On
+  the latency table (3 runs, one question) GLM-5.2 is ~16 s vs GLM-4.6 ~30 s.
+  GLM-5.3-flash is faster still but weaker at SQL. GLM-4.6 stays the default
+  because the ~85% held-out eval ran on it.
+
 ## Evaluation & Benchmarks
 
 Figures below match
@@ -150,6 +223,23 @@ SQL eval is on the **public RideGo test pack**, not production databases.
 **174 pytest tests:** Agent Loop, SQL guard, self-correction, retrieval
 (Recall@1/5 · MRR for BM25 / Vector / Hybrid), numeric analytics contracts,
 routing, sources. Isolated temp SQLite, no API keys required.
+
+**Test coverage — 174 pytest tests:**
+
+| Component | Tests | Covers |
+|---|---|---|
+| Agent Loop (ReAct) | 22 | tool calling, self-correction, step limit, fallback |
+| SQL guard | 18 | DML bans, multi-statement, timeouts, row limit |
+| Analytics layer | 16 | trends, z-score threshold, top-N, RU/EN highlights |
+| Sources (CSV/Excel/PG/CH) | 27 | parsers, introspection, name dedup, password masking |
+| Routers (agent + source) | 26 | heuristic, LLM fallback, honest errors |
+| Knowledge Agent RAG + app.db | 20 | steps, sources, citations, feedback stats |
+| Parameterized scenarios | 10 | substitution, defaults, migration |
+| Other (app_db, export) | 22 | CRUD, feedback, DB isolation |
+| Retrieval quality + analytics contracts | 13 | Recall@1/5, MRR (BM25/Vector/Hybrid), numeric golden contracts |
+
+<sub>Tests run on isolated temp SQLite databases with fake providers — no API
+keys required, full run ~50 s.</sub>
 
 Harness: `backend/scripts/evaluate.py` — methodology in
 [EVALUATION.md](backend/EVALUATION.md).
