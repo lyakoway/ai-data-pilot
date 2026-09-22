@@ -197,21 +197,6 @@ external handshake.
 | Z.ai | GLM-5.3-flash, GLM-5.3, GLM-5.2, **GLM-4.6 (default)**, GLM-4.5-flash |
 | Ollama (local) | Llama 3.2 3B, Llama 3.1 8B, Mistral |
 
-## Known Limitations
-
-- **Prompt injection via documents.** The Knowledge Agent accepts arbitrary
-  files. Their contents enter the LLM context. No injection sanitization on the
-  RAG side. SQL is covered by the guard (read-only + limits).
-- **Eval sets are small.** Routing and retrieval golden sets are author-written
-  and do not replace the SQL headline (~85% normalized on GLM-4.6). Retrieval
-  pytest (n=8 pairs) currently scores 1.0 on every mode — it does not
-  discriminate BM25 vs vector vs hybrid.
-- **Self-correction is unit-tested, not quantified end-to-end** on the headline
-  SQL run (failed-SQL repair rate is not a published metric).
-- **Single-turn.** No conversation memory. Each request is independent.
-- **Cost is not a headline metric.** Latency is measured per model. Tokens and
-  cost per query are not published.
-
 ## Tech Stack
 
 - **Backend:** Python, FastAPI, SQLAlchemy 2 (SQLite / PostgreSQL / ClickHouse), fastembed, openpyxl
