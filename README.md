@@ -55,14 +55,14 @@ format — not string exact-match). **~98% execution** only means the query ran.
 | **174** | pytest tests |
 | **Python** | counts · LLM writes prose |
 
-<sub>Scale figures are from internal production experience; the demo and SQL
+<sub>Scale figures are from internal production experience. The demo and SQL
 eval in this repo run on a public test dataset (RideGo ~21k rides).</sub>
 
 ## Key capabilities
 
 - 🧭 **Dual auto-routing** — by agent (data → Data Agent, docs → Knowledge Agent)
   and by source (question → the right DB). Both routers: LLM classification +
-  deterministic heuristic fallback. Manual switches remain as an override.
+  deterministic heuristic fallback. Manual switches remain available as an override.
 - 👤 **Data Agent**
   - **Agent Loop (ReAct)** — `database_query → calculate → analyze → create_chart → finish`. Prompt-based tool-calling works with every provider, including offline Demo.
   - **Execution trace (SSE)** — live steps: SQL, row_count, insights.
@@ -80,7 +80,7 @@ eval in this repo run on a public test dataset (RideGo ~21k rides).</sub>
 
 ## Use cases
 
-Data lives in databases and Excel, and getting a number usually means an
+Data lives in databases and Excel, and getting a number usually means filing an
 analyst ticket. SQL quality and latency here are measured on a public test
 dataset.
 
