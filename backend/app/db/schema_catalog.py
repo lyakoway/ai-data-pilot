@@ -35,7 +35,7 @@ Daily ride facts.
 - sub_id INTEGER PK
 - user_id INTEGER FK → dim_user
 - city_id INTEGER FK → dim_city
-- brand TEXT  -- ridego_plus / mts_prime / boost
+- brand TEXT  -- ridego_plus / ridego_lite / boost
 - status TEXT -- active / cancelled
 - started_at DATE
 - cancelled_at DATE NULL

@@ -205,7 +205,7 @@ def seed_analytics_db(force: bool = False) -> Path:
                 batch,
             )
 
-        brands = ["ridego_plus", "mts_prime", "boost"]
+        brands = ["ridego_plus", "ridego_lite", "boost"]
         reasons = ["price", "unused", "competitor", "other"]
         sub_id = 1
         for uid, city_id in users:

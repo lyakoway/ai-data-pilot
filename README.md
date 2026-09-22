@@ -19,13 +19,6 @@ agents — **Data Agent** (Text-to-SQL, charts, Excel) and **Knowledge Agent**
 (RAG over docs and uploads) — plus a dual auto-router. In the Russian UI they
 are named Олег and Ксюша.
 
-This repository is an independently built **personal demo** on a test dataset
-(RideGo ~21k rides). It is the same problem class as a production multi-agent
-analytics platform — **not** that system's source code or production databases.
-Published SQL figures below match the case page
-[lyakoway.vercel.app/portfolio/ai-data-pilot](https://lyakoway.vercel.app/portfolio/ai-data-pilot).
-Production databases stay under NDA.
-
 [![Demo](https://img.shields.io/badge/demo-lyakoway--ai--data--pilot.hf.space-ff9d00)](https://lyakoway-ai-data-pilot.hf.space/)
 ![backend](https://img.shields.io/badge/backend-FastAPI-009688)
 ![frontend](https://img.shields.io/badge/frontend-React%2019%20%2B%20Vite-61dafb)
@@ -48,7 +41,7 @@ first search (~10 s).</sub>
 Headline SQL quality on the public test pack (GLM-4.6): **~85% normalized
 result correctness** (same numbers after dropping aliases, row order and number
 format — not string exact-match). **~98% execution** only means the query ran.
-**2h → 2min** report prep is MTS production, not this demo.
+**2h → 2min** report prep is from production experience, not this demo.
 
 ## Key capabilities
 
@@ -152,7 +145,7 @@ Routing to a specialized agent keeps each workflow bounded and measurable.
 
 Figures below match
 [the case page](https://lyakoway.vercel.app/portfolio/ai-data-pilot).
-SQL eval is on the **public RideGo test pack**, not MTS production databases.
+SQL eval is on the **public RideGo test pack**, not production databases.
 
 **174 pytest tests:** Agent Loop, SQL guard, self-correction, retrieval
 (Recall@1/5 · MRR for BM25 / Vector / Hybrid), numeric analytics contracts,

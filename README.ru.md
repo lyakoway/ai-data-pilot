@@ -9,13 +9,6 @@
 загрузкам) — плюс двухуровневый авто-роутер. В английском UI: Data Agent /
 Knowledge Agent.
 
-Этот репозиторий — самостоятельное **личное демо** на тестовом наборе
-(RideGo ~21 тыс. поездок). Тот же класс задачи, что у production мультиагентной
-аналитики — **не** исходный код и не продовые базы той системы. Цифры SQL ниже
-совпадают со страницей кейса
-[lyakoway.vercel.app/portfolio/ai-data-pilot](https://lyakoway.vercel.app/portfolio/ai-data-pilot).
-Продовые базы — под NDA.
-
 [![Demo](https://img.shields.io/badge/demo-lyakoway--ai--data--pilot.hf.space-ff9d00)](https://lyakoway-ai-data-pilot.hf.space/)
 ![backend](https://img.shields.io/badge/backend-FastAPI-009688)
 ![frontend](https://img.shields.io/badge/frontend-React%2019%20%2B%20Vite-61dafb)
@@ -36,7 +29,7 @@ Knowledge Agent.
 Headline SQL-качества на публичном тестовом паке (GLM-4.6): **~85%
 нормализованной точности результата** (те же числа без учёта алиасов, порядка строк
 и формата чисел — не string exact-match). **~98% execution** значит только,
-что запрос выполнился. **2ч → 2мин** на отчётность — прод МТС, не это демо.
+что запрос выполнился. **2ч → 2мин** на отчётность — из продового опыта, не это демо.
 
 ## Ключевые возможности
 
@@ -54,7 +47,7 @@ Headline SQL-качества на публичном тестовом паке 
 
 Цифры совпадают со
 [страницей кейса](https://lyakoway.vercel.app/portfolio/ai-data-pilot).
-SQL-оценка — публичный пак RideGo, не продовые базы МТС.
+SQL-оценка — публичный пак RideGo, не продовые базы.
 
 **174 pytest-теста** на изолированных temp-SQLite, без ключей.
 
