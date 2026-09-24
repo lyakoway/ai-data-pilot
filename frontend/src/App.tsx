@@ -173,7 +173,10 @@ export default function App() {
   useEffect(() => {
     api.models().then((m) => {
       setModels(m)
-      const first = m.find((x) => x.available)
+      // GLM-4.6 is the documented default (the ~85% SQL eval ran on it);
+      // fast models like glm-5.3-flash often fail to return structured SQL.
+      const preferred = m.find((x) => x.available && x.id === 'zai:glm-4.6')
+      const first = preferred ?? m.find((x) => x.available)
       if (first) setModel(first.id)
     })
     api.scenarios().then(setScenarios)

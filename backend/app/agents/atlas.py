@@ -805,14 +805,28 @@ async def run_atlas_streaming(
             step["status"] = "error"
             step["summary"] = "Модель не вернула SQL" if lang != "en" else "No SQL returned"
             await emit(step)
-            return _error_response(
-                plan=plan,
-                message=(
+            if is_mock:
+                message = (
                     "В демо-режиме нельзя строить запросы по пользовательским данным. "
                     "Подключите реальную модель (OpenAI / Anthropic / Z.ai / Ollama)."
                     if lang != "en"
                     else "Demo mode can't query uploaded data. Connect a real model."
-                ),
+                )
+            else:
+                message = (
+                    f"Модель {model_id} не вернула SQL для этого вопроса — быстрые модели "
+                    "иногда отвечают текстом вместо запроса. Попробуйте более сильную модель "
+                    "(например, GLM-4.6) или переформулируйте вопрос под схему этой базы."
+                    if lang != "en"
+                    else (
+                        f"Model {model_id} returned no SQL for this question — fast models "
+                        "sometimes reply with prose instead of a query. Try a stronger model "
+                        "(e.g. GLM-4.6) or rephrase the question to fit this database schema."
+                    )
+                )
+            return _error_response(
+                plan=plan,
+                message=message,
                 lang=lang,
                 steps=steps,
             )
