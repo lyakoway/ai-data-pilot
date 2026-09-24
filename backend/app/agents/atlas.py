@@ -1,4 +1,4 @@
-"""Analyst Oleg — NL → SQL → execute → analyze → explain (+ chart / excel).
+"""Analyst Atlas — NL → SQL → execute → analyze → explain (+ chart / excel).
 
 Reliability contract (Phase 1):
 - The SQL planner may attempt up to ``MAX_SQL_ATTEMPTS`` self-correction rounds.
@@ -35,7 +35,7 @@ from app.llm.registry import get_provider
 MAX_SQL_REPAIR_ROUNDS = 2
 MAX_SQL_ATTEMPTS = 1 + MAX_SQL_REPAIR_ROUNDS
 
-PLAN_SYSTEM = """Ты — аналитик Олег. Строишь SQL для аналитической базы данных.
+PLAN_SYSTEM = """Ты — аналитик Атлас. Строишь SQL для аналитической базы данных.
 Верни ТОЛЬКО JSON без markdown:
 {{
   "sql": "SELECT ...",
@@ -88,7 +88,7 @@ def get_settings_sql_timeout() -> float:
 # Asks the model to rewrite a query that failed at runtime.
 # Note: literal braces in the JSON example are escaped ({{ }}) because the
 # template is processed with str.format() for {error}/{sql} below.
-REPAIR_SYSTEM = """Ты — аналитик Олег. Предыдущий SQL упал с ошибкой БД.
+REPAIR_SYSTEM = """Ты — аналитик Атлас. Предыдущий SQL упал с ошибкой БД.
 Перепиши запрос так, чтобы он выполнился. Используй только таблицы/поля из SCHEMA.
 Верни ТОЛЬКО JSON в том же формате: {{sql, chart_type, wants_excel, tables_used, logic}}.
 
@@ -103,7 +103,7 @@ SCHEMA:
 
 # Renders pre-computed insights into prose. The model must NOT invent numbers —
 # every figure it mentions must come from the provided HIGHLIGHTS list.
-ANSWER_SYSTEM = """Ты — аналитик Олег. По результату SQL дай короткий деловой ответ.
+ANSWER_SYSTEM = """Ты — аналитик Атлас. По результату SQL дай короткий деловой ответ.
 Структура:
 1) Прямой ответ / ключевые цифры
 2) 2–4 наблюдения на основе HIGHLIGHTS
@@ -278,11 +278,11 @@ def _ok_response(
     wants_excel = bool(plan.get("wants_excel")) or force_excel or len(rows) >= 15
     excel_url = None
     if wants_excel and rows:
-        path = export_rows(columns, rows, name="oleg_report")
+        path = export_rows(columns, rows, name="atlas_report")
         excel_url = f"/api/exports/{path.name}"
 
     return {
-        "agent": "oleg",
+        "agent": "atlas",
         "status": status,
         "warnings": warnings or [],
         "steps": steps or [],
@@ -318,7 +318,7 @@ def _error_response(
     else:
         answer = f"Не удалось выполнить запрос. {message}"
     return {
-        "agent": "oleg",
+        "agent": "atlas",
         "status": status,
         "warnings": warnings or [],
         "steps": steps or [],
@@ -378,18 +378,18 @@ async def _repair_plan(
     return _extract_json(raw)
 
 
-async def run_oleg(
+async def run_atlas(
     question: str,
     model_id: str = "mock",
     lang: str = "ru",
     force_excel: bool = False,
     datasource_id: str = RIDEGO_SOURCE_ID,
 ) -> dict[str, Any]:
-    """Run Oleg synchronously and return the final result (with ``steps`` list).
+    """Run Atlas synchronously and return the final result (with ``steps`` list).
 
-    Thin wrapper over :func:`run_oleg_streaming` with a no-op step callback.
+    Thin wrapper over :func:`run_atlas_streaming` with a no-op step callback.
     """
-    return await run_oleg_streaming(
+    return await run_atlas_streaming(
         question=question,
         model_id=model_id,
         lang=lang,
@@ -410,7 +410,7 @@ StepCallback = Callable[[dict[str, Any]], Awaitable[None]]
 
 
 async def _noop_step(_step: dict[str, Any]) -> None:
-    """Default no-op callback (used by the non-streaming ``run_oleg`` wrapper)."""
+    """Default no-op callback (used by the non-streaming ``run_atlas`` wrapper)."""
     return None
 
 
@@ -448,7 +448,7 @@ def _is_complex_question(question: str) -> bool:
 # Prompt-based tool-calling system. The model replies with a single JSON object
 # per turn; we parse it, dispatch the tool, and feed the result back as a "tool"
 # message until the model calls ``finish``.
-LOOP_SYSTEM = """Ты — аналитик Олег. Пользователь задал вопрос, требующий нескольких шагов анализа.
+LOOP_SYSTEM = """Ты — аналитик Атлас. Пользователь задал вопрос, требующий нескольких шагов анализа.
 Ты принимаешь решения пошагово: на каждом ходу выбираешь ОДИН инструмент и возвращаешь
 строго JSON без markdown:
 
@@ -552,7 +552,7 @@ async def _run_loop(
         if result.get("_finish"):
             answer = result["data"].get("answer", "")
             return {
-                "agent": "oleg",
+                "agent": "atlas",
                 "status": "ok",
                 "warnings": [],
                 "steps": steps,
@@ -694,7 +694,7 @@ async def _mock_loop(
         answer = _mock_answer(question, cols, rows, lang)
 
     return {
-        "agent": "oleg",
+        "agent": "atlas",
         "status": "demo",
         "warnings": [],
         "steps": steps,
@@ -717,7 +717,7 @@ async def _mock_loop(
 
 
 
-async def run_oleg_streaming(
+async def run_atlas_streaming(
     question: str,
     model_id: str = "mock",
     lang: str = "ru",
@@ -725,9 +725,9 @@ async def run_oleg_streaming(
     datasource_id: str = RIDEGO_SOURCE_ID,
     on_step: StepCallback = _noop_step,
 ) -> dict[str, Any]:
-    """Run Oleg and emit execution-trace steps via ``on_step`` as work proceeds.
+    """Run Atlas and emit execution-trace steps via ``on_step`` as work proceeds.
 
-    This is the canonical implementation; :func:`run_oleg` delegates here with a
+    This is the canonical implementation; :func:`run_atlas` delegates here with a
     no-op callback. Each step is a dict shaped like a future tool-call so the UI
     contract stays stable when a real agent loop lands.
     """

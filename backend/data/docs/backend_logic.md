@@ -1,4 +1,4 @@
-# Backend logic (фейковая документация для Ксюши)
+# Backend logic (фейковая документация для Дока)
 
 ## Reset errors в админке ТС
 Кнопка «Сбросить ошибки» вызывает `TransportCardService.ResetCriticalErrors`.

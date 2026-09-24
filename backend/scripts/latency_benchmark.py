@@ -30,7 +30,7 @@ from app.core.sql_guard import SqlExecutionError, SqlGuardError, SqlTimeoutError
 from app.db.datasources import get_schema_catalog  # noqa: E402
 from app.llm.base import ChatMessage  # noqa: E402
 from app.llm.registry import get_provider, list_models  # noqa: E402
-from app.agents.oleg import PLAN_SYSTEM, _extract_json  # noqa: E402
+from app.agents.atlas import PLAN_SYSTEM, _extract_json  # noqa: E402
 
 GOLDEN_DIR = Path(__file__).resolve().parent.parent / "tests" / "golden"
 OUT_JSON = Path(__file__).resolve().parent.parent / "latency_benchmark.json"
@@ -48,7 +48,7 @@ def load_jsonl(path: Path) -> list[dict[str, Any]]:
 
 
 async def bench_model(model_id: str, question: str, reference_sql: str, runs: int) -> dict[str, Any]:
-    """Прогон одного вопроса через полный цикл Олега на одной модели, runs раз."""
+    """Прогон одного вопроса через полный цикл Атласа на одной модели, runs раз."""
     from app.db.datasources import RIDEGO_SOURCE_ID, get_schema_catalog, get_engine_for
 
     provider = get_provider(model_id)
@@ -135,7 +135,7 @@ async def main_async(args: argparse.Namespace) -> list[dict[str, Any]]:
         print(f"  ▸ {model_id} …")
         t0 = time.perf_counter()
         try:
-            from app.agents.oleg import PLAN_SYSTEM
+            from app.agents.atlas import PLAN_SYSTEM
 
             row = await bench_model(model_id, DEFAULT_QUESTION, reference_sql, args.runs)
             row["wall_s"] = round(time.perf_counter() - t0, 1)

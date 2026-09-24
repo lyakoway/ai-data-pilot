@@ -1,13 +1,13 @@
-"""Data sources registry — decouples Oleg from the hardcoded RideGo schema.
+"""Data sources registry — decouples Atlas from the hardcoded RideGo schema.
 
-A *data source* bundles together everything Oleg needs to answer questions:
+A *data source* bundles together everything Atlas needs to answer questions:
   - a human-readable name and description
   - a schema catalog (the text injected into the LLM prompt)
   - a SQLAlchemy engine pointing at the actual database
 
 The built-in ``ridego`` source is always available and backed by the seeded demo
 DB. User-uploaded files (CSV or Excel) are stored as tables in a separate SQLite
-database (``data/csv_sources.db``) and registered here so Oleg can query them
+database (``data/csv_sources.db``) and registered here so Atlas can query them
 with the same machinery.
 
 Excel specifics: each **sheet** of a ``.xlsx`` workbook becomes its own data
@@ -120,7 +120,7 @@ def get_engine_for(source_id: str) -> Any:
 
 
 def get_schema_catalog(source_id: str) -> str:
-    """Return the schema text to inject into Oleg's prompt for ``source_id``."""
+    """Return the schema text to inject into Atlas's prompt for ``source_id``."""
     if source_id == ALL_UPLOADS_ID:
         return _build_all_uploads_catalog()
     meta = get_source_meta(source_id)
@@ -501,7 +501,7 @@ def _make_param_dict(header: list[str], col_types: list[str], row: list[Any]) ->
 
 def _build_uploaded_catalog(meta: dict[str, Any]) -> str:
     """Compose a schema-catalog text for an uploaded source, describing its
-    single table and columns with inferred types. This is what Oleg sees."""
+    single table and columns with inferred types. This is what Atlas sees."""
     table = meta["table_name"]
     cols = meta.get("columns") or []
     lines = [f"# Uploaded data source: {meta['name']}", ""]
@@ -697,7 +697,14 @@ def register_postgres(
     except ValueError:
         raise
     except Exception as e:
-        raise ValueError(f"Could not connect to PostgreSQL: {e}") from e
+        msg = f"Could not connect to PostgreSQL: {e}"
+        if "connection refused" in str(e).lower() and host in ("127.0.0.1", "localhost"):
+            msg += (
+                " — no local demo PostgreSQL is running. The Docker image ships "
+                "one on port 5432; for local dev start it with "
+                "`docker compose -f docker-compose.test.yml up -d` (port 5433)."
+            )
+        raise ValueError(msg) from e
     if not tables:
         raise ValueError("Connected, but no tables found in the database.")
 
@@ -967,7 +974,7 @@ async def suggest_questions_smart(
 def _build_all_uploads_catalog() -> str:
     """Build a combined schema catalog from ALL uploaded CSV/Excel tables.
 
-    This is what Oleg sees when the virtual 'all_uploads' source is selected —
+    This is what Atlas sees when the virtual 'all_uploads' source is selected —
     every table from every uploaded file, enabling cross-file JOINs.
     """
     csv_sources = [s for s in app_db.list_datasources() if s["kind"] == "csv"]

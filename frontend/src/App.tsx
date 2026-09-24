@@ -42,26 +42,26 @@ type Turn = {
 const COPY = {
   ru: {
     title: 'AI Data Pilot',
-    subtitleAuto: 'Авто-роутер · данные → Олег, документация → Ксюша',
-    brandSub: 'RideGo · Oleg & Ksyusha',
-    agentOleg: 'Олег',
-    agentKsyusha: 'Ксюша',
-    titleOleg: 'Аналитик Олег',
-    titleKsyusha: 'Ксюша',
+    subtitleAuto: 'Авто-роутер · данные → Атлас, документация → Док',
+    brandSub: 'RideGo · Atlas & Doc',
+    agentAtlas: 'Атлас',
+    agentDoc: 'Док',
+    titleAtlas: 'Аналитик Атлас',
+    titleDoc: 'Док',
     autoModeLabel: 'Авто-выбор агента',
-    autoModeHint: 'Роутер сам направляет вопрос Олегу или Ксюше',
+    autoModeHint: 'Роутер сам направляет вопрос Атласу или Доку',
     emptyAuto:
-      'Задайте вопрос — роутер сам направит его аналитику Олегу (SQL, базы данных) или Ксюше (документация).',
-    subtitleOleg: 'Аналитик Олег · SQL, метрики, Excel',
-    subtitleKsyusha: 'Ксюша · документация и backend-логика',
+      'Задайте вопрос — роутер сам направит его аналитику Атласу (SQL, базы данных) или Доку (документация).',
+    subtitleAtlas: 'Аналитик Атлас · SQL, метрики, Excel',
+    subtitleDoc: 'Док · документация и backend-логика',
     scenarios: 'Сценарии',
     docsLabel: 'Документы',
     run: 'Запустить',
     kpis: 'Обзор RideGo',
     topCities: 'Топ городов по поездкам',
     byRegion: 'Выручка по регионам',
-    placeholderOleg: 'Спросите про выручку, города, подписки…',
-    placeholderKsyusha: 'Спросите про utilization, Redis, anti-fraud…',
+    placeholderAtlas: 'Спросите про выручку, города, подписки…',
+    placeholderDoc: 'Спросите про utilization, Redis, anti-fraud…',
     emptyTitle: 'Дашборд аналитических агентов',
     dataSource: 'Источник данных',
     uploadCsv: 'Загрузить файл',
@@ -69,10 +69,10 @@ const COPY = {
     uploadHint: 'CSV или Excel (.xlsx) с заголовком. Максимум 25 МБ.',
     uploadError: 'Не удалось загрузить файл',
     loadingSuggestions: 'Подбираю вопросы по вашим данным…',
-    emptyOleg:
-      'Олег ходит в демо-БД RideGo: строит SQL, таблицу, график и Excel. Запустите сценарий слева или задайте вопрос.',
-    emptyKsyusha:
-      'Ксюша отвечает по фейковой внутренней документации (метрики, lineage, backend).',
+    emptyAtlas:
+      'Атлас ходит в демо-БД RideGo: строит SQL, таблицу, график и Excel. Запустите сценарий слева или задайте вопрос.',
+    emptyDoc:
+      'Док отвечает по фейковой внутренней документации (метрики, lineage, backend).',
     sendHint: 'Enter — отправить · Shift+Enter — новая строка',
     loading: 'Агент думает…',
     saveName: 'Название сценария',
@@ -87,26 +87,26 @@ const COPY = {
   },
   en: {
     title: 'AI Data Pilot',
-    subtitleAuto: 'Auto-router · data → Data Agent, docs → Agent (RAG)',
-    brandSub: 'RideGo · Data Agent & Agent (RAG)',
-    agentOleg: 'Data Agent',
-    agentKsyusha: 'Agent (RAG)',
-    titleOleg: 'Data Agent',
-    titleKsyusha: 'Agent (RAG)',
+    subtitleAuto: 'Auto-router · data → Atlas, docs → Doc',
+    brandSub: 'RideGo · Atlas & Doc',
+    agentAtlas: 'Atlas',
+    agentDoc: 'Doc',
+    titleAtlas: 'Atlas',
+    titleDoc: 'Doc',
     autoModeLabel: 'Auto-select agent',
-    autoModeHint: 'The router sends each question to Data Agent or Agent (RAG)',
+    autoModeHint: 'The router sends each question to Atlas or Doc',
     emptyAuto:
-      'Ask anything — the router sends data questions to Data Agent (SQL) and docs questions to Agent (RAG).',
-    subtitleOleg: 'Data Agent · SQL, metrics, Excel',
-    subtitleKsyusha: 'Agent (RAG) · docs & backend logic',
+      'Ask anything — the router sends data questions to Atlas (SQL) and docs questions to Doc.',
+    subtitleAtlas: 'Atlas · SQL, metrics, Excel',
+    subtitleDoc: 'Doc · docs & backend logic',
     scenarios: 'Scenarios',
     docsLabel: 'Documents',
     run: 'Run',
     kpis: 'RideGo overview',
     topCities: 'Top cities by rides',
     byRegion: 'Revenue by region',
-    placeholderOleg: 'Ask about revenue, cities, subscriptions…',
-    placeholderKsyusha: 'Ask about utilization, Redis, anti-fraud…',
+    placeholderAtlas: 'Ask about revenue, cities, subscriptions…',
+    placeholderDoc: 'Ask about utilization, Redis, anti-fraud…',
     emptyTitle: 'Analytical agents dashboard',
     dataSource: 'Data source',
     uploadCsv: 'Upload file',
@@ -114,10 +114,10 @@ const COPY = {
     uploadHint: 'CSV or Excel (.xlsx) with a header row. Max 25 MB.',
     uploadError: 'Failed to upload file',
     loadingSuggestions: 'Picking questions for your data…',
-    emptyOleg:
-      'Data Agent queries the RideGo demo DB: SQL, table, chart, Excel. Run a scenario or ask a question.',
-    emptyKsyusha:
-      'Agent (RAG) answers from a fake internal docs base (metrics, lineage, backend).',
+    emptyAtlas:
+      'Atlas queries the RideGo demo DB: SQL, table, chart, Excel. Run a scenario or ask a question.',
+    emptyDoc:
+      'Doc answers from a fake internal docs base (metrics, lineage, backend).',
     sendHint: 'Enter to send · Shift+Enter for newline',
     loading: 'Agent is thinking…',
     saveName: 'Scenario name',
@@ -140,7 +140,7 @@ export default function App() {
   // `agent` is the *highlighted* agent (switched automatically by the router);
   // `agentMode` is hidden: 'auto' (default) routes per question, 'manual' pins
   // the agent until the user clicks the active button again.
-  const [agent, setAgent] = useState<AgentId>('oleg')
+  const [agent, setAgent] = useState<AgentId>('atlas')
   const [agentMode, setAgentMode] = useState<'auto' | 'manual'>('auto')
   const [models, setModels] = useState<ModelInfo[]>([])
   const [model, setModel] = useState('mock')
@@ -258,7 +258,7 @@ export default function App() {
     const userTurn: Turn = { id: crypto.randomUUID(), role: 'user', text: msg }
     setTurns((prev) => [...prev, userTurn])
 
-    // Both Олег and Ксюша stream execution-trace steps in real time.
+    // Both Атлас and Док stream execution-trace steps in real time.
     const assistantId = crypto.randomUUID()
     setTurns((prev) => [...prev, { id: assistantId, role: 'assistant', liveSteps: [] }])
     await api.chatStream(
@@ -268,7 +268,7 @@ export default function App() {
         model,
         lang,
         force_excel: forceExcel,
-        datasource_id: agent !== 'ksyusha' ? datasourceId : undefined,
+        datasource_id: agent !== 'doc' ? datasourceId : undefined,
       },
       {
         onStep: (step) => {
@@ -320,7 +320,7 @@ export default function App() {
                     ...t,
                     liveSteps: undefined,
                     result: {
-                      agent: agent === 'ksyusha' ? 'ksyusha' : 'oleg',
+                      agent: agent === 'doc' ? 'doc' : 'atlas',
                       status: 'error',
                       warnings: [],
                       insights: {},
@@ -407,14 +407,14 @@ export default function App() {
     // In auto mode, bind the scenario to the agent that actually answered.
     const lastAgent: AgentId =
       [...turns].reverse().find((x) => x.result)?.result?.agent ??
-      (agent === 'ksyusha' ? 'ksyusha' : 'oleg')
+      (agent === 'doc' ? 'doc' : 'atlas')
     const created = await api.createScenario({
       name,
       agent: lastAgent,
       description: '',
       prompt: lastUserPrompt,
       chart_type: 'bar',
-      datasource_id: agent !== 'ksyusha' ? datasourceId : undefined,
+      datasource_id: agent !== 'doc' ? datasourceId : undefined,
     })
     setScenarios((prev) => [...prev, created])
   }
@@ -571,18 +571,18 @@ export default function App() {
         <div className="agent-switch">
           <button
             type="button"
-            className={`agent-btn ${agent === 'oleg' ? 'active' : ''}`}
-            onClick={() => selectAgent('oleg')}
+            className={`agent-btn ${agent === 'atlas' ? 'active' : ''}`}
+            onClick={() => selectAgent('atlas')}
           >
-            {t.agentOleg}
+            {t.agentAtlas}
             <small>SQL · Excel</small>
           </button>
           <button
             type="button"
-            className={`agent-btn ${agent === 'ksyusha' ? 'active' : ''}`}
-            onClick={() => selectAgent('ksyusha')}
+            className={`agent-btn ${agent === 'doc' ? 'active' : ''}`}
+            onClick={() => selectAgent('doc')}
           >
-            {t.agentKsyusha}
+            {t.agentDoc}
             <small>Docs · RAG</small>
           </button>
         </div>
@@ -703,13 +703,13 @@ export default function App() {
               </svg>
             </button>
             <div>
-              <h2>{agent === 'oleg' ? t.titleOleg : t.titleKsyusha}</h2>
+              <h2>{agent === 'atlas' ? t.titleAtlas : t.titleDoc}</h2>
               <p className="sub">
                 {agentMode === 'auto'
                   ? t.subtitleAuto
-                  : agent === 'oleg'
-                    ? t.subtitleOleg
-                    : t.subtitleKsyusha}
+                  : agent === 'atlas'
+                    ? t.subtitleAtlas
+                    : t.subtitleDoc}
               </p>
             </div>
           </div>
@@ -793,9 +793,9 @@ export default function App() {
               <p>
                 {agentMode === 'auto' && turns.length === 0
                   ? t.emptyAuto
-                  : agent === 'oleg'
-                    ? t.emptyOleg
-                    : t.emptyKsyusha}
+                  : agent === 'atlas'
+                    ? t.emptyAtlas
+                    : t.emptyDoc}
               </p>
               {suggestionsLoading ? (
                 <div className="suggestions-loading">
@@ -804,7 +804,7 @@ export default function App() {
               ) : (
               <div className="suggestions">
                 {(sourceSuggestions.length > 0
-                  ? agentMode === 'auto' && agent !== 'oleg'
+                  ? agentMode === 'auto' && agent !== 'atlas'
                     ? [...sourceSuggestions.slice(0, 3),
                        lang === 'en' ? 'How is utilization calculated?' : 'Как считается utilization?']
                     : sourceSuggestions.slice(0, 4)
@@ -822,7 +822,7 @@ export default function App() {
                             'Выручка по регионам за 30 дней',
                             'Какой TTL у Redis pricing cache?',
                           ])
-                    : agent === 'oleg'
+                    : agent === 'atlas'
                       ? (lang === 'en'
                           ? [
                               'Revenue by region for 30 days',
@@ -872,7 +872,7 @@ export default function App() {
                         agent: turn.result.agent,
                         message: lastUserPrompt,
                         model,
-                        datasource_id: agent !== 'ksyusha' ? datasourceId : undefined,
+                        datasource_id: agent !== 'doc' ? datasourceId : undefined,
                       }}
                     />
                   )}
@@ -920,7 +920,7 @@ export default function App() {
           <div className="composer-box">
             <textarea
               value={input}
-              placeholder={agent === 'oleg' ? t.placeholderOleg : t.placeholderKsyusha}
+              placeholder={agent === 'atlas' ? t.placeholderAtlas : t.placeholderDoc}
               rows={2}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {

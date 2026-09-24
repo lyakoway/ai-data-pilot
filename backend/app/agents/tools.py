@@ -1,4 +1,4 @@
-"""Agent tools for Oleg's ReAct loop.
+"""Agent tools for Atlas's ReAct loop.
 
 Each tool is a thin wrapper over existing building blocks (sql_guard, analytics,
 chart builder). Tools receive the caller's context (engine, columns/rows from

@@ -26,7 +26,7 @@ def test_create_scenario_with_parameters(tmp_db):
         {
             "id": "test-param-1",
             "name": "Test",
-            "agent": "oleg",
+            "agent": "atlas",
             "description": "",
             "prompt": "Выручка за {period} дней",
             "chart_type": "bar",
@@ -44,7 +44,7 @@ def test_create_scenario_without_parameters(tmp_db):
         {
             "id": "test-noparam",
             "name": "No Params",
-            "agent": "oleg",
+            "agent": "atlas",
             "description": "",
             "prompt": "Простой запрос",
             "chart_type": None,

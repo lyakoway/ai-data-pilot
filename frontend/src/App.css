@@ -510,7 +510,7 @@ th { background: var(--bg-soft); color: var(--text-soft); font-weight: 600; }
 .modal-input:focus { border-color: var(--accent); }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
 
-/* Inline citations + source cards (Ksyusha RAG polish) */
+/* Inline citations + source cards (Doc RAG polish) */
 .cite-ref {
   display: inline-flex;
   align-items: center;

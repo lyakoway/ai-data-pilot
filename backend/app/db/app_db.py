@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS datasources (
 CREATE TABLE IF NOT EXISTS feedback (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     vote         TEXT NOT NULL,          -- 'up' | 'down'
-    agent        TEXT NOT NULL,          -- 'oleg' | 'ksyusha'
+    agent        TEXT NOT NULL,          -- 'atlas' | 'doc'
     message      TEXT,                   -- the user's question
     answer       TEXT,                   -- the agent's answer (truncated)
     datasource_id TEXT,
@@ -332,7 +332,7 @@ def save_feedback(fb: dict[str, Any]) -> dict[str, Any]:
             ),
             {
                 "vote": fb["vote"],
-                "agent": fb.get("agent", "oleg"),
+                "agent": fb.get("agent", "atlas"),
                 "message": (fb.get("message") or "")[:1000],
                 "answer": (fb.get("answer") or "")[:2000],
                 "datasource_id": fb.get("datasource_id"),

@@ -5,8 +5,8 @@ import uuid
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from app.agents.ksyusha import run_ksyusha
-from app.agents.oleg import run_oleg
+from app.agents.doc import run_doc
+from app.agents.atlas import run_atlas
 from app.db import app_db
 from app.schemas.dto import ChatResponse, ScenarioCreate, ScenarioOut, ScenarioRunRequest
 
@@ -81,11 +81,11 @@ async def run_scenario(
     if not sc:
         raise HTTPException(404, "Scenario not found")
     prompt = _substitute(sc["prompt"], sc.get("parameters"), body.values if body else None)
-    if sc["agent"] == "ksyusha":
-        data = await run_ksyusha(prompt, model_id=model, lang=lang)
+    if sc["agent"] == "doc":
+        data = await run_doc(prompt, model_id=model, lang=lang)
     else:
         datasource_id = sc.get("datasource_id") or "ridego"
-        data = await run_oleg(
+        data = await run_atlas(
             prompt,
             model_id=model,
             lang=lang,

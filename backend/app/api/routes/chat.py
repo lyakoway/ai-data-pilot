@@ -8,8 +8,8 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
-from app.agents.ksyusha import run_ksyusha_streaming
-from app.agents.oleg import run_oleg_streaming
+from app.agents.doc import run_doc_streaming
+from app.agents.atlas import run_atlas_streaming
 from app.agents.router import route_agent
 from app.schemas.dto import ChatRequest, ChatResponse
 
@@ -28,9 +28,9 @@ async def _resolve_agent(body: ChatRequest, msg: str) -> tuple[str, dict[str, An
     t0 = time.perf_counter()
     agent = await route_agent(msg, model_id=body.model)
     ru = body.lang != "en"
-    who = "Ксюше (документация)" if agent == "ksyusha" else "Олегу (данные)"
+    who = "Доку (документация)" if agent == "doc" else "Атласу (данные)"
     if not ru:
-        who = "Ksyusha (docs)" if agent == "ksyusha" else "Oleg (data)"
+        who = "Doc (docs)" if agent == "doc" else "Atlas (data)"
     step = {
         "id": "step_0_route",
         "title": "Определяю агента" if ru else "Routing the question",
@@ -46,12 +46,12 @@ async def _resolve_agent(body: ChatRequest, msg: str) -> tuple[str, dict[str, An
 async def _resolve_datasource(
     body: ChatRequest, agent: str, msg: str
 ) -> tuple[str, dict[str, Any] | None]:
-    """Auto-route the data source for Oleg when the user hasn't pinned one.
+    """Auto-route the data source for Atlas when the user hasn't pinned one.
 
     Returns ``(datasource_id, router_step)``. Only active when datasource_id
-    is 'auto' (or unset) and the agent is Oleg.
+    is 'auto' (or unset) and the agent is Atlas.
     """
-    if agent != "oleg":
+    if agent != "atlas":
         return body.datasource_id or "ridego", None
     ds = body.datasource_id
     if ds and ds not in {"", "auto"}:
@@ -84,15 +84,15 @@ async def _resolve_datasource(
 
 async def _run_agent(body: ChatRequest, msg: str, agent: str, on_step=None, datasource_id=None) -> dict[str, Any]:
     """Run the resolved agent with the request's parameters."""
-    from app.agents.ksyusha import _noop_step as _ks_noop
-    from app.agents.oleg import _noop_step as _ol_noop
+    from app.agents.doc import _noop_step as _ks_noop
+    from app.agents.atlas import _noop_step as _ol_noop
 
-    if agent == "ksyusha":
-        return await run_ksyusha_streaming(
+    if agent == "doc":
+        return await run_doc_streaming(
             msg, model_id=body.model, lang=body.lang,
             on_step=on_step if on_step is not None else _ks_noop,
         )
-    return await run_oleg_streaming(
+    return await run_atlas_streaming(
         msg,
         model_id=body.model,
         lang=body.lang,

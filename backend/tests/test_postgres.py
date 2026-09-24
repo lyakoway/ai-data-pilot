@@ -12,7 +12,7 @@ import json
 import pytest
 from sqlalchemy import create_engine, text
 
-from app.agents.oleg import _dialect_note
+from app.agents.atlas import _dialect_note
 from app.db import datasources as ds
 
 

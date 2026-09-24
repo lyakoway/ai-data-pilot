@@ -47,7 +47,7 @@ def _chunk_segments(segments, char_size: int = 1500, overlap: int = 200) -> list
     return chunks
 
 
-DATA_EXT = {".csv", ".xlsx", ".xls"}  # Files that also become SQL sources for Oleg
+DATA_EXT = {".csv", ".xlsx", ".xls"}  # Files that also become SQL sources for Atlas
 
 
 @router.post("")
@@ -87,7 +87,7 @@ async def upload_document(file: UploadFile = File(...)) -> dict:
         doc["chunk_count"] = len(chunks)
         doc["status"] = "ready"
 
-        # CSV/Excel: also create a SQL data source so Oleg can query it.
+        # CSV/Excel: also create a SQL data source so Atlas can query it.
         if ext in DATA_EXT:
             try:
                 from app.db.datasources import ingest_csv, ingest_xlsx

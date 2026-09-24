@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
 import type { DataSourceInfo } from '../lib/api'
 
@@ -11,18 +11,31 @@ export function PostgresModal({
   onAdded: (source: DataSourceInfo, tables: number) => void
   onClose: () => void
 }) {
-  // Pre-filled with a public demo database (RNAcentral, EMBL-EBI — read-only, CC0)
-  // so the demo connects in one click; every field is editable for a real DB.
+  // Pre-filled with the demo PostgreSQL that ships inside the app container
+  // (e-commerce schema "shop") so the demo connects in one click; every field
+  // is editable for a real DB.
   const [form, setForm] = useState({
-    name: 'RNAcentral (demo)',
-    host: 'hh-pgsql-public.ebi.ac.uk',
+    name: 'Shop (demo)',
+    host: '127.0.0.1',
     port: 5432,
-    database: 'pfmegrnargs',
-    username: 'reader',
-    password: 'NWDMCE5xdipIjRrp',
+    database: 'shop',
+    username: 'demo',
+    password: 'demo',
   })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // The demo PG ships inside the app container (5432); local dev usually runs
+  // the docker-compose test stack on 5433 — prefill whichever port answers.
+  useEffect(() => {
+    api.postgresDemo()
+      .then((d) => {
+        if (d.port) {
+          setForm((f) => ({ ...f, host: d.host ?? '127.0.0.1', port: d.port ?? f.port }))
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   const t = {
     title: lang === 'en' ? 'Connect PostgreSQL' : 'Подключить PostgreSQL',
@@ -32,8 +45,8 @@ export function PostgresModal({
         : 'Для транзакционных данных: пользователи, заказы, склад. Быстрый поиск, JOIN, частые обновления.',
     demo:
       lang === 'en'
-        ? 'Prefilled with a public demo DB — press Connect to try it, or enter your own.'
-        : 'Предзаполнено публичной демо-базой — нажмите «Подключить», или введите свои данные.',
+        ? 'Prefilled with the demo shop DB that runs inside the app — press Connect to try it, or enter your own.'
+        : 'Предзаполнено демо-базой магазина, работающей на сервере приложения, — нажмите «Подключить», или введите свои данные.',
     name: lang === 'en' ? 'Display name' : 'Название',
     host: 'Host',
     port: 'Port',

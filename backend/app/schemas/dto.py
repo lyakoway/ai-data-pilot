@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1)
     # "auto" lets the router pick the agent per question.
-    agent: Literal["auto", "oleg", "ksyusha"] = "auto"
+    agent: Literal["auto", "atlas", "doc"] = "auto"
     model: str = "mock"
     lang: Literal["ru", "en"] = "ru"
     force_excel: bool = False
@@ -17,7 +17,7 @@ class ChatRequest(BaseModel):
 
 class ScenarioCreate(BaseModel):
     name: str
-    agent: Literal["oleg", "ksyusha"] = "oleg"
+    agent: Literal["atlas", "doc"] = "atlas"
     description: str = ""
     prompt: str
     chart_type: str | None = None
@@ -27,7 +27,7 @@ class ScenarioCreate(BaseModel):
 
 class FeedbackCreate(BaseModel):
     vote: Literal["up", "down"]
-    agent: Literal["oleg", "ksyusha"] = "oleg"
+    agent: Literal["atlas", "doc"] = "atlas"
     message: str | None = None
     answer: str | None = None
     datasource_id: str | None = None

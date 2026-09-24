@@ -109,8 +109,8 @@ export function DocumentsPanel({
                 </span>
               </div>
               <div className="doc-badges">
-                {d.datasource_id && <span className="doc-badge badge-sql" title="Data Agent can query this">{t.sqlBadge}</span>}
-                <span className="doc-badge badge-docs" title="Agent (RAG) can search this">{t.docsBadge}</span>
+                {d.datasource_id && <span className="doc-badge badge-sql" title="Atlas can query this">{t.sqlBadge}</span>}
+                <span className="doc-badge badge-docs" title="Doc can search this">{t.docsBadge}</span>
               </div>
               <button
                 type="button"

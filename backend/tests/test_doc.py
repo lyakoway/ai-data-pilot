@@ -1,9 +1,9 @@
-"""Tests for Ksyusha's RAG polish: streaming steps, sources with full_text + score, citations."""
+"""Tests for Doc's RAG polish: streaming steps, sources with full_text + score, citations."""
 from __future__ import annotations
 
 import pytest
 
-from app.agents.ksyusha import run_ksyusha, run_ksyusha_streaming
+from app.agents.doc import run_doc, run_doc_streaming
 from app.core.docs_rag import retrieve
 
 
@@ -34,8 +34,8 @@ def test_retrieval_single_result_score_is_1(tmp_db):
 
 
 @pytest.mark.asyncio
-async def test_ksyusha_returns_steps(tmp_db):
-    r = await run_ksyusha("Где хранится utilization?", model_id="mock", lang="ru")
+async def test_doc_returns_steps(tmp_db):
+    r = await run_doc("Где хранится utilization?", model_id="mock", lang="ru")
     assert len(r["steps"]) == 2
     tools = [s["tool"] for s in r["steps"]]
     assert tools == ["retrieval", "answer"]
@@ -43,13 +43,13 @@ async def test_ksyusha_returns_steps(tmp_db):
 
 
 @pytest.mark.asyncio
-async def test_ksyusha_streaming_callback(tmp_db):
+async def test_doc_streaming_callback(tmp_db):
     seen: list[tuple[str, str]] = []
 
     async def on_step(step):
         seen.append((step["status"], step["tool"]))
 
-    await run_ksyusha_streaming("redis cache", model_id="mock", lang="ru", on_step=on_step)
+    await run_doc_streaming("redis cache", model_id="mock", lang="ru", on_step=on_step)
     # Each step emits running then done.
     assert seen[0] == ("running", "retrieval")
     assert seen[1] == ("done", "retrieval")
@@ -58,8 +58,8 @@ async def test_ksyusha_streaming_callback(tmp_db):
 
 
 @pytest.mark.asyncio
-async def test_ksyusha_retrieval_step_has_fragment_count(tmp_db):
-    r = await run_ksyusha("utilization", model_id="mock", lang="ru")
+async def test_doc_retrieval_step_has_fragment_count(tmp_db):
+    r = await run_doc("utilization", model_id="mock", lang="ru")
     retrieval = r["steps"][0]
     assert retrieval["detail"]["fragments"] == len(r["sources"])
     assert "top_score" in retrieval["detail"]
@@ -72,7 +72,7 @@ async def test_ksyusha_retrieval_step_has_fragment_count(tmp_db):
 
 @pytest.mark.asyncio
 async def test_sources_have_full_text_and_score(tmp_db):
-    r = await run_ksyusha("utilization", model_id="mock", lang="ru")
+    r = await run_doc("utilization", model_id="mock", lang="ru")
     assert len(r["sources"]) >= 1
     for src in r["sources"]:
         assert "full_text" in src
@@ -88,18 +88,18 @@ async def test_sources_have_full_text_and_score(tmp_db):
 
 @pytest.mark.asyncio
 async def test_mock_answer_contains_citation(tmp_db):
-    r = await run_ksyusha("Где хранится utilization?", model_id="mock", lang="ru")
+    r = await run_doc("Где хранится utilization?", model_id="mock", lang="ru")
     # Mock answer includes [1] citation.
     assert "[1]" in r["answer"]
 
 
 @pytest.mark.asyncio
 async def test_system_prompt_has_citation_rule(tmp_db):
-    from app.agents.ksyusha import SYSTEM
+    from app.agents.doc import SYSTEM
     assert "[1]" in SYSTEM or "цитируй" in SYSTEM.lower() or "cite" in SYSTEM.lower()
 
 
 @pytest.mark.asyncio
-async def test_ksyusha_status_demo_in_mock_mode(tmp_db):
-    r = await run_ksyusha("utilization", model_id="mock", lang="ru")
+async def test_doc_status_demo_in_mock_mode(tmp_db):
+    r = await run_doc("utilization", model_id="mock", lang="ru")
     assert r["status"] == "demo"

@@ -36,7 +36,7 @@ const EN: Record<string, ScenarioI18n> = {
     name: 'Boost subscription cancellations',
     description: 'Distribution of cancel_reason for brand=boost',
   },
-  'ksyusha-schema': {
+  'doc-schema': {
     name: 'Where is utilization stored?',
     description: 'Docs question (Agent RAG)',
   },

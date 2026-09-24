@@ -1,4 +1,4 @@
-"""Deterministic analytics layer for Oleg.
+"""Deterministic analytics layer for Atlas.
 
 Principle: the LLM does NOT calculate numbers. This module computes all metrics
 (sums, trends, top-N, outliers) in Python and returns ready-made `highlights`

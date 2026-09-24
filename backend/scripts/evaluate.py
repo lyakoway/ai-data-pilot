@@ -29,7 +29,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.agents.oleg import MAX_SQL_REPAIR_ROUNDS, _generate_plan, _repair_plan  # noqa: E402
+from app.agents.atlas import MAX_SQL_REPAIR_ROUNDS, _generate_plan, _repair_plan  # noqa: E402
 from app.core.sql_guard import SqlExecutionError, SqlGuardError, SqlTimeoutError  # noqa: E402
 from app.db.datasources import get_engine_for, get_schema_catalog  # noqa: E402
 from app.llm.base import ChatMessage  # noqa: E402
@@ -62,7 +62,7 @@ def normalize_rows(rows: list[list[Any]]) -> set[tuple[str, ...]]:
 async def run_sql_case(
     provider, question: str, lang: str, schema_catalog: str, engine, datasource_id: str, allow_mock: bool
 ) -> dict[str, Any]:
-    """Mini linear pipeline: plan → execute → self-correction (mirrors Oleg)."""
+    """Mini linear pipeline: plan → execute → self-correction (mirrors Atlas)."""
     t0 = time.perf_counter()
     plan = await _generate_plan(provider, question, lang, schema_catalog, allow_mock=allow_mock,
                                 datasource_id=datasource_id)

@@ -1,4 +1,4 @@
-"""Auto-router: decide which agent answers a question — Oleg (data/SQL) or Ksyusha (docs/RAG).
+"""Auto-router: decide which agent answers a question — Atlas (data/SQL) or Doc (docs/RAG).
 
 Two-tier strategy:
 1. Deterministic keyword heuristic — always available, powers demo mode and
@@ -14,7 +14,7 @@ import re
 from app.llm.base import ChatMessage
 from app.llm.registry import get_provider
 
-# Questions about how things work / are stored / are defined → docs (Ksyusha).
+# Questions about how things work / are stored / are defined → docs (Doc).
 _DOCS_RE = re.compile(
     r"(как\s+(считается|работает|хранится|устроен|считать|настроить|выглядит)|"
     r"где\s+(хранится|лежит|найти)|что\s+(делает|такое|значит)|"
@@ -24,7 +24,7 @@ _DOCS_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Questions about numbers, rankings, dynamics, exports → data (Oleg).
+# Questions about numbers, rankings, dynamics, exports → data (Atlas).
 _DATA_RE = re.compile(
     r"(сколько|топ|выручк|поездк|подписк|город|регион|динамик|сравн|упал|упало|вырос|"
     r"раст[её]т|падает|изменени|сгруппируй|по\s+месяц|график|excel|таблиц|sql|"
@@ -56,23 +56,23 @@ DOCS — вопрос о том, как что-то устроено/счита�
 def _heuristic_route(question: str) -> str:
     """Deterministic keyword routing. Docs patterns win (more specific), then data."""
     if _DOCS_RE.search(question):
-        return "ksyusha"
+        return "doc"
     if _DATA_RE.search(question):
-        return "oleg"
-    return "oleg"  # Oleg is the primary agent; ambiguous questions go to data.
+        return "atlas"
+    return "atlas"  # Atlas is the primary agent; ambiguous questions go to data.
 
 
 def _parse_llm_verdict(raw: str) -> str | None:
     text = (raw or "").strip().upper()
     if "DOCS" in text:
-        return "ksyusha"
+        return "doc"
     if "DATA" in text:
-        return "oleg"
+        return "atlas"
     return None
 
 
 async def route_agent(question: str, model_id: str = "mock") -> str:
-    """Return 'oleg' or 'ksyusha' for the question.
+    """Return 'atlas' or 'doc' for the question.
 
     Real providers get one cheap classification call; any failure or a mock
     provider falls back to the deterministic heuristic.

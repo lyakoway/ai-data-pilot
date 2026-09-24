@@ -1,4 +1,4 @@
-"""Tests for the data sources registry and multi-source Oleg behaviour."""
+"""Tests for the data sources registry and multi-source Atlas behaviour."""
 from __future__ import annotations
 
 import json
@@ -6,8 +6,8 @@ import json
 import pytest
 from sqlalchemy import text
 
-from app.agents import oleg as oleg_module
-from app.agents.oleg import run_oleg
+from app.agents import atlas as atlas_module
+from app.agents.atlas import run_atlas
 from app.db import datasources as ds
 
 CSV_TEXT = """region,revenue,rides,date
@@ -112,7 +112,7 @@ def test_invalid_filename_rejected(tmp_db):
         ds.ingest_csv("", "a,b\n1,2\n")
 
 
-# --- Oleg multi-source behaviour ---
+# --- Atlas multi-source behaviour ---
 
 
 @pytest.mark.asyncio
@@ -120,8 +120,8 @@ async def test_csv_with_mock_mode_honest_error(csv_source, monkeypatch):
     """Mock plans are RideGo-specific; a CSV source must not silently use them."""
     from app.llm.providers import MockProvider
 
-    monkeypatch.setattr(oleg_module, "get_provider", lambda model_id: MockProvider())
-    r = await run_oleg(
+    monkeypatch.setattr(atlas_module, "get_provider", lambda model_id: MockProvider())
+    r = await run_atlas(
         "выручка по регионам", model_id="mock", lang="ru", datasource_id=csv_source["id"]
     )
     assert r["status"] == "error"
@@ -149,9 +149,9 @@ async def test_csv_with_real_model_builds_sql_against_csv_table(
         ],
         provider="openai",
     )
-    monkeypatch.setattr(oleg_module, "get_provider", lambda model_id: fake)
+    monkeypatch.setattr(atlas_module, "get_provider", lambda model_id: fake)
 
-    r = await run_oleg(
+    r = await run_atlas(
         "выручка по регионам",
         model_id="openai:gpt-4o-mini",
         lang="ru",
@@ -168,8 +168,8 @@ async def test_ridego_source_still_uses_mock_plans(tmp_db, monkeypatch):
     """Backward compatibility: RideGo + mock still serves deterministic plans."""
     from app.llm.providers import MockProvider
 
-    monkeypatch.setattr(oleg_module, "get_provider", lambda model_id: MockProvider())
-    r = await run_oleg("топ городов", model_id="mock", lang="ru")
+    monkeypatch.setattr(atlas_module, "get_provider", lambda model_id: MockProvider())
+    r = await run_atlas("топ городов", model_id="mock", lang="ru")
     assert r["status"] == "demo"
     assert r["row_count"] > 0
 

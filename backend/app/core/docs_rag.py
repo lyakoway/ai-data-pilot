@@ -1,4 +1,4 @@
-"""Lightweight keyword RAG over fake internal docs for agent Ksyusha."""
+"""Lightweight keyword RAG over fake internal docs for agent Doc."""
 from __future__ import annotations
 
 import re
@@ -271,7 +271,7 @@ Utilization (утилизация) — доля активного флота.
     )
 
     (docs_dir / "backend_logic.md").write_text(
-        """# Backend logic (фейковая документация для Ксюши)
+        """# Backend logic (фейковая документация для Дока)
 
 ## Reset errors в админке ТС
 Кнопка «Сбросить ошибки» вызывает `TransportCardService.ResetCriticalErrors`.

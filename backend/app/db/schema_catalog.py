@@ -1,4 +1,4 @@
-"""Business schema catalog injected into Analyst Oleg's prompt."""
+"""Business schema catalog injected into Analyst Atlas's prompt."""
 
 SCHEMA_CATALOG = """
 # RideGo analytics schema (SQLite)
@@ -54,7 +54,7 @@ SEED_SCENARIOS = [
     {
         "id": "sales-by-region",
         "name": "Выручка по группам",
-        "agent": "oleg",
+        "agent": "atlas",
         "description": "Выручка за период с группировкой и графиком",
         "prompt": (
             "Покажи выручку по {group_by} за последние {period} дней от максимальной даты в данных. "
@@ -70,7 +70,7 @@ SEED_SCENARIOS = [
     {
         "id": "top-cities-rides",
         "name": "Топ городов",
-        "agent": "oleg",
+        "agent": "atlas",
         "description": "Рейтинг городов по выбранной метрике",
         "prompt": (
             "Топ-{limit} городов по числу {metric} за всё время. "
@@ -86,7 +86,7 @@ SEED_SCENARIOS = [
     {
         "id": "subscription-penetration",
         "name": "Проникновение подписок (InHouse)",
-        "agent": "oleg",
+        "agent": "atlas",
         "description": "Доля активных подписчиков среди пользователей города",
         "prompt": (
             "Для InHouse городов посчитай долю пользователей с активной подпиской "
@@ -98,7 +98,7 @@ SEED_SCENARIOS = [
     {
         "id": "cancel-reasons",
         "name": "Причины отмен подписок Boost",
-        "agent": "oleg",
+        "agent": "atlas",
         "description": "Распределение cancel_reason для brand=boost",
         "prompt": (
             "Построй распределение причин отмены подписки brand = 'boost'. "
@@ -107,10 +107,10 @@ SEED_SCENARIOS = [
         "chart_type": "pie",
     },
     {
-        "id": "ksyusha-schema",
+        "id": "doc-schema",
         "name": "Где хранится utilization?",
-        "agent": "ksyusha",
-        "description": "Вопрос к документации (Ксюша)",
+        "agent": "doc",
+        "description": "Вопрос к документации (Док)",
         "prompt": "Где хранится utilization и как она считается?",
         "chart_type": None,
     },

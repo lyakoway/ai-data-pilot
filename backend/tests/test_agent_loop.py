@@ -5,8 +5,8 @@ import json
 
 import pytest
 
-from app.agents import oleg as oleg_module
-from app.agents.oleg import _is_complex_question, run_oleg
+from app.agents import atlas as atlas_module
+from app.agents.atlas import _is_complex_question, run_atlas
 
 
 # --------------------------------------------------------------------------- #
@@ -41,8 +41,8 @@ def test_classifier(question: str, expected: bool):
 async def test_mock_loop_runs_multi_step(tmp_db, monkeypatch):
     from app.llm.providers import MockProvider
 
-    monkeypatch.setattr(oleg_module, "get_provider", lambda model_id: MockProvider())
-    r = await run_oleg(
+    monkeypatch.setattr(atlas_module, "get_provider", lambda model_id: MockProvider())
+    r = await run_atlas(
         "Почему выручка упала в июле по сравнению с июнем?", model_id="mock", lang="ru"
     )
     assert r["status"] == "demo"
@@ -59,8 +59,8 @@ async def test_mock_loop_runs_multi_step(tmp_db, monkeypatch):
 async def test_mock_loop_answer_mentions_change(tmp_db, monkeypatch):
     from app.llm.providers import MockProvider
 
-    monkeypatch.setattr(oleg_module, "get_provider", lambda model_id: MockProvider())
-    r = await run_oleg("Почему выручка упала?", model_id="mock", lang="ru")
+    monkeypatch.setattr(atlas_module, "get_provider", lambda model_id: MockProvider())
+    r = await run_atlas("Почему выручка упала?", model_id="mock", lang="ru")
     # The deterministic answer includes a percent change figure.
     assert "%" in r["answer"]
     assert r["insights"]  # analyze ran
@@ -71,8 +71,8 @@ async def test_mock_loop_answer_mentions_change(tmp_db, monkeypatch):
 async def test_mock_loop_has_chart_and_rows(tmp_db, monkeypatch):
     from app.llm.providers import MockProvider
 
-    monkeypatch.setattr(oleg_module, "get_provider", lambda model_id: MockProvider())
-    r = await run_oleg("Сравни выручку по месяцам", model_id="mock", lang="ru")
+    monkeypatch.setattr(atlas_module, "get_provider", lambda model_id: MockProvider())
+    r = await run_atlas("Сравни выручку по месяцам", model_id="mock", lang="ru")
     assert r["row_count"] > 0
     assert r["columns"]  # month, revenue, rides
     assert r["chart"]["type"] == "bar"
@@ -87,8 +87,8 @@ async def test_mock_loop_has_chart_and_rows(tmp_db, monkeypatch):
 async def test_simple_question_uses_linear_flow(tmp_db, monkeypatch):
     from app.llm.providers import MockProvider
 
-    monkeypatch.setattr(oleg_module, "get_provider", lambda model_id: MockProvider())
-    r = await run_oleg("Покажи топ городов по поездкам", model_id="mock", lang="ru")
+    monkeypatch.setattr(atlas_module, "get_provider", lambda model_id: MockProvider())
+    r = await run_atlas("Покажи топ городов по поездкам", model_id="mock", lang="ru")
     tools = [s["tool"] for s in r["steps"]]
     # Linear flow, not loop: planner → database_query → analyze → chart → answer.
     assert tools == ["planner", "database_query", "analyze", "chart", "answer"]
@@ -128,9 +128,9 @@ async def test_run_loop_reaches_finish(tmp_db, monkeypatch, fake_provider_factor
         }),
     ]
     fake = fake_provider_factory(responses=decisions, provider="openai")
-    monkeypatch.setattr(oleg_module, "get_provider", lambda model_id: fake)
+    monkeypatch.setattr(atlas_module, "get_provider", lambda model_id: fake)
 
-    r = await run_oleg("Почему выручка упала в июле?", model_id="openai:gpt-4o", lang="ru")
+    r = await run_atlas("Почему выручка упала в июле?", model_id="openai:gpt-4o", lang="ru")
     assert r["status"] == "ok"
     tools = [s["tool"] for s in r["steps"]]
     # Loop emits agent(reason) + tool steps. Must include finish.
@@ -153,9 +153,9 @@ async def test_run_loop_step_limit(tmp_db, monkeypatch, fake_provider_factory):
         "args": {"sql": "SELECT 1"},
     })
     fake = fake_provider_factory(responses=[looping], provider="openai")
-    monkeypatch.setattr(oleg_module, "get_provider", lambda model_id: fake)
+    monkeypatch.setattr(atlas_module, "get_provider", lambda model_id: fake)
 
-    r = await run_oleg("Почему выручка упала?", model_id="openai:gpt-4o", lang="ru")
+    r = await run_atlas("Почему выручка упала?", model_id="openai:gpt-4o", lang="ru")
     assert r["status"] == "error"
     # Exactly MAX_LOOP_STEPS iterations.
     db_steps = [s for s in r["steps"] if s["tool"] == "database_query"]
@@ -166,9 +166,9 @@ async def test_run_loop_step_limit(tmp_db, monkeypatch, fake_provider_factory):
 async def test_run_loop_handles_invalid_model_output(tmp_db, monkeypatch, fake_provider_factory):
     """If the model returns garbage, the loop stops gracefully (not a crash)."""
     fake = fake_provider_factory(responses=["это не json"], provider="openai")
-    monkeypatch.setattr(oleg_module, "get_provider", lambda model_id: fake)
+    monkeypatch.setattr(atlas_module, "get_provider", lambda model_id: fake)
 
-    r = await run_oleg("Почему выручка упала в июле?", model_id="openai:gpt-4o", lang="ru")
+    r = await run_atlas("Почему выручка упала в июле?", model_id="openai:gpt-4o", lang="ru")
     assert r["status"] == "error"
     # The agent reasoning step errored.
     assert any(s["tool"] == "agent" and s["status"] == "error" for s in r["steps"])

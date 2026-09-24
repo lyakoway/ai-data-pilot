@@ -1,4 +1,4 @@
-export type AgentId = 'oleg' | 'ksyusha'
+export type AgentId = 'atlas' | 'doc'
 
 /** 'auto' lets the backend router pick the agent per question. */
 export type AgentMode = AgentId | 'auto'
@@ -138,6 +138,8 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   models: () => json<ModelInfo[]>('/api/models'),
+  postgresDemo: () =>
+    json<{ host: string | null; port: number | null }>('/api/postgres-demo'),
   kpis: () => json<Kpis>('/api/dashboard/kpis'),
   scenarios: () => json<Scenario[]>('/api/scenarios'),
   createScenario: (body: Omit<Scenario, 'id'>) =>

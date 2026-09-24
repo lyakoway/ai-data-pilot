@@ -32,7 +32,7 @@ python scripts/evaluate.py --suite sql --model openai:gpt-4o-mini --limit 10   #
 
 | Метрика | Что показывает |
 |---|---|
-| **Agent Routing Accuracy** | % вопросов, направленных правильному агенту (Олег/Ксюша) |
+| **Agent Routing Accuracy** | % вопросов, направленных правильному агенту (Атлас/Док) |
 
 ## Метрики Retrieval (pytest, детерминированно)
 
@@ -48,7 +48,7 @@ Recall@1, Recall@5, MRR для трёх режимов (**bm25**, **vector**, **
   join_complex/multi-table(10) + temporal(6) + agg(1) + edge(3) +
   ambiguous(5, execution-only) + cross-source(5, фикстуры clients/orders).
   Каждому — `reference_sql` (эталон) и `expected_tables`.
-- `tests/golden/routing_golden.jsonl` — 20 вопросов: oleg(10) / ksyusha(10).
+- `tests/golden/routing_golden.jsonl` — 20 вопросов: atlas(10) / doc(10).
 
 Формат совпадения результатов — execution match: множества строк
 (порядко- и формат-независимо, float до 2 знаков).

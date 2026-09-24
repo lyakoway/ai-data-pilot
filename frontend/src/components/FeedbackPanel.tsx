@@ -23,7 +23,7 @@ type FeedbackEntry = {
 export function FeedbackPanel({ lang }: { lang: 'ru' | 'en' }) {
   const [stats, setStats] = useState<FeedbackStats | null>(null)
   const [entries, setEntries] = useState<FeedbackEntry[]>([])
-  const [filter, setFilter] = useState<'all' | 'oleg' | 'ksyusha' | 'down'>('all')
+  const [filter, setFilter] = useState<'all' | 'atlas' | 'doc' | 'down'>('all')
   const [expanded, setExpanded] = useState(false)
 
   const t = {
@@ -67,7 +67,7 @@ export function FeedbackPanel({ lang }: { lang: 'ru' | 'en' }) {
 
   const filtered = entries.filter((e) => {
     if (filter === 'down') return e.vote === 'down'
-    if (filter === 'oleg' || filter === 'ksyusha') return e.agent === filter
+    if (filter === 'atlas' || filter === 'doc') return e.agent === filter
     return true
   })
 
@@ -131,7 +131,7 @@ export function FeedbackPanel({ lang }: { lang: 'ru' | 'en' }) {
       {expanded && (
         <div className="feedback-dropdown">
           <div className="feedback-filters">
-            {(['all', 'oleg', 'ksyusha', 'down'] as const).map((f) => (
+            {(['all', 'atlas', 'doc', 'down'] as const).map((f) => (
               <button
                 key={f}
                 type="button"

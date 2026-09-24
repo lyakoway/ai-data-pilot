@@ -21,7 +21,7 @@ def test_create_and_delete_scenario(tmp_db):
         {
             "id": "test-sc-1",
             "name": "Test",
-            "agent": "oleg",
+            "agent": "atlas",
             "description": "",
             "prompt": "тест",
             "chart_type": "bar",
@@ -96,29 +96,29 @@ def test_delete_datasource_row(tmp_db):
 
 def test_save_feedback_returns_id(tmp_db):
     fb = app_db.save_feedback(
-        {"vote": "up", "agent": "oleg", "message": "сколько поездок?", "answer": "100", "lang": "ru"}
+        {"vote": "up", "agent": "atlas", "message": "сколько поездок?", "answer": "100", "lang": "ru"}
     )
     assert "id" in fb and fb["id"] > 0
     assert fb["created_at"]
 
 
 def test_feedback_stats_counts_votes(tmp_db):
-    app_db.save_feedback({"vote": "up", "agent": "oleg", "lang": "ru"})
-    app_db.save_feedback({"vote": "up", "agent": "oleg", "lang": "ru"})
-    app_db.save_feedback({"vote": "down", "agent": "ksyusha", "lang": "en"})
+    app_db.save_feedback({"vote": "up", "agent": "atlas", "lang": "ru"})
+    app_db.save_feedback({"vote": "up", "agent": "atlas", "lang": "ru"})
+    app_db.save_feedback({"vote": "down", "agent": "doc", "lang": "en"})
     stats = app_db.feedback_stats()
     assert stats["up"] == 2
     assert stats["down"] == 1
     assert stats["total"] == 3
     assert stats["satisfaction"] == 66.7
-    assert stats["per_agent"]["oleg"] == {"up": 2, "down": 0}
-    assert stats["per_agent"]["ksyusha"] == {"up": 0, "down": 1}
+    assert stats["per_agent"]["atlas"] == {"up": 2, "down": 0}
+    assert stats["per_agent"]["doc"] == {"up": 0, "down": 1}
 
 
 def test_feedback_truncates_long_text(tmp_db):
     long_msg = "x" * 5000
     long_ans = "y" * 5000
     fb = app_db.save_feedback(
-        {"vote": "down", "agent": "oleg", "message": long_msg, "answer": long_ans, "lang": "ru"}
+        {"vote": "down", "agent": "atlas", "message": long_msg, "answer": long_ans, "lang": "ru"}
     )
     assert fb["id"] > 0  # stored without error; truncation happens at DB layer

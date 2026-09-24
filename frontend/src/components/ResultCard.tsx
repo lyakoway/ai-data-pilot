@@ -16,7 +16,7 @@ const STATUS_LABEL: Record<AnswerStatus, { ru: string; en: string }> = {
 }
 
 export type FeedbackContext = {
-  agent: 'oleg' | 'ksyusha'
+  agent: 'atlas' | 'doc'
   message?: string
   model?: string
   datasource_id?: string
@@ -78,7 +78,7 @@ export function ResultCard({
     })
   }
 
-  // Markdown component renderers with inline-citation injection (for Ksyusha).
+  // Markdown component renderers with inline-citation injection (for Doc).
   const mdComponents = sources.length > 0
     ? {
         p: (p: { children?: unknown }) => <p>{injectCitations(p.children as never, sources.length, handleCite)}</p>,
@@ -253,7 +253,7 @@ export function ResultCard({
             {lang === 'en' ? 'Download Excel' : 'Скачать Excel'}
           </a>
         )}
-        {onSaveScenario && result.agent === 'oleg' && (
+        {onSaveScenario && result.agent === 'atlas' && (
           <button className="btn btn-ghost" type="button" onClick={onSaveScenario}>
             {lang === 'en' ? 'Save as scenario' : 'Сохранить как сценарий'}
           </button>

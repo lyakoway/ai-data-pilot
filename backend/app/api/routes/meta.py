@@ -26,20 +26,42 @@ def models() -> list[dict]:
 def agents() -> list[dict]:
     return [
         {
-            "id": "oleg",
-            "name": "Аналитик Олег",
-            "name_en": "Analyst Oleg",
+            "id": "atlas",
+            "name": "Аналитик Атлас",
+            "name_en": "Analyst Atlas",
             "role": "SQL · метрики · Excel",
             "description": "Ходит в аналитическую БД, строит SQL, таблицы и графики.",
         },
         {
-            "id": "ksyusha",
-            "name": "Ксюша",
-            "name_en": "Ksyusha",
+            "id": "doc",
+            "name": "Док",
+            "name_en": "Doc",
             "role": "Документация · схема · backend",
             "description": "Отвечает по фейковой внутренней док-базе (метрики, lineage, логика).",
         },
     ]
+
+
+@router.get("/postgres-demo")
+def postgres_demo() -> dict:
+    """Detect the bundled demo PostgreSQL so the frontend can prefill a
+    working connection: 5432 inside the app container, 5433 for the local
+    docker-compose test stack. Returns ``port: null`` when none is running."""
+    try:
+        import psycopg2
+    except ImportError:  # pragma: no cover - psycopg2 ships with requirements
+        return {"host": None, "port": None}
+    for port in (5432, 5433):
+        try:
+            conn = psycopg2.connect(
+                host="127.0.0.1", port=port, dbname="shop",
+                user="demo", password="demo", connect_timeout=2,
+            )
+            conn.close()
+            return {"host": "127.0.0.1", "port": port}
+        except Exception:
+            continue
+    return {"host": None, "port": None}
 
 
 @router.get("/dashboard/kpis")

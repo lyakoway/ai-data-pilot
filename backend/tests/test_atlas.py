@@ -1,6 +1,6 @@
-"""Tests for Oleg's self-correction loop and analytics integration.
+"""Tests for Atlas's self-correction loop and analytics integration.
 
-These tests monkeypatch ``app.agents.oleg.get_provider`` to inject a scripted
+These tests monkeypatch ``app.agents.atlas.get_provider`` to inject a scripted
 provider, so no real LLM / API keys are required. They run against the isolated
 temp DB provided by the ``tmp_db`` fixture.
 """
@@ -10,8 +10,8 @@ import json
 
 import pytest
 
-from app.agents import oleg as oleg_module
-from app.agents.oleg import run_oleg, run_oleg_streaming
+from app.agents import atlas as atlas_module
+from app.agents.atlas import run_atlas, run_atlas_streaming
 
 
 def _plan(sql: str, **extra) -> str:
@@ -28,8 +28,8 @@ def _plan(sql: str, **extra) -> str:
 
 
 def _patch_provider(monkeypatch: pytest.MonkeyPatch, fake):
-    """Redirect ``get_provider`` inside oleg to return ``fake``."""
-    monkeypatch.setattr(oleg_module, "get_provider", lambda model_id: fake)
+    """Redirect ``get_provider`` inside atlas to return ``fake``."""
+    monkeypatch.setattr(atlas_module, "get_provider", lambda model_id: fake)
 
 
 # --- Demo mode (mock provider): deterministic, status=demo ---
@@ -41,7 +41,7 @@ async def test_demo_mode_returns_demo_status_and_insights(tmp_db, monkeypatch):
     from app.llm.providers import MockProvider
 
     _patch_provider(monkeypatch, MockProvider())
-    r = await run_oleg("Покажи выручку по регионам за 30 дней", model_id="mock", lang="ru")
+    r = await run_atlas("Покажи выручку по регионам за 30 дней", model_id="mock", lang="ru")
 
     assert r["status"] == "demo"
     assert r["row_count"] > 0
@@ -55,7 +55,7 @@ async def test_demo_mode_kpis_are_consistent(tmp_db, monkeypatch):
     from app.llm.providers import MockProvider
 
     _patch_provider(monkeypatch, MockProvider())
-    r = await run_oleg("топ городов по поездкам", model_id="mock", lang="ru")
+    r = await run_atlas("топ городов по поездкам", model_id="mock", lang="ru")
     assert r["status"] == "demo"
     assert r["columns"][0] == "city_name"
     # Top city must be Москва or Санкт-Петербург (largest in seed).
@@ -82,7 +82,7 @@ async def test_self_correction_repairs_broken_sql(tmp_db, monkeypatch, fake_prov
     )
     _patch_provider(monkeypatch, fake)
 
-    r = await run_oleg("test", model_id="openai:gpt-4o-mini", lang="ru")
+    r = await run_atlas("test", model_id="openai:gpt-4o-mini", lang="ru")
 
     assert r["status"] == "partial"  # repaired after self-correction
     assert r["row_count"] == 5
@@ -99,7 +99,7 @@ async def test_honest_failure_when_sql_cannot_be_repaired(tmp_db, monkeypatch, f
     )
     _patch_provider(monkeypatch, fake)
 
-    r = await run_oleg("unfixable", model_id="anthropic:claude-sonnet-5", lang="ru")
+    r = await run_atlas("unfixable", model_id="anthropic:claude-sonnet-5", lang="ru")
 
     assert r["status"] == "error"
     assert r["row_count"] == 0  # no silent mock substitution
@@ -117,7 +117,7 @@ async def test_guard_error_not_retried(tmp_db, monkeypatch, fake_provider_factor
     )
     _patch_provider(monkeypatch, fake)
 
-    r = await run_oleg("delete test", model_id="openai:gpt-4o", lang="ru")
+    r = await run_atlas("delete test", model_id="openai:gpt-4o", lang="ru")
 
     assert r["status"] == "error"
     assert fake.calls == 1  # only the plan call — no repair attempted
@@ -138,7 +138,7 @@ async def test_timeout_surfaces_as_error(tmp_db, monkeypatch, fake_provider_fact
     get_settings.cache_clear()
     monkeypatch.setattr(get_settings().__class__, "sql_timeout_sec", 0.05, raising=False)
 
-    r = await run_oleg("slow query", model_id="openai:gpt-4o", lang="ru")
+    r = await run_atlas("slow query", model_id="openai:gpt-4o", lang="ru")
     assert r["status"] == "error"
 
 
@@ -163,7 +163,7 @@ async def test_real_model_valid_sql_returns_ok_with_insights(tmp_db, monkeypatch
     )
     _patch_provider(monkeypatch, fake)
 
-    r = await run_oleg("выручка по регионам", model_id="openai:gpt-4o", lang="ru")
+    r = await run_atlas("выручка по регионам", model_id="openai:gpt-4o", lang="ru")
 
     assert r["status"] == "ok"
     assert r["row_count"] > 0
@@ -187,7 +187,7 @@ async def test_empty_result_has_no_highlights(tmp_db, monkeypatch, fake_provider
     )
     _patch_provider(monkeypatch, fake)
 
-    r = await run_oleg("будущее", model_id="openai:gpt-4o", lang="ru")
+    r = await run_atlas("будущее", model_id="openai:gpt-4o", lang="ru")
     assert r["insights"]["highlights"] == []
 
 
@@ -208,7 +208,7 @@ async def test_force_excel_overrides_plan(tmp_db, monkeypatch, fake_provider_fac
     )
     _patch_provider(monkeypatch, fake)
 
-    r = await run_oleg("x", model_id="openai:gpt-4o", lang="ru", force_excel=True)
+    r = await run_atlas("x", model_id="openai:gpt-4o", lang="ru", force_excel=True)
     assert r["excel_url"] is not None  # force_excel won
 
 
@@ -226,7 +226,7 @@ async def test_steps_present_in_demo_mode(tmp_db, monkeypatch):
     from app.llm.providers import MockProvider
 
     _patch_provider(monkeypatch, MockProvider())
-    r = await run_oleg("выручка по регионам", model_id="mock", lang="ru")
+    r = await run_atlas("выручка по регионам", model_id="mock", lang="ru")
     tools = _step_tools(r)
     # planner → database_query → analyze → chart → answer
     assert tools == ["planner", "database_query", "analyze", "chart", "answer"]
@@ -239,7 +239,7 @@ async def test_step_database_query_has_sql_and_row_count(tmp_db, monkeypatch):
     from app.llm.providers import MockProvider
 
     _patch_provider(monkeypatch, MockProvider())
-    r = await run_oleg("топ городов", model_id="mock", lang="ru")
+    r = await run_atlas("топ городов", model_id="mock", lang="ru")
     db_step = next(s for s in r["steps"] if s["tool"] == "database_query")
     assert db_step["detail"]["sql"]
     assert db_step["detail"]["row_count"] == r["row_count"]
@@ -251,7 +251,7 @@ async def test_step_analyze_has_highlights(tmp_db, monkeypatch):
     from app.llm.providers import MockProvider
 
     _patch_provider(monkeypatch, MockProvider())
-    r = await run_oleg("выручка по регионам", model_id="mock", lang="ru")
+    r = await run_atlas("выручка по регионам", model_id="mock", lang="ru")
     analyze_step = next(s for s in r["steps"] if s["tool"] == "analyze")
     assert isinstance(analyze_step["detail"]["highlights"], list)
     assert len(analyze_step["detail"]["highlights"]) > 0
@@ -267,7 +267,7 @@ async def test_streaming_callback_receives_running_then_done(tmp_db, monkeypatch
     async def on_step(step):
         seen.append((step["status"], step["tool"]))
 
-    await run_oleg_streaming("топ", model_id="mock", lang="ru", on_step=on_step)
+    await run_atlas_streaming("топ", model_id="mock", lang="ru", on_step=on_step)
     # Every step emits running then done → pairs must alternate.
     statuses = [s for s, _ in seen]
     assert statuses[0] == "running"
@@ -291,7 +291,7 @@ async def test_self_correction_produces_repair_step(tmp_db, monkeypatch, fake_pr
     )
     _patch_provider(monkeypatch, fake)
 
-    r = await run_oleg("test", model_id="openai:gpt-4o-mini", lang="ru")
+    r = await run_atlas("test", model_id="openai:gpt-4o-mini", lang="ru")
     db_steps = [s for s in r["steps"] if s["tool"] == "database_query"]
     # Initial attempt failed (error) + repair succeeded (done) → at least 2 db steps.
     assert len(db_steps) >= 2
@@ -309,7 +309,7 @@ async def test_steps_absent_for_error_response(tmp_db, monkeypatch):
     meta = ds.ingest_csv("x.csv", "a,b\n1,2\n")
     try:
         _patch_provider(monkeypatch, MockProvider())
-        r = await run_oleg("test", model_id="mock", lang="ru", datasource_id=meta["id"])
+        r = await run_atlas("test", model_id="mock", lang="ru", datasource_id=meta["id"])
         assert r["status"] == "error"
         # The planner step ran and errored.
         assert any(s["tool"] == "planner" and s["status"] == "error" for s in r["steps"])

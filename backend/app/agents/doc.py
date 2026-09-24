@@ -1,4 +1,4 @@
-"""Ksyusha — technical assistant over fake internal docs.
+"""Doc — technical assistant over fake internal docs.
 
 Streams execution-trace steps (retrieval → answer) and asks the model to cite
 sources inline as ``[1]``, ``[2]`` so the UI can render clickable references.
@@ -12,7 +12,7 @@ from app.core.docs_rag import ensure_docs, retrieve
 from app.llm.base import ChatMessage
 from app.llm.registry import get_provider
 
-SYSTEM = """Ты — Ксюша, технический ассистент. Отвечай ПОДРОБНО и СТРУКТУРИРОВАННО.
+SYSTEM = """Ты — Док, технический ассистент. Отвечай ПОДРОБНО и СТРУКТУРИРОВАННО.
 
 Правила:
 - Дай развёрнутый ответ: перечисли ключевые данные из CONTEXT, структурируй по пунктам.
@@ -58,7 +58,7 @@ def _mock_answer(question: str, chunks, lang: str) -> str:
     )
 
 
-# Step callback type (same as Oleg's).
+# Step callback type (same as Atlas's).
 StepCallback = Callable[[dict[str, Any]], Awaitable[None]]
 
 
@@ -78,13 +78,13 @@ def _new_step(index: int, tool: str, title: str) -> dict[str, Any]:
     }
 
 
-async def run_ksyusha_streaming(
+async def run_doc_streaming(
     question: str,
     model_id: str = "mock",
     lang: str = "ru",
     on_step: StepCallback = _noop_step,
 ) -> dict[str, Any]:
-    """Run Ksyusha and emit execution-trace steps (retrieval → answer)."""
+    """Run Doc and emit execution-trace steps (retrieval → answer)."""
     provider = get_provider(model_id)
     is_mock = provider.provider == "mock"
     steps: list[dict[str, Any]] = []
@@ -159,7 +159,7 @@ async def run_ksyusha_streaming(
         sources.append(src)
 
     return {
-        "agent": "ksyusha",
+        "agent": "doc",
         "status": "demo" if is_mock else "ok",
         "warnings": [],
         "steps": steps,
@@ -181,10 +181,10 @@ async def run_ksyusha_streaming(
     }
 
 
-async def run_ksyusha(
+async def run_doc(
     question: str,
     model_id: str = "mock",
     lang: str = "ru",
 ) -> dict[str, Any]:
-    """Run Ksyusha synchronously (thin wrapper over the streaming variant)."""
-    return await run_ksyusha_streaming(question, model_id=model_id, lang=lang, on_step=_noop_step)
+    """Run Doc synchronously (thin wrapper over the streaming variant)."""
+    return await run_doc_streaming(question, model_id=model_id, lang=lang, on_step=_noop_step)
