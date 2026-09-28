@@ -1,3 +1,6 @@
+import { useEffect } from 'react'
+import { AnalyticsEvent, trackEvent } from '../lib/analytics'
+
 const CONTACTS_URL = 'https://lyakoway.vercel.app/contacts'
 
 /** Detects provider-side failures worth explaining in a friendly modal:
@@ -18,6 +21,10 @@ export function ProviderErrorModal({
   lang: 'ru' | 'en'
   onClose: () => void
 }) {
+  useEffect(() => {
+    trackEvent(AnalyticsEvent.PROVIDER_ERROR_MODAL, { message: message.slice(0, 120) })
+  }, [message])
+
   const t = {
     title: lang === 'en' ? 'Model unavailable' : 'Модель недоступна',
     body:
@@ -49,6 +56,7 @@ export function ProviderErrorModal({
             href={CONTACTS_URL}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => trackEvent(AnalyticsEvent.PROVIDER_ERROR_CONTACT)}
           >
             {t.contact}
           </a>

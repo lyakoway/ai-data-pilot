@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { AnswerStatus, ChatResult } from '../lib/api'
 import { api } from '../lib/api'
+import { AnalyticsEvent, trackEvent } from '../lib/analytics'
 import { injectCitations } from '../lib/citations'
 import { AgentTrace } from './AgentTrace'
 import { ChartBlock } from './ChartBlock'
@@ -58,6 +59,7 @@ export function ResultCard({
   const query = feedbackContext?.message
 
   function handleCite(n: number) {
+    trackEvent(AnalyticsEvent.CITATION_CLICK, { index: n })
     const idx = n - 1
     const el = sourceRefs.current[idx]
     if (el) {
@@ -87,6 +89,10 @@ export function ResultCard({
     : {}
 
   async function handleVote(v: 'up' | 'down') {
+    trackEvent(AnalyticsEvent.ANSWER_FEEDBACK, {
+      value: v,
+      agent: feedbackContext?.agent,
+    })
     setVote(v)
     setVoteSaved(false)
     if (feedbackContext) {
@@ -203,14 +209,18 @@ export function ResultCard({
                     <button
                       type="button"
                       className="source-link"
-                      onClick={() =>
+                      onClick={() => {
+                        trackEvent(AnalyticsEvent.SOURCE_CLICK, {
+                          filename: s.filename || s.title,
+                          page: s.page ?? undefined,
+                        })
                         setViewerSource({
                           document_id: s.document_id!,
                           filename: s.filename || s.title,
                           page: s.page ?? null,
                           snippet: s.snippet,
                         })
-                      }
+                      }}
                       title={lang === 'en' ? 'Open document' : 'Открыть документ'}
                     >
                       <span className="source-toggle">▸</span>
@@ -249,7 +259,12 @@ export function ResultCard({
 
       <div className="result-actions">
         {result.excel_url && (
-          <a className="btn btn-primary" href={result.excel_url} download>
+          <a
+            className="btn btn-primary"
+            href={result.excel_url}
+            download
+            onClick={() => trackEvent(AnalyticsEvent.EXCEL_DOWNLOAD)}
+          >
             {lang === 'en' ? 'Download Excel' : 'Скачать Excel'}
           </a>
         )}

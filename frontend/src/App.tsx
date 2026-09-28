@@ -249,6 +249,7 @@ export default function App() {
   function selectAgent(target: AgentId) {
     // Clicking an agent pins it and turns auto-routing off (checkbox unchecks);
     // re-enabling auto is done via the checkbox itself.
+    trackEvent(AnalyticsEvent.AGENT_PIN, { agent: target })
     setAgent(target)
     setAgentMode('manual')
   }
@@ -258,8 +259,10 @@ export default function App() {
     if (!msg || loading) return
     trackEvent(AnalyticsEvent.QUESTION_SENT, {
       agent: agentMode === 'auto' ? 'auto' : agent,
+      model,
       excel: forceExcel,
     })
+    const startedAt = Date.now()
     setLoading(true)
     setInput('')
     setLastUserPrompt(msg)
@@ -314,12 +317,31 @@ export default function App() {
             prev.map((t) => (t.id === assistantId ? { ...t, result, liveSteps: undefined } : t)),
           )
           if (agentMode === 'auto') setAgent(result.agent)
+          if (result.status === 'error') {
+            trackEvent(AnalyticsEvent.QUESTION_ERROR, {
+              agent: result.agent,
+              model,
+              message: result.answer.slice(0, 120),
+            })
+          } else {
+            trackEvent(AnalyticsEvent.ANSWER_RECEIVED, {
+              agent: result.agent,
+              status: result.status,
+              took_ms: Date.now() - startedAt,
+              steps: result.steps?.length ?? 0,
+            })
+          }
           if (result.status === 'error' && isProviderError(result.answer)) {
             setProviderError(result.answer)
           }
           setLoading(false)
         },
         onError: (errMsg) => {
+          trackEvent(AnalyticsEvent.QUESTION_ERROR, {
+            agent: agent === 'doc' ? 'doc' : 'atlas',
+            model,
+            message: errMsg.slice(0, 120),
+          })
           if (isProviderError(errMsg)) setProviderError(errMsg)
           setTurns((prev) =>
             prev.map((t) =>
@@ -363,6 +385,7 @@ export default function App() {
   }
 
   async function _executeScenario(sc: Scenario, values?: Record<string, string | number>) {
+    trackEvent(AnalyticsEvent.SCENARIO_RUN, { scenario_id: sc.id, agent: sc.agent })
     setScenarioModal(null)
     setAgent(sc.agent as AgentId)
     setLoading(true)
@@ -424,6 +447,7 @@ export default function App() {
       chart_type: 'bar',
       datasource_id: agent !== 'doc' ? datasourceId : undefined,
     })
+    trackEvent(AnalyticsEvent.SCENARIO_CREATED, { agent: lastAgent })
     setScenarios((prev) => [...prev, created])
   }
 
@@ -431,6 +455,7 @@ export default function App() {
     setUploading(true)
     try {
       const result = await api.uploadFile(file)
+      trackEvent(AnalyticsEvent.FILE_UPLOAD, { filename: file.name })
       // Refetch to pick up schema-based suggestions for the new source.
       api.datasources().then(setDatasources).catch(() => undefined)
       const first = result.sources[0]
@@ -440,6 +465,10 @@ export default function App() {
         if (first.id !== 'ridego') setKpis(null)
       }
     } catch (e) {
+      trackEvent(AnalyticsEvent.FILE_UPLOAD_ERROR, {
+        filename: file.name,
+        message: (e instanceof Error ? e.message : '').slice(0, 120),
+      })
       window.alert(`${t.uploadError}: ${e instanceof Error ? e.message : ''}`)
     } finally {
       setUploading(false)
@@ -482,6 +511,7 @@ export default function App() {
         value={datasourceId}
         options={datasourceOptions}
         onChange={(id) => {
+          trackEvent(AnalyticsEvent.DATASOURCE_CHANGE, { datasource_id: id })
           setDatasourceId(id)
           // KPIs are only meaningful for the built-in RideGo source.
           if (id !== 'ridego') {
@@ -502,7 +532,10 @@ export default function App() {
       <button
         type="button"
         className="btn btn-ghost btn-sm db-btn"
-        onClick={() => setPgModal(true)}
+        onClick={() => {
+          trackEvent(AnalyticsEvent.DB_MODAL_OPEN, { db: 'postgres' })
+          setPgModal(true)
+        }}
         title={lang === 'en'
           ? 'PostgreSQL — for transactional data: users, orders, records. Best for point lookups and updates.'
           : 'PostgreSQL — для транзакционных данных: пользователи, заказы, записи. Быстрый поиск и обновление.'}
@@ -512,7 +545,10 @@ export default function App() {
       <button
         type="button"
         className="btn btn-ghost btn-sm db-btn"
-        onClick={() => setChModal(true)}
+        onClick={() => {
+          trackEvent(AnalyticsEvent.DB_MODAL_OPEN, { db: 'clickhouse' })
+          setChModal(true)
+        }}
         title={lang === 'en'
           ? 'ClickHouse — for analytics on billions of rows: reports, trends, aggregations. Blazing fast GROUP BY.'
           : 'ClickHouse — для аналитики на миллиардах строк: отчёты, тренды, агрегации. Мгновенный GROUP BY.'}
@@ -525,7 +561,10 @@ export default function App() {
     <Dropdown
       value={model}
       options={modelOptions}
-      onChange={setModel}
+      onChange={(id) => {
+        trackEvent(AnalyticsEvent.MODEL_CHANGE, { model: id })
+        setModel(id)
+      }}
       align="right"
       icon={
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
@@ -569,6 +608,7 @@ export default function App() {
           type="button"
           className="btn btn-ghost new-chat-btn"
           onClick={() => {
+            trackEvent(AnalyticsEvent.NEW_CHAT)
             setTurns([])
             setSidebarOpen(false)
           }}
@@ -599,7 +639,10 @@ export default function App() {
           <input
             type="checkbox"
             checked={agentMode === 'auto'}
-            onChange={(e) => setAgentMode(e.target.checked ? 'auto' : 'manual')}
+            onChange={(e) => {
+              trackEvent(AnalyticsEvent.AGENT_MODE_CHANGE, { auto: e.target.checked })
+              setAgentMode(e.target.checked ? 'auto' : 'manual')
+            }}
           />
           {t.autoModeLabel}
         </label>
@@ -639,7 +682,11 @@ export default function App() {
           <button
             type="button"
             className="theme-toggle"
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            onClick={() => {
+              const next = theme === 'dark' ? 'light' : 'dark'
+              trackEvent(AnalyticsEvent.THEME_TOGGLE, { theme: next })
+              setTheme(next)
+            }}
             title={theme === 'dark' ? t.themeLight : t.themeDark}
           >
             {theme === 'dark' ? (
@@ -657,7 +704,10 @@ export default function App() {
           <button
             type="button"
             className="theme-toggle"
-            onClick={() => setLang(lang === 'ru' ? 'en' : 'ru')}
+            onClick={() => {
+              trackEvent(AnalyticsEvent.LANGUAGE_TOGGLE)
+              setLang(lang === 'ru' ? 'en' : 'ru')
+            }}
             title={t.langSwitch}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">

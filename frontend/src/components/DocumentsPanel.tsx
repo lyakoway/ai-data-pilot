@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { api, type DocumentItem } from '../lib/api'
+import { AnalyticsEvent, trackEvent } from '../lib/analytics'
 
 export function DocumentsPanel({
   lang,
@@ -44,10 +45,13 @@ export function DocumentsPanel({
       for (const file of Array.from(files)) {
         await api.uploadDocument(file)
       }
+      trackEvent(AnalyticsEvent.DOCUMENT_UPLOAD, { count: Array.from(files).length })
       await refresh()
       onUploaded()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Upload failed')
+      const message = e instanceof Error ? e.message : 'Upload failed'
+      trackEvent(AnalyticsEvent.DOCUMENT_UPLOAD_ERROR, { message: message.slice(0, 120) })
+      setError(message)
     } finally {
       setUploading(false)
     }
@@ -56,6 +60,7 @@ export function DocumentsPanel({
   async function remove(id: string) {
     try {
       await api.deleteDocument(id)
+      trackEvent(AnalyticsEvent.DOCUMENT_DELETE, { id })
       await refresh()
       onUploaded()
     } catch {
