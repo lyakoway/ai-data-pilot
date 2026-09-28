@@ -9,6 +9,7 @@ import {
   YAxis,
 } from 'recharts'
 import { AgentTrace } from './components/AgentTrace'
+import { AnalyticsEvent, trackEvent } from './lib/analytics'
 import { ClickHouseModal } from './components/ClickHouseModal'
 import { DocumentsPanel } from './components/DocumentsPanel'
 import { Dropdown, type DropdownOption } from './components/Dropdown'
@@ -255,6 +256,10 @@ export default function App() {
   async function ask(message: string, forceExcel = false) {
     const msg = message.trim()
     if (!msg || loading) return
+    trackEvent(AnalyticsEvent.QUESTION_SENT, {
+      agent: agentMode === 'auto' ? 'auto' : agent,
+      excel: forceExcel,
+    })
     setLoading(true)
     setInput('')
     setLastUserPrompt(msg)
