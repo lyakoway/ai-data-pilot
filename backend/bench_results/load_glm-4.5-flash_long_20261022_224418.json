@@ -1,0 +1,93 @@
+{
+  "tool": "llm_bench.py load",
+  "level": "external_api_concurrency",
+  "endpoint": "https://api.z.ai/api/paas/v4",
+  "generated_at": "2026-10-22 22:44:18",
+  "git_rev": "904f226",
+  "model": "zai:glm-4.5-flash",
+  "api_model": "glm-4.5-flash",
+  "thinking": "off",
+  "scenario": "long",
+  "prompt_sha256": "c4a0315e4c64287a",
+  "generation_params": {
+    "temperature": 0.1,
+    "max_tokens": 700
+  },
+  "levels": [
+    {
+      "level": 1,
+      "sent": 6,
+      "completed_ok": 6,
+      "errors": {},
+      "wall_s": 10.77,
+      "throughput_rps": 0.557,
+      "throughput_tps": 12.8,
+      "latency_total_s": {
+        "n": 6,
+        "mean": 1.794,
+        "p50": 1.626,
+        "p95": 2.587,
+        "std": 0.453
+      },
+      "latency_p99_s": 2.587,
+      "ttft_answer_s": {
+        "n": 6,
+        "mean": 1.647,
+        "p50": 1.474,
+        "p95": 2.581,
+        "std": 0.426
+      },
+      "mean_completion_tokens": 23
+    },
+    {
+      "level": 2,
+      "sent": 6,
+      "completed_ok": 6,
+      "errors": {},
+      "wall_s": 5.77,
+      "throughput_rps": 1.04,
+      "throughput_tps": 23.9,
+      "latency_total_s": {
+        "n": 6,
+        "mean": 1.735,
+        "p50": 1.767,
+        "p95": 2.485,
+        "std": 0.425
+      },
+      "latency_p99_s": 2.485,
+      "ttft_answer_s": {
+        "n": 6,
+        "mean": 1.677,
+        "p50": 1.656,
+        "p95": 2.267,
+        "std": 0.364
+      },
+      "mean_completion_tokens": 23
+    },
+    {
+      "level": 5,
+      "sent": 6,
+      "completed_ok": 6,
+      "errors": {},
+      "wall_s": 4.34,
+      "throughput_rps": 1.384,
+      "throughput_tps": 31.8,
+      "latency_total_s": {
+        "n": 6,
+        "mean": 2.531,
+        "p50": 2.566,
+        "p95": 4.322,
+        "std": 0.911
+      },
+      "latency_p99_s": 4.322,
+      "ttft_answer_s": {
+        "n": 6,
+        "mean": 2.514,
+        "p50": 2.563,
+        "p95": 4.318,
+        "std": 0.923
+      },
+      "mean_completion_tokens": 23
+    }
+  ]
+}

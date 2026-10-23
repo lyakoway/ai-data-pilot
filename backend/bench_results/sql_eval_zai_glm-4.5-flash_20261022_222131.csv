@@ -1,0 +1,4 @@
+id,category,question,executed,result_match,exact_match,llm_calls,attempts,repaired,err_kind,latency_ms,error,generated_sql
+sql_001,simple,Сколько всего поездок в базе?,True,True,False,1,1,False,,9235,,SELECT COUNT(*) as total_rides FROM fact_rides
+sql_002,simple,Сколько всего зарегистрированных пользователей?,True,True,False,1,1,False,,9471,,SELECT COUNT(*) AS total_users FROM dim_user
+sql_003,simple,Сколько городов присутствия RideGo?,True,True,False,1,1,False,,7338,,SELECT COUNT(*) AS city_count FROM dim_city

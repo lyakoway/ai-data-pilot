@@ -1,0 +1,111 @@
+id,category,question,executed,result_match,exact_match,llm_calls,attempts,repaired,err_kind,latency_ms,error,generated_sql
+sql_001,simple,Сколько всего поездок в базе?,True,True,False,1,1,False,,50674,,SELECT COUNT(*) as total_rides FROM fact_rides
+sql_002,simple,Сколько всего зарегистрированных пользователей?,True,True,False,1,1,False,,38202,,SELECT COUNT(*) FROM dim_user
+sql_003,simple,Сколько городов присутствия RideGo?,True,True,False,1,1,False,,26553,,SELECT COUNT(*) AS city_count FROM dim_city
+sql_004,simple,Какова общая выручка за весь период?,True,True,False,1,1,False,,8904,,SELECT SUM(revenue_rub) as total_revenue FROM fact_rides
+sql_005,simple,Сколько партнёрских поездок?,True,True,False,1,1,False,,6017,,SELECT COUNT(*) AS partner_rides_count FROM fact_rides WHERE is_partner = 1
+sql_006,simple,Сколько активных подписок?,True,True,False,1,1,False,,7301,,SELECT COUNT(*) AS active_subscriptions_count FROM fact_subscriptions WHERE status = 'active'
+sql_007,simple,Сколько поездок на велосипеде?,True,True,False,1,1,False,,6089,,SELECT COUNT(*) AS bike_rides_count FROM fact_rides WHERE vehicle_type = 'bike'
+sql_008,simple,Какова средняя длительность поездки в минутах?,True,True,False,1,1,False,,6094,,SELECT AVG(duration_min) as avg_duration_minutes FROM fact_rides
+sql_009,simple,Какова максимальная выручка с одной поездки?,True,True,False,1,1,False,,6662,,SELECT MAX(revenue_rub) FROM fact_rides WHERE is_partner = 0
+sql_010,simple,Сколько пользователей из Москвы?,True,True,False,1,1,False,,8717,,SELECT COUNT(DISTINCT user_id) as user_count FROM dim_user WHERE city_id = (SELECT city_id FROM dim_city WHERE city_name = 'Москва')
+sql_011,join,Топ-5 городов по числу поездок,True,False,False,1,1,False,,7397,,"SELECT dc.city_name, COUNT(fr.ride_id) as ride_count FROM fact_rides fr JOIN dim_city dc ON fr.city_id = dc.city_id WHERE fr.is_partner = 0 GROUP BY dc.city_name ORDER BY ride_count DESC LIMIT 5"
+sql_012,join,Выручка по регионам за всё время,False,,,0,0,False,,0,harness: Request timed out.,
+sql_013,join,Топ-5 пользователей по количеству поездок,True,True,False,1,1,False,,13107,,"SELECT user_id, COUNT(ride_id) as ride_count FROM fact_rides GROUP BY user_id ORDER BY ride_count DESC LIMIT 5"
+sql_014,join,Выручка по типам транспорта,True,False,False,1,1,False,,10360,,"SELECT vehicle_type, SUM(revenue_rub) as total_revenue FROM fact_rides WHERE is_partner = 0 GROUP BY vehicle_type"
+sql_015,join,Сколько подписок у каждого бренда?,True,True,False,1,1,False,,35475,,"SELECT brand, COUNT(sub_id) AS subscription_count FROM fact_subscriptions GROUP BY brand ORDER BY subscription_count DESC"
+sql_016,join,В каких городах есть активные подписки?,True,True,False,1,1,False,,21327,,SELECT DISTINCT c.city_name FROM fact_subscriptions s JOIN dim_city c ON s.city_id = c.city_id WHERE s.status = 'active'
+sql_017,agg,Средняя выручка на поездку по городам,True,False,False,1,1,False,,69029,,"SELECT dc.city_name, AVG(fr.revenue_rub) AS avg_revenue_per_ride FROM fact_rides fr JOIN dim_city dc ON fr.city_id = dc.city_id WHERE fr.is_partner = 0 GROUP BY dc.city_name ORDER BY dc.city_name"
+sql_018,temporal,Сколько поездок было в апреле 2026 года?,True,True,False,1,1,False,,17566,,SELECT COUNT(*) as trip_count FROM fact_rides WHERE ride_date BETWEEN '2026-04-01' AND '2026-04-30'
+sql_019,temporal,Выручка по месяцам,True,True,False,1,1,False,,11631,,"SELECT strftime('%Y-%m', ride_date) AS month, SUM(revenue_rub) AS total_revenue FROM fact_rides GROUP BY month ORDER BY month"
+sql_020,temporal,Сколько поездок за первую неделю апреля?,True,False,False,1,1,False,,26523,,SELECT COUNT(*) AS trip_count FROM fact_rides WHERE ride_date >= date('2024-04-01') AND ride_date < date('2024-04-08') AND is_partner = 0
+sql_021,temporal,Сколько отмен подписок по месяцам?,True,True,False,1,1,False,,66750,,"SELECT strftime('%Y-%m', cancelled_at) AS month, COUNT(*) AS cancelled_count FROM fact_subscriptions WHERE status = 'cancelled' GROUP BY strftime('%Y-%m', cancelled_at) ORDER BY month"
+sql_022,temporal,Какова средняя выручка на поездку в июне?,True,False,False,1,1,False,,19325,,"SELECT AVG(revenue_rub) as avg_revenue FROM fact_rides WHERE strftime('%m', ride_date) = '06' AND is_partner = 0"
+sql_023,edge,Сколько поездок в городе Лондон?,True,True,False,1,1,False,,11131,,SELECT COUNT(*) as ride_count FROM fact_rides JOIN dim_city ON fact_rides.city_id = dim_city.city_id WHERE dim_city.city_name = 'Лондон'
+sql_024,edge,Сколько подписок отменено из-за цены?,True,True,False,1,1,False,,26746,,SELECT COUNT(*) AS cancelled_subscriptions_due_to_price FROM fact_subscriptions WHERE status = 'cancelled' AND cancel_reason = 'price'
+sql_025,edge,Сколько поездок длилось дольше 100 минут?,True,True,False,1,1,False,,7811,,SELECT COUNT(*) FROM fact_rides WHERE duration_min > 100
+sql_026,join,Топ-3 региона по числу пользователей,True,True,False,1,1,False,,6935,,"SELECT d.region, COUNT(DISTINCT u.user_id) as user_count FROM dim_user u JOIN dim_city d ON u.city_id = d.city_id WHERE d.country = 'Россия' GROUP BY d.region ORDER BY user_count DESC LIMIT 3"
+sql_027,simple,Сколько непартнёрских поездок?,True,True,False,1,1,False,,7784,,SELECT COUNT(*) AS non_partner_rides FROM fact_rides WHERE is_partner = 0
+sql_028,simple,Сколько разных типов транспорта в данных?,True,True,False,1,1,False,,7435,,SELECT COUNT(DISTINCT vehicle_type) AS transport_types_count FROM fact_rides
+sql_029,join,Число пользователей по регионам,True,True,False,1,1,False,,7643,,"SELECT dc.region, COUNT(DISTINCT du.user_id) as user_count FROM dim_user du JOIN dim_city dc ON du.city_id = dc.city_id GROUP BY dc.region ORDER BY dc.region"
+sql_030,temporal,Сколько подписок началось в мае?,True,True,False,1,1,False,,7393,,"SELECT COUNT(*) as subscriptions_started_in_may FROM fact_subscriptions WHERE strftime('%m', started_at) = '05'"
+sql_031,join_complex,Сколько поездок у пользователей из Казани?,True,True,False,1,1,False,,10543,,SELECT COUNT(f.ride_id) as total_rides FROM fact_rides f JOIN dim_user u ON f.user_id = u.user_id JOIN dim_city c ON u.city_id = c.city_id WHERE c.city_name = 'Казань'
+sql_032,join_complex,Какие города имеют более 3000 поездок?,True,True,False,1,1,False,,39201,,"SELECT dc.city_name, COUNT(fr.ride_id) as ride_count FROM fact_rides fr JOIN dim_city dc ON fr.city_id = dc.city_id GROUP BY dc.city_name HAVING COUNT(fr.ride_id) > 3000 ORDER BY ride_count DESC"
+sql_033,join_complex,Распределение партнёрских и непартнёрских поездок по типам транспорта,True,False,False,1,1,False,,32280,,"SELECT is_partner, vehicle_type, COUNT(ride_id) as ride_count FROM fact_rides GROUP BY is_partner, vehicle_type ORDER BY is_partner, vehicle_type"
+sql_034,join_complex,Какой месяц был самым прибыльным?,True,False,False,1,1,False,,42893,,"SELECT strftime('%Y-%m', ride_date) as month, SUM(revenue_rub) as total_revenue FROM fact_rides WHERE is_partner = 0 GROUP BY strftime('%Y-%m', ride_date) ORDER BY total_revenue DESC LIMIT 1"
+sql_035,join_complex,"Пользователи, совершившие более 30 поездок",True,False,False,1,1,False,,27518,,"SELECT u.user_id, u.registered_at, c.city_name, u.phone_country, u.app_version, COUNT(r.ride_id) as ride_count FROM fact_rides r JOIN dim_user u ON r.user_id = u.user_id JOIN dim_city c ON u.city_id = c.city_id GROUP BY u.user_id HAVING COUNT(r.ride_id) > 30 ORDER BY ride_count DESC"
+sql_036,join_complex,Доля отменённых подписок по каждому бренду,True,False,False,1,1,False,,8843,,"SELECT brand, 
+       COUNT(*) as total_subscriptions,
+       SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_subscriptions,
+       ROUND(SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) as cancellation_rate_percent
+FROM fact_subscriptions
+GROUP BY brand
+ORDER BY cancellation_rate_percent DESC"
+sql_037,join_complex,Соотношение самокатов и велосипедов по городам,True,False,False,1,1,False,,22482,,"SELECT 
+    dc.city_name,
+    SUM(CASE WHEN fr.vehicle_type = 'scooter' THEN 1 ELSE 0 END) AS scooter_count,
+    SUM(CASE WHEN fr.vehicle_type = 'bike' THEN 1 ELSE 0 END) AS bike_count,
+    ROUND(SUM(CASE WHEN fr.vehicle_type = 'scooter' THEN 1 ELSE 0 END) * 100.0 / 
+          (SUM(CASE WHEN fr.vehicle_type = 'scooter' THEN 1 ELSE 0 END) + 
+           SUM(CASE WHEN fr.vehicle_type = 'bike' THEN 1 ELSE 0 END)), 2) AS scooter_percentage,
+    ROUND(SUM(CASE WHEN fr.vehicle_type = 'bike' THEN 1 ELSE"
+sql_038,join_complex,"Города, где средняя длительность поездки выше общей средней",True,False,False,1,1,False,,69548,,"WITH overall_avg AS (
+    SELECT AVG(duration_min) as avg_duration
+    FROM fact_rides
+    WHERE is_partner = 0
+),
+city_avg AS (
+    SELECT 
+        c.city_id,
+        c.city_name,
+        AVG(f.duration_min) as avg_duration_city
+    FROM fact_rides f
+    JOIN dim_city c ON f.city_id = c.city_id
+    WHERE f.is_partner = 0
+    GROUP BY c.city_id, c.city_name
+)
+SELECT 
+    city_name,
+    avg_duration_city,
+    (SELECT avg_duration FROM overall_avg) as overall_avg_duration
+FROM city_avg
+WHERE avg_d"
+sql_039,join_complex,Число поездок по версиям приложения,True,True,False,1,1,False,,17005,,"SELECT app_version, COUNT(ride_id) as ride_count FROM fact_rides JOIN dim_user ON fact_rides.user_id = dim_user.user_id GROUP BY app_version ORDER BY ride_count DESC"
+sql_040,join_complex,Топ-3 месяца по количеству уникальных пользователей,True,False,False,1,1,False,,15262,,"SELECT strftime('%Y-%m', ride_date) AS month, COUNT(DISTINCT user_id) AS unique_users FROM fact_rides WHERE is_partner = 0 GROUP BY strftime('%Y-%m', ride_date) ORDER BY unique_users DESC LIMIT 3"
+sql_041,ambiguous,Самые популярные города,True,,False,1,1,False,,8503,,"SELECT dc.city_name, COUNT(fr.ride_id) as ride_count FROM fact_rides fr JOIN dim_city dc ON fr.city_id = dc.city_id GROUP BY dc.city_name ORDER BY ride_count DESC"
+sql_042,ambiguous,Как обстоят дела с подписками?,True,,False,1,1,False,,14122,,"SELECT 
+  COUNT(CASE WHEN status = 'active' THEN 1 END) AS active_subscriptions,
+  COUNT(CASE WHEN status = 'cancelled' THEN 1 END) AS cancelled_subscriptions,
+  COUNT(CASE WHEN started_at >= date('now', '-30 days') THEN 1 END) AS new_subscriptions_last_30d,
+  COUNT(CASE WHEN cancelled_at >= date('now', '-30 days') THEN 1 END) AS cancelled_last_30d,
+  SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS active_percentage,
+  COUNT(DISTINCT CASE WHEN status = 'active' THEN user"
+sql_043,ambiguous,Что с активностью пользователей?,True,,False,1,1,False,,54588,,"SELECT 
+    strftime('%Y-%m', ride_date) as month,
+    COUNT(DISTINCT user_id) as unique_users,
+    COUNT(ride_id) as total_rides,
+    ROUND(COUNT(ride_id) * 1000.0 / c.population, 2) as utilization_per_1000
+FROM fact_rides fr
+JOIN dim_city c ON fr.city_id = c.city_id
+WHERE fr.is_partner = 0
+GROUP BY strftime('%Y-%m', ride_date)
+ORDER BY month"
+sql_044,ambiguous,Общая картина по транспорту,True,,False,1,1,False,,103259,,"SELECT vehicle_type, COUNT(ride_id) AS ride_count, SUM(revenue_rub) AS total_revenue, AVG(distance_km) AS avg_distance, AVG(duration_min) AS avg_duration FROM fact_rides WHERE is_partner = 0 GROUP BY vehicle_type ORDER BY ride_count DESC"
+sql_045,ambiguous,Какие регионы лучше?,True,,False,1,1,False,,17656,,"WITH region_metrics AS (
+  SELECT 
+    dc.region,
+    COUNT(DISTINCT fr.user_id) as unique_users,
+    COUNT(fr.ride_id) as total_rides,
+    SUM(fr.revenue_rub) as total_revenue,
+    SUM(fr.distance_km) as total_distance,
+    AVG(fr.duration_min) as avg_duration,
+    SUM(CASE WHEN fr.is_partner = 0 THEN 1 ELSE 0 END) as non_partner_rides,
+    SUM(CASE WHEN fs.status = 'active' THEN 1 ELSE 0 END) as active_subscriptions,
+    dc.population
+  FROM dim_city dc
+  LEFT JOIN fact_rides fr ON dc.city_id "
+sql_046,cross_source,Какова общая сумма заказов клиентов из Москвы?,True,False,False,1,1,False,,29625,,SELECT SUM(o.amount) AS total_amount FROM (SELECT * FROM src_csv_c5a823e66b UNION SELECT * FROM src_csv_e9c529daba) c JOIN (SELECT * FROM src_csv_2222807a9d UNION SELECT * FROM src_csv_b49334fae0) o ON c.client_id = o.client_id WHERE c.city = 'Москва'
+sql_047,cross_source,Какой клиент потратил больше всех?,True,True,False,1,1,False,,65513,,"SELECT c.name AS client_name, SUM(o.amount) AS total_spent FROM src_csv_c5a823e66b AS c JOIN src_csv_2222807a9d AS o ON c.client_id = o.client_id GROUP BY c.client_id, c.name ORDER BY total_spent DESC LIMIT 1"
+sql_048,cross_source,Сколько заказов у каждого клиента?,True,False,False,1,1,False,,13008,,"SELECT c.client_id, c.name, COUNT(o.order_id) AS order_count FROM src_csv_c5a823e66b AS c JOIN src_csv_2222807a9d AS o ON c.client_id = o.client_id GROUP BY c.client_id, c.name ORDER BY c.client_id"
+sql_049,cross_source,Есть ли клиенты без заказов?,True,False,False,1,1,False,,25347,,"WITH all_clients AS (SELECT * FROM src_csv_c5a823e66b UNION SELECT * FROM src_csv_e9c529daba), all_orders AS (SELECT * FROM src_csv_2222807a9d UNION SELECT * FROM src_csv_b49334fae0) SELECT c.client_id, c.name, c.city FROM all_clients c LEFT JOIN all_orders o ON c.client_id = o.client_id WHERE o.order_id IS NULL"
+sql_050,cross_source,Средний чек заказа по городам клиентов,True,True,False,1,1,False,,9358,,"SELECT c.city, AVG(o.amount) as average_check FROM src_csv_c5a823e66b c JOIN src_csv_2222807a9d o ON c.client_id = o.client_id GROUP BY c.city"

@@ -1,0 +1,201 @@
+{
+  "tool": "e2e_bench.py",
+  "level": "application_sse",
+  "generated_at": "2026-10-23 01:11:14",
+  "git_rev": "904f226",
+  "server": "uvicorn (local subprocess), single worker",
+  "note": "time_to_first_event_s is the first agent-step SSE frame, NOT a model TTFT — the application streams steps, not tokens",
+  "questions": [
+    {
+      "kind": "simple",
+      "text": "Сколько всего поездок в базе?"
+    },
+    {
+      "kind": "simple",
+      "text": "Какова общая выручка за весь период?"
+    },
+    {
+      "kind": "complex",
+      "text": "Почему выручка упала в последнем месяце по сравнению с предыдущим?"
+    }
+  ],
+  "runs_per_question": 1,
+  "aggregate": [
+    {
+      "model": "zai:glm-5.3-flash",
+      "question_kind": "complex",
+      "n": 1,
+      "n_ok": 1,
+      "total_s_p50": 314.822,
+      "total_s_mean": 314.82,
+      "first_event_s_p50": 0.12,
+      "sql_repairs_total": 4,
+      "numeric_grounding_ok_share": null,
+      "statuses": [
+        "error"
+      ]
+    },
+    {
+      "model": "zai:glm-5.3-flash",
+      "question_kind": "simple",
+      "n": 2,
+      "n_ok": 2,
+      "total_s_p50": 16.748,
+      "total_s_mean": 14.95,
+      "first_event_s_p50": 0.116,
+      "sql_repairs_total": 0,
+      "numeric_grounding_ok_share": 100.0,
+      "statuses": [
+        "ok"
+      ]
+    },
+    {
+      "model": "zai:glm-5.2",
+      "question_kind": "complex",
+      "n": 1,
+      "n_ok": 1,
+      "total_s_p50": 35.091,
+      "total_s_mean": 35.09,
+      "first_event_s_p50": 0.082,
+      "sql_repairs_total": 4,
+      "numeric_grounding_ok_share": null,
+      "statuses": [
+        "error"
+      ]
+    },
+    {
+      "model": "zai:glm-5.2",
+      "question_kind": "simple",
+      "n": 2,
+      "n_ok": 2,
+      "total_s_p50": 14.199,
+      "total_s_mean": 13.81,
+      "first_event_s_p50": 1.225,
+      "sql_repairs_total": 0,
+      "numeric_grounding_ok_share": 100.0,
+      "statuses": [
+        "ok"
+      ]
+    }
+  ],
+  "details": [
+    {
+      "ok": true,
+      "total_s": 13.428,
+      "time_to_first_event_s": 1.225,
+      "n_steps": 4,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "ok",
+      "step_durations_ms": {
+        "planner": 7455,
+        "database_query": 28,
+        "analyze": 0,
+        "answer": 5917
+      },
+      "error": null,
+      "numeric_grounding": null,
+      "model": "zai:glm-5.2",
+      "question_kind": "simple",
+      "run": 1
+    },
+    {
+      "ok": true,
+      "total_s": 14.199,
+      "time_to_first_event_s": 0.076,
+      "n_steps": 4,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "ok",
+      "step_durations_ms": {
+        "planner": 3472,
+        "database_query": 35,
+        "analyze": 0,
+        "answer": 10651
+      },
+      "error": null,
+      "numeric_grounding": true,
+      "model": "zai:glm-5.2",
+      "question_kind": "simple",
+      "run": 1
+    },
+    {
+      "ok": true,
+      "total_s": 35.091,
+      "time_to_first_event_s": 0.082,
+      "n_steps": 12,
+      "llm_steps": 6,
+      "sql_repairs": 4,
+      "status": "error",
+      "step_durations_ms": {
+        "agent": 8643,
+        "database_query": 62,
+        "analyze": 0
+      },
+      "error": null,
+      "numeric_grounding": null,
+      "model": "zai:glm-5.2",
+      "question_kind": "complex",
+      "run": 1
+    },
+    {
+      "ok": true,
+      "total_s": 16.748,
+      "time_to_first_event_s": 0.099,
+      "n_steps": 4,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "ok",
+      "step_durations_ms": {
+        "planner": 6942,
+        "database_query": 31,
+        "analyze": 0,
+        "answer": 9720
+      },
+      "error": null,
+      "numeric_grounding": true,
+      "model": "zai:glm-5.3-flash",
+      "question_kind": "simple",
+      "run": 1
+    },
+    {
+      "ok": true,
+      "total_s": 13.158,
+      "time_to_first_event_s": 0.116,
+      "n_steps": 4,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "ok",
+      "step_durations_ms": {
+        "planner": 4939,
+        "database_query": 122,
+        "analyze": 0,
+        "answer": 8050
+      },
+      "error": null,
+      "numeric_grounding": true,
+      "model": "zai:glm-5.3-flash",
+      "question_kind": "simple",
+      "run": 1
+    },
+    {
+      "ok": true,
+      "total_s": 314.822,
+      "time_to_first_event_s": 0.12,
+      "n_steps": 12,
+      "llm_steps": 6,
+      "sql_repairs": 4,
+      "status": "error",
+      "step_durations_ms": {
+        "agent": 24153,
+        "database_query": 37,
+        "analyze": 0
+      },
+      "error": null,
+      "numeric_grounding": null,
+      "model": "zai:glm-5.3-flash",
+      "question_kind": "complex",
+      "run": 1
+    }
+  ]
+}

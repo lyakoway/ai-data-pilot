@@ -1,0 +1,29 @@
+{
+  "tool": "llm_bench.py retrieval",
+  "level": "deterministic_retrieval",
+  "generated_at": "2026-10-22 22:18:06",
+  "git_rev": "904f226",
+  "golden_pairs": 8,
+  "golden_source_sha256": "29799fd3eef304c6",
+  "grounding": "file-level (any chunk of the expected file counts)",
+  "modes": {
+    "bm25": {
+      "recall@1": 1.0,
+      "recall@3": 1.0,
+      "recall@5": 1.0,
+      "mrr@5": 1.0
+    },
+    "vector": {
+      "recall@1": 1.0,
+      "recall@3": 1.0,
+      "recall@5": 1.0,
+      "mrr@5": 1.0
+    },
+    "hybrid": {
+      "recall@1": 1.0,
+      "recall@3": 1.0,
+      "recall@5": 1.0,
+      "mrr@5": 1.0
+    }
+  }
+}

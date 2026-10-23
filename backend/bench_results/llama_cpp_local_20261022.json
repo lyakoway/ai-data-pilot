@@ -1,0 +1,36 @@
+{
+  "tool": "llama-bench (homebrew llama.cpp 0.5.0, ggml 0.25.3)",
+  "level": "local_runtime_cpu",
+  "date": "2026-10-22",
+  "hardware": "Apple M1 Pro (8 perf/2 eff cores), 16 GB RAM, macOS 13.6",
+  "model": "llama3.2:3b (Q4_K_M, 1.87 GiB, from ~/.ollama/models blob, not re-downloaded)",
+  "backend": "BLAS,MTL, 8 threads, -ngl 0 (CPU only)",
+  "note_metal": "Metal path crashes with GGML_ASSERT(buf_dst) in ggml_metal_get_tensor_async for both ollama bundled llama-server and homebrew llama-bench -ngl 99 on this macOS/hardware; all numbers below are CPU-only",
+  "results_tok_s": {
+    "pp512": {
+      "mean": 73.32,
+      "std": 3.29
+    },
+    "pp2048": {
+      "mean": 51.44,
+      "std": 3.08
+    },
+    "tg128": {
+      "mean": 6.16,
+      "std": 3.25
+    },
+    "tg256": {
+      "mean": 3.94,
+      "std": 2.64
+    }
+  },
+  "derived": {
+    "ttft_512tok_s": 6.98,
+    "ttft_2048tok_s": 39.8,
+    "ttft_6069tok_s": 118.0,
+    "tpot_tg128_ms": 162.3,
+    "tpot_tg256_ms": 253.8
+  },
+  "reps": 3,
+  "command": "llama-bench -m <blob> -p 512,2048 -n 128,256 -ngl 0 -t 8 -r 3"
+}

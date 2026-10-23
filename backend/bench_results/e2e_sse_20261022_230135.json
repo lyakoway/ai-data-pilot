@@ -1,0 +1,845 @@
+{
+  "tool": "e2e_bench.py",
+  "level": "application_sse",
+  "generated_at": "2026-10-22 23:01:35",
+  "git_rev": "904f226",
+  "server": "uvicorn (local subprocess), single worker",
+  "note": "time_to_first_event_s is the first agent-step SSE frame, NOT a model TTFT — the application streams steps, not tokens",
+  "questions": [
+    {
+      "kind": "simple",
+      "text": "Сколько всего поездок в базе?"
+    },
+    {
+      "kind": "simple",
+      "text": "Какова общая выручка за весь период?"
+    },
+    {
+      "kind": "complex",
+      "text": "Почему выручка упала в последнем месяце по сравнению с предыдущим?"
+    }
+  ],
+  "runs_per_question": 3,
+  "aggregate": [
+    {
+      "model": "zai:glm-5.2",
+      "question_kind": "complex",
+      "n": 3,
+      "n_ok": 3,
+      "total_s_p50": 34.437,
+      "total_s_mean": 27.17,
+      "first_event_s_p50": 0.057,
+      "sql_repairs_total": 9,
+      "numeric_grounding_ok_share": null,
+      "statuses": [
+        "error"
+      ]
+    },
+    {
+      "model": "zai:glm-5.2",
+      "question_kind": "simple",
+      "n": 6,
+      "n_ok": 6,
+      "total_s_p50": 16.896,
+      "total_s_mean": 17.16,
+      "first_event_s_p50": 0.06,
+      "sql_repairs_total": 0,
+      "numeric_grounding_ok_share": 50.0,
+      "statuses": [
+        "ok"
+      ]
+    },
+    {
+      "model": "mock",
+      "question_kind": "complex",
+      "n": 3,
+      "n_ok": 3,
+      "total_s_p50": 0.021,
+      "total_s_mean": 0.02,
+      "first_event_s_p50": 0.021,
+      "sql_repairs_total": 0,
+      "numeric_grounding_ok_share": 0.0,
+      "statuses": [
+        "demo"
+      ]
+    },
+    {
+      "model": "mock",
+      "question_kind": "simple",
+      "n": 6,
+      "n_ok": 6,
+      "total_s_p50": 0.032,
+      "total_s_mean": 0.03,
+      "first_event_s_p50": 0.032,
+      "sql_repairs_total": 0,
+      "numeric_grounding_ok_share": 100.0,
+      "statuses": [
+        "demo"
+      ]
+    },
+    {
+      "model": "zai:glm-4.6",
+      "question_kind": "complex",
+      "n": 3,
+      "n_ok": 3,
+      "total_s_p50": 64.727,
+      "total_s_mean": 62.5,
+      "first_event_s_p50": 0.05,
+      "sql_repairs_total": 15,
+      "numeric_grounding_ok_share": null,
+      "statuses": [
+        "error"
+      ]
+    },
+    {
+      "model": "zai:glm-4.6",
+      "question_kind": "simple",
+      "n": 6,
+      "n_ok": 6,
+      "total_s_p50": 33.545,
+      "total_s_mean": 28.72,
+      "first_event_s_p50": 0.077,
+      "sql_repairs_total": 0,
+      "numeric_grounding_ok_share": 100.0,
+      "statuses": [
+        "ok"
+      ]
+    },
+    {
+      "model": "zai:glm-5.3-flash",
+      "question_kind": "complex",
+      "n": 3,
+      "n_ok": 3,
+      "total_s_p50": 75.876,
+      "total_s_mean": 75.84,
+      "first_event_s_p50": 0.065,
+      "sql_repairs_total": 13,
+      "numeric_grounding_ok_share": null,
+      "statuses": [
+        "error"
+      ]
+    },
+    {
+      "model": "zai:glm-5.3-flash",
+      "question_kind": "simple",
+      "n": 6,
+      "n_ok": 6,
+      "total_s_p50": 16.459,
+      "total_s_mean": 18.19,
+      "first_event_s_p50": 0.04,
+      "sql_repairs_total": 0,
+      "numeric_grounding_ok_share": 50.0,
+      "statuses": [
+        "ok"
+      ]
+    }
+  ],
+  "details": [
+    {
+      "ok": true,
+      "total_s": 0.047,
+      "time_to_first_event_s": 0.046,
+      "n_steps": 5,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "demo",
+      "step_durations_ms": {
+        "planner": 0,
+        "database_query": 17,
+        "analyze": 0,
+        "chart": 0,
+        "answer": 0
+      },
+      "error": null,
+      "numeric_grounding": true,
+      "model": "mock",
+      "question_kind": "simple",
+      "run": 1
+    },
+    {
+      "ok": true,
+      "total_s": 0.032,
+      "time_to_first_event_s": 0.032,
+      "n_steps": 5,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "demo",
+      "step_durations_ms": {
+        "planner": 0,
+        "database_query": 15,
+        "analyze": 0,
+        "chart": 0,
+        "answer": 0
+      },
+      "error": null,
+      "numeric_grounding": true,
+      "model": "mock",
+      "question_kind": "simple",
+      "run": 2
+    },
+    {
+      "ok": true,
+      "total_s": 0.025,
+      "time_to_first_event_s": 0.025,
+      "n_steps": 5,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "demo",
+      "step_durations_ms": {
+        "planner": 0,
+        "database_query": 14,
+        "analyze": 0,
+        "chart": 0,
+        "answer": 0
+      },
+      "error": null,
+      "numeric_grounding": true,
+      "model": "mock",
+      "question_kind": "simple",
+      "run": 3
+    },
+    {
+      "ok": true,
+      "total_s": 0.018,
+      "time_to_first_event_s": 0.018,
+      "n_steps": 5,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "demo",
+      "step_durations_ms": {
+        "planner": 0,
+        "database_query": 5,
+        "analyze": 0,
+        "chart": 0,
+        "answer": 0
+      },
+      "error": null,
+      "numeric_grounding": true,
+      "model": "mock",
+      "question_kind": "simple",
+      "run": 1
+    },
+    {
+      "ok": true,
+      "total_s": 0.023,
+      "time_to_first_event_s": 0.022,
+      "n_steps": 5,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "demo",
+      "step_durations_ms": {
+        "planner": 0,
+        "database_query": 5,
+        "analyze": 0,
+        "chart": 0,
+        "answer": 0
+      },
+      "error": null,
+      "numeric_grounding": true,
+      "model": "mock",
+      "question_kind": "simple",
+      "run": 2
+    },
+    {
+      "ok": true,
+      "total_s": 0.033,
+      "time_to_first_event_s": 0.032,
+      "n_steps": 5,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "demo",
+      "step_durations_ms": {
+        "planner": 0,
+        "database_query": 4,
+        "analyze": 0,
+        "chart": 0,
+        "answer": 0
+      },
+      "error": null,
+      "numeric_grounding": true,
+      "model": "mock",
+      "question_kind": "simple",
+      "run": 3
+    },
+    {
+      "ok": true,
+      "total_s": 0.021,
+      "time_to_first_event_s": 0.021,
+      "n_steps": 5,
+      "llm_steps": 0,
+      "sql_repairs": 0,
+      "status": "demo",
+      "step_durations_ms": {
+        "database_query": 16,
+        "calculate": 0,
+        "analyze": 0
+      },
+      "error": null,
+      "numeric_grounding": false,
+      "model": "mock",
+      "question_kind": "complex",
+      "run": 1
+    },
+    {
+      "ok": true,
+      "total_s": 0.021,
+      "time_to_first_event_s": 0.02,
+      "n_steps": 5,
+      "llm_steps": 0,
+      "sql_repairs": 0,
+      "status": "demo",
+      "step_durations_ms": {
+        "database_query": 16,
+        "calculate": 0,
+        "analyze": 0
+      },
+      "error": null,
+      "numeric_grounding": false,
+      "model": "mock",
+      "question_kind": "complex",
+      "run": 2
+    },
+    {
+      "ok": true,
+      "total_s": 0.022,
+      "time_to_first_event_s": 0.021,
+      "n_steps": 5,
+      "llm_steps": 0,
+      "sql_repairs": 0,
+      "status": "demo",
+      "step_durations_ms": {
+        "database_query": 16,
+        "calculate": 0,
+        "analyze": 0
+      },
+      "error": null,
+      "numeric_grounding": false,
+      "model": "mock",
+      "question_kind": "complex",
+      "run": 3
+    },
+    {
+      "ok": true,
+      "total_s": 39.534,
+      "time_to_first_event_s": 0.55,
+      "n_steps": 4,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "ok",
+      "step_durations_ms": {
+        "planner": 15564,
+        "database_query": 10,
+        "analyze": 0,
+        "answer": 23949
+      },
+      "error": null,
+      "numeric_grounding": true,
+      "model": "zai:glm-4.6",
+      "question_kind": "simple",
+      "run": 1
+    },
+    {
+      "ok": true,
+      "total_s": 33.545,
+      "time_to_first_event_s": 0.069,
+      "n_steps": 4,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "ok",
+      "step_durations_ms": {
+        "planner": 9843,
+        "database_query": 9,
+        "analyze": 0,
+        "answer": 23654
+      },
+      "error": null,
+      "numeric_grounding": null,
+      "model": "zai:glm-4.6",
+      "question_kind": "simple",
+      "run": 2
+    },
+    {
+      "ok": true,
+      "total_s": 40.05,
+      "time_to_first_event_s": 0.052,
+      "n_steps": 4,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "ok",
+      "step_durations_ms": {
+        "planner": 11018,
+        "database_query": 8,
+        "analyze": 0,
+        "answer": 29005
+      },
+      "error": null,
+      "numeric_grounding": null,
+      "model": "zai:glm-4.6",
+      "question_kind": "simple",
+      "run": 3
+    },
+    {
+      "ok": true,
+      "total_s": 17.78,
+      "time_to_first_event_s": 0.089,
+      "n_steps": 4,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "ok",
+      "step_durations_ms": {
+        "planner": 7846,
+        "database_query": 9,
+        "analyze": 0,
+        "answer": 9872
+      },
+      "error": null,
+      "numeric_grounding": null,
+      "model": "zai:glm-4.6",
+      "question_kind": "simple",
+      "run": 1
+    },
+    {
+      "ok": true,
+      "total_s": 17.64,
+      "time_to_first_event_s": 0.077,
+      "n_steps": 4,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "ok",
+      "step_durations_ms": {
+        "planner": 9005,
+        "database_query": 12,
+        "analyze": 0,
+        "answer": 8577
+      },
+      "error": null,
+      "numeric_grounding": null,
+      "model": "zai:glm-4.6",
+      "question_kind": "simple",
+      "run": 2
+    },
+    {
+      "ok": true,
+      "total_s": 23.778,
+      "time_to_first_event_s": 0.045,
+      "n_steps": 4,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "ok",
+      "step_durations_ms": {
+        "planner": 8102,
+        "database_query": 14,
+        "analyze": 0,
+        "answer": 15644
+      },
+      "error": null,
+      "numeric_grounding": null,
+      "model": "zai:glm-4.6",
+      "question_kind": "simple",
+      "run": 3
+    },
+    {
+      "ok": true,
+      "total_s": 64.973,
+      "time_to_first_event_s": 0.052,
+      "n_steps": 12,
+      "llm_steps": 6,
+      "sql_repairs": 5,
+      "status": "error",
+      "step_durations_ms": {
+        "agent": 17248,
+        "database_query": 25
+      },
+      "error": null,
+      "numeric_grounding": null,
+      "model": "zai:glm-4.6",
+      "question_kind": "complex",
+      "run": 1
+    },
+    {
+      "ok": true,
+      "total_s": 64.727,
+      "time_to_first_event_s": 0.05,
+      "n_steps": 12,
+      "llm_steps": 6,
+      "sql_repairs": 5,
+      "status": "error",
+      "step_durations_ms": {
+        "agent": 11399,
+        "database_query": 29
+      },
+      "error": null,
+      "numeric_grounding": null,
+      "model": "zai:glm-4.6",
+      "question_kind": "complex",
+      "run": 2
+    },
+    {
+      "ok": true,
+      "total_s": 57.812,
+      "time_to_first_event_s": 0.043,
+      "n_steps": 12,
+      "llm_steps": 6,
+      "sql_repairs": 5,
+      "status": "error",
+      "step_durations_ms": {
+        "agent": 9125,
+        "database_query": 6
+      },
+      "error": null,
+      "numeric_grounding": null,
+      "model": "zai:glm-4.6",
+      "question_kind": "complex",
+      "run": 3
+    },
+    {
+      "ok": true,
+      "total_s": 16.896,
+      "time_to_first_event_s": 0.045,
+      "n_steps": 4,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "ok",
+      "step_durations_ms": {
+        "planner": 7240,
+        "database_query": 8,
+        "analyze": 0,
+        "answer": 9630
+      },
+      "error": null,
+      "numeric_grounding": true,
+      "model": "zai:glm-5.2",
+      "question_kind": "simple",
+      "run": 1
+    },
+    {
+      "ok": true,
+      "total_s": 16.957,
+      "time_to_first_event_s": 0.059,
+      "n_steps": 4,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "ok",
+      "step_durations_ms": {
+        "planner": 8455,
+        "database_query": 16,
+        "analyze": 0,
+        "answer": 8466
+      },
+      "error": null,
+      "numeric_grounding": true,
+      "model": "zai:glm-5.2",
+      "question_kind": "simple",
+      "run": 2
+    },
+    {
+      "ok": true,
+      "total_s": 12.23,
+      "time_to_first_event_s": 0.139,
+      "n_steps": 4,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "ok",
+      "step_durations_ms": {
+        "planner": 4770,
+        "database_query": 11,
+        "analyze": 0,
+        "answer": 7432
+      },
+      "error": null,
+      "numeric_grounding": true,
+      "model": "zai:glm-5.2",
+      "question_kind": "simple",
+      "run": 3
+    },
+    {
+      "ok": true,
+      "total_s": 32.02,
+      "time_to_first_event_s": 0.046,
+      "n_steps": 4,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "ok",
+      "step_durations_ms": {
+        "planner": 6723,
+        "database_query": 12,
+        "analyze": 0,
+        "answer": 25271
+      },
+      "error": null,
+      "numeric_grounding": false,
+      "model": "zai:glm-5.2",
+      "question_kind": "simple",
+      "run": 1
+    },
+    {
+      "ok": true,
+      "total_s": 12.798,
+      "time_to_first_event_s": 0.06,
+      "n_steps": 4,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "ok",
+      "step_durations_ms": {
+        "planner": 3323,
+        "database_query": 8,
+        "analyze": 0,
+        "answer": 9446
+      },
+      "error": null,
+      "numeric_grounding": false,
+      "model": "zai:glm-5.2",
+      "question_kind": "simple",
+      "run": 2
+    },
+    {
+      "ok": true,
+      "total_s": 12.049,
+      "time_to_first_event_s": 0.07,
+      "n_steps": 4,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "ok",
+      "step_durations_ms": {
+        "planner": 3436,
+        "database_query": 12,
+        "analyze": 0,
+        "answer": 8563
+      },
+      "error": null,
+      "numeric_grounding": false,
+      "model": "zai:glm-5.2",
+      "question_kind": "simple",
+      "run": 3
+    },
+    {
+      "ok": true,
+      "total_s": 34.437,
+      "time_to_first_event_s": 0.053,
+      "n_steps": 12,
+      "llm_steps": 6,
+      "sql_repairs": 5,
+      "status": "error",
+      "step_durations_ms": {
+        "agent": 7164,
+        "database_query": 35
+      },
+      "error": null,
+      "numeric_grounding": null,
+      "model": "zai:glm-5.2",
+      "question_kind": "complex",
+      "run": 1
+    },
+    {
+      "ok": true,
+      "total_s": 5.236,
+      "time_to_first_event_s": 0.057,
+      "n_steps": 1,
+      "llm_steps": 1,
+      "sql_repairs": 0,
+      "status": "error",
+      "step_durations_ms": {
+        "agent": 5200
+      },
+      "error": null,
+      "numeric_grounding": null,
+      "model": "zai:glm-5.2",
+      "question_kind": "complex",
+      "run": 2
+    },
+    {
+      "ok": true,
+      "total_s": 41.838,
+      "time_to_first_event_s": 0.091,
+      "n_steps": 12,
+      "llm_steps": 6,
+      "sql_repairs": 4,
+      "status": "error",
+      "step_durations_ms": {
+        "agent": 7409,
+        "database_query": 6,
+        "analyze": 0
+      },
+      "error": null,
+      "numeric_grounding": null,
+      "model": "zai:glm-5.2",
+      "question_kind": "complex",
+      "run": 3
+    },
+    {
+      "ok": true,
+      "total_s": 16.459,
+      "time_to_first_event_s": 0.046,
+      "n_steps": 4,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "ok",
+      "step_durations_ms": {
+        "planner": 8961,
+        "database_query": 5,
+        "analyze": 0,
+        "answer": 7482
+      },
+      "error": null,
+      "numeric_grounding": true,
+      "model": "zai:glm-5.3-flash",
+      "question_kind": "simple",
+      "run": 1
+    },
+    {
+      "ok": true,
+      "total_s": 14.359,
+      "time_to_first_event_s": 0.04,
+      "n_steps": 4,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "ok",
+      "step_durations_ms": {
+        "planner": 5214,
+        "database_query": 6,
+        "analyze": 0,
+        "answer": 9131
+      },
+      "error": null,
+      "numeric_grounding": true,
+      "model": "zai:glm-5.3-flash",
+      "question_kind": "simple",
+      "run": 2
+    },
+    {
+      "ok": true,
+      "total_s": 15.75,
+      "time_to_first_event_s": 0.039,
+      "n_steps": 4,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "ok",
+      "step_durations_ms": {
+        "planner": 8312,
+        "database_query": 3,
+        "analyze": 0,
+        "answer": 7428
+      },
+      "error": null,
+      "numeric_grounding": true,
+      "model": "zai:glm-5.3-flash",
+      "question_kind": "simple",
+      "run": 3
+    },
+    {
+      "ok": true,
+      "total_s": 15.016,
+      "time_to_first_event_s": 0.039,
+      "n_steps": 4,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "ok",
+      "step_durations_ms": {
+        "planner": 4930,
+        "database_query": 6,
+        "analyze": 0,
+        "answer": 10072
+      },
+      "error": null,
+      "numeric_grounding": false,
+      "model": "zai:glm-5.3-flash",
+      "question_kind": "simple",
+      "run": 1
+    },
+    {
+      "ok": true,
+      "total_s": 25.068,
+      "time_to_first_event_s": 0.038,
+      "n_steps": 4,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "ok",
+      "step_durations_ms": {
+        "planner": 6017,
+        "database_query": 7,
+        "analyze": 0,
+        "answer": 19036
+      },
+      "error": null,
+      "numeric_grounding": false,
+      "model": "zai:glm-5.3-flash",
+      "question_kind": "simple",
+      "run": 2
+    },
+    {
+      "ok": true,
+      "total_s": 22.508,
+      "time_to_first_event_s": 0.04,
+      "n_steps": 4,
+      "llm_steps": 2,
+      "sql_repairs": 0,
+      "status": "ok",
+      "step_durations_ms": {
+        "planner": 7924,
+        "database_query": 6,
+        "analyze": 0,
+        "answer": 14567
+      },
+      "error": null,
+      "numeric_grounding": false,
+      "model": "zai:glm-5.3-flash",
+      "question_kind": "simple",
+      "run": 3
+    },
+    {
+      "ok": true,
+      "total_s": 75.942,
+      "time_to_first_event_s": 0.048,
+      "n_steps": 12,
+      "llm_steps": 6,
+      "sql_repairs": 5,
+      "status": "error",
+      "step_durations_ms": {
+        "agent": 5529,
+        "database_query": 28
+      },
+      "error": null,
+      "numeric_grounding": null,
+      "model": "zai:glm-5.3-flash",
+      "question_kind": "complex",
+      "run": 1
+    },
+    {
+      "ok": true,
+      "total_s": 75.717,
+      "time_to_first_event_s": 0.091,
+      "n_steps": 12,
+      "llm_steps": 6,
+      "sql_repairs": 5,
+      "status": "error",
+      "step_durations_ms": {
+        "agent": 17837,
+        "database_query": 81
+      },
+      "error": null,
+      "numeric_grounding": null,
+      "model": "zai:glm-5.3-flash",
+      "question_kind": "complex",
+      "run": 2
+    },
+    {
+      "ok": true,
+      "total_s": 75.876,
+      "time_to_first_event_s": 0.065,
+      "n_steps": 12,
+      "llm_steps": 6,
+      "sql_repairs": 3,
+      "status": "error",
+      "step_durations_ms": {
+        "agent": 10429,
+        "database_query": 44,
+        "analyze": 0
+      },
+      "error": null,
+      "numeric_grounding": null,
+      "model": "zai:glm-5.3-flash",
+      "question_kind": "complex",
+      "run": 3
+    }
+  ]
+}

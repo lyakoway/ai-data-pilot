@@ -1,0 +1,192 @@
+{
+  "tool": "llm_bench.py tokens",
+  "level": "external_api_streaming",
+  "generated_at": "2026-10-22 22:20:41",
+  "git_rev": "904f226",
+  "scenario": "short",
+  "prompt_sha256": "be31759d07525650",
+  "prompt_chars": 100,
+  "generation_params": {
+    "temperature": 0.1,
+    "max_tokens_by_mode": {
+      "think_off": 300,
+      "think_on": 1000
+    },
+    "stream": true,
+    "note": "TPOT/ITL are client-observed chunk cadence of the hosted API; gateway batching can merge several tokens into one flush"
+  },
+  "results": [
+    {
+      "summary": {
+        "model": "zai:glm-4.5-flash",
+        "api_model": "glm-4.5-flash",
+        "think_mode": "think_off",
+        "scenario": "short",
+        "n_runs": 1,
+        "n_ok": 1,
+        "total_s": {
+          "n": 1,
+          "mean": 4.982,
+          "p50": 4.982,
+          "p95": 4.982,
+          "std": 0.0
+        },
+        "ttft_reasoning_s": {
+          "n": 0
+        },
+        "ttft_answer_s": {
+          "n": 1,
+          "mean": 4.238,
+          "p50": 4.238,
+          "p95": 4.238,
+          "std": 0.0
+        },
+        "tpot_chunk_ms": {
+          "n": 1,
+          "mean": 6.95,
+          "p50": 6.95,
+          "p95": 6.95,
+          "std": 0.0
+        },
+        "itl_mean_ms": {
+          "n": 1,
+          "mean": 6.91,
+          "p50": 6.91,
+          "p95": 6.91,
+          "std": 0.0
+        },
+        "usage_prompt_tokens": {
+          "n": 1,
+          "mean": 38,
+          "p50": 38,
+          "p95": 38,
+          "std": 0.0
+        },
+        "usage_completion_tokens": {
+          "n": 1,
+          "mean": 109,
+          "p50": 109,
+          "p95": 109,
+          "std": 0.0
+        },
+        "completion_tok_per_s": {
+          "n": 1,
+          "mean": 21.9,
+          "p50": 21.9,
+          "p95": 21.9,
+          "std": 0.0
+        }
+      },
+      "runs": [
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 4.982,
+          "ttft_reasoning_s": null,
+          "ttft_answer_s": 4.238,
+          "n_reason_chunks": 0,
+          "n_answer_chunks": 108,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 38,
+          "usage_completion_tokens": 109,
+          "usage_source": "api",
+          "completion_text_len": 443,
+          "tpot_chunk_ms": 6.95,
+          "itl_mean_ms": 6.91,
+          "itl_p95_ms": 0.32,
+          "completion_tok_per_s": 21.9,
+          "tok_per_s_after_ttft": 146.7,
+          "run": 1
+        }
+      ]
+    },
+    {
+      "summary": {
+        "model": "zai:glm-4.5-flash",
+        "api_model": "glm-4.5-flash",
+        "think_mode": "think_on",
+        "scenario": "short",
+        "n_runs": 1,
+        "n_ok": 1,
+        "total_s": {
+          "n": 1,
+          "mean": 11.338,
+          "p50": 11.338,
+          "p95": 11.338,
+          "std": 0.0
+        },
+        "ttft_reasoning_s": {
+          "n": 1,
+          "mean": 2.816,
+          "p50": 2.816,
+          "p95": 2.816,
+          "std": 0.0
+        },
+        "ttft_answer_s": {
+          "n": 1,
+          "mean": 8.304,
+          "p50": 8.304,
+          "p95": 8.304,
+          "std": 0.0
+        },
+        "tpot_chunk_ms": {
+          "n": 1,
+          "mean": 19.57,
+          "p50": 19.57,
+          "p95": 19.57,
+          "std": 0.0
+        },
+        "itl_mean_ms": {
+          "n": 1,
+          "mean": 19.57,
+          "p50": 19.57,
+          "p95": 19.57,
+          "std": 0.0
+        },
+        "usage_prompt_tokens": {
+          "n": 1,
+          "mean": 34,
+          "p50": 34,
+          "p95": 34,
+          "std": 0.0
+        },
+        "usage_completion_tokens": {
+          "n": 1,
+          "mean": 444,
+          "p50": 444,
+          "p95": 444,
+          "std": 0.0
+        },
+        "completion_tok_per_s": {
+          "n": 1,
+          "mean": 39.2,
+          "p50": 39.2,
+          "p95": 39.2,
+          "std": 0.0
+        }
+      },
+      "runs": [
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 11.338,
+          "ttft_reasoning_s": 2.816,
+          "ttft_answer_s": 8.304,
+          "n_reason_chunks": 285,
+          "n_answer_chunks": 156,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 34,
+          "usage_completion_tokens": 444,
+          "usage_source": "api",
+          "completion_text_len": 657,
+          "tpot_chunk_ms": 19.57,
+          "itl_mean_ms": 19.57,
+          "itl_p95_ms": 0.42,
+          "completion_tok_per_s": 39.2,
+          "tok_per_s_after_ttft": 146.4,
+          "run": 1
+        }
+      ]
+    }
+  ]
+}

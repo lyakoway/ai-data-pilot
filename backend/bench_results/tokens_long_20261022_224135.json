@@ -1,0 +1,1141 @@
+{
+  "tool": "llm_bench.py tokens",
+  "level": "external_api_streaming",
+  "endpoint": "https://api.z.ai/api/paas/v4",
+  "generated_at": "2026-10-22 22:41:35",
+  "git_rev": "904f226",
+  "scenario": "long",
+  "prompt_sha256": "c4a0315e4c64287a",
+  "prompt_chars": 15312,
+  "generation_params": {
+    "temperature": 0.1,
+    "max_tokens_by_mode": {
+      "think_off": 700,
+      "think_on": 2500
+    },
+    "stream": true,
+    "note": "TPOT/ITL are client-observed chunk cadence of the hosted API; gateway batching can merge several tokens into one flush"
+  },
+  "results": [
+    {
+      "summary": {
+        "model": "zai:glm-4.6",
+        "api_model": "glm-4.6",
+        "think_mode": "think_off",
+        "scenario": "long",
+        "n_runs": 3,
+        "n_ok": 3,
+        "total_s": {
+          "n": 3,
+          "mean": 5.909,
+          "p50": 4.232,
+          "p95": 9.405,
+          "std": 2.473
+        },
+        "ttft_reasoning_s": {
+          "n": 0
+        },
+        "ttft_answer_s": {
+          "n": 3,
+          "mean": 5.904,
+          "p50": 4.226,
+          "p95": 9.399,
+          "std": 2.472
+        },
+        "tpot_chunk_ms": {
+          "n": 3,
+          "mean": 0.583,
+          "p50": 0.69,
+          "p95": 0.82,
+          "std": 0.249
+        },
+        "itl_mean_ms": {
+          "n": 3,
+          "mean": 0.367,
+          "p50": 0.35,
+          "p95": 0.55,
+          "std": 0.143
+        },
+        "usage_prompt_tokens": {
+          "n": 3,
+          "mean": 6069,
+          "p50": 6069,
+          "p95": 6069,
+          "std": 0.0
+        },
+        "usage_completion_tokens": {
+          "n": 3,
+          "mean": 22.667,
+          "p50": 22,
+          "p95": 24,
+          "std": 0.943
+        },
+        "completion_tok_per_s": {
+          "n": 3,
+          "mean": 4.467,
+          "p50": 5.2,
+          "p95": 5.9,
+          "std": 1.558
+        }
+      },
+      "runs": [
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 9.405,
+          "ttft_reasoning_s": null,
+          "ttft_answer_s": 9.399,
+          "n_reason_chunks": 0,
+          "n_answer_chunks": 9,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 6069,
+          "usage_completion_tokens": 22,
+          "usage_source": "api",
+          "completion_text_len": 67,
+          "tpot_chunk_ms": 0.82,
+          "itl_mean_ms": 0.35,
+          "itl_p95_ms": 0.72,
+          "completion_tok_per_s": 2.3,
+          "tok_per_s_after_ttft": 3355.9,
+          "run": 1
+        },
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 4.09,
+          "ttft_reasoning_s": null,
+          "ttft_answer_s": 4.088,
+          "n_reason_chunks": 0,
+          "n_answer_chunks": 10,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 6069,
+          "usage_completion_tokens": 24,
+          "usage_source": "api",
+          "completion_text_len": 70,
+          "tpot_chunk_ms": 0.24,
+          "itl_mean_ms": 0.2,
+          "itl_p95_ms": 0.54,
+          "completion_tok_per_s": 5.9,
+          "tok_per_s_after_ttft": 11195.8,
+          "run": 2
+        },
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 4.232,
+          "ttft_reasoning_s": null,
+          "ttft_answer_s": 4.226,
+          "n_reason_chunks": 0,
+          "n_answer_chunks": 10,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 6069,
+          "usage_completion_tokens": 22,
+          "usage_source": "api",
+          "completion_text_len": 67,
+          "tpot_chunk_ms": 0.69,
+          "itl_mean_ms": 0.55,
+          "itl_p95_ms": 0.9,
+          "completion_tok_per_s": 5.2,
+          "tok_per_s_after_ttft": 3534.7,
+          "run": 3
+        }
+      ]
+    },
+    {
+      "summary": {
+        "model": "zai:glm-4.6",
+        "api_model": "glm-4.6",
+        "think_mode": "think_on",
+        "scenario": "long",
+        "n_runs": 3,
+        "n_ok": 3,
+        "total_s": {
+          "n": 3,
+          "mean": 44.207,
+          "p50": 35.841,
+          "p95": 70.501,
+          "std": 18.998
+        },
+        "ttft_reasoning_s": {
+          "n": 3,
+          "mean": 12.874,
+          "p50": 9.946,
+          "p95": 20.413,
+          "std": 5.375
+        },
+        "ttft_answer_s": {
+          "n": 2,
+          "mean": 31.058,
+          "p50": 35.839,
+          "p95": 35.839,
+          "std": 4.781
+        },
+        "tpot_chunk_ms": {
+          "n": 2,
+          "mean": 0.255,
+          "p50": 0.26,
+          "p95": 0.26,
+          "std": 0.005
+        },
+        "itl_mean_ms": {
+          "n": 2,
+          "mean": 0.195,
+          "p50": 0.2,
+          "p95": 0.2,
+          "std": 0.005
+        },
+        "usage_prompt_tokens": {
+          "n": 3,
+          "mean": 6069,
+          "p50": 6069,
+          "p95": 6069,
+          "std": 0.0
+        },
+        "usage_completion_tokens": {
+          "n": 3,
+          "mean": 1367.333,
+          "p50": 868,
+          "p95": 2500,
+          "std": 802.782
+        },
+        "completion_tok_per_s": {
+          "n": 3,
+          "mean": 29.667,
+          "p50": 33.0,
+          "p95": 35.5,
+          "std": 6.562
+        }
+      },
+      "runs": [
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 26.28,
+          "ttft_reasoning_s": 8.263,
+          "ttft_answer_s": 26.277,
+          "n_reason_chunks": 320,
+          "n_answer_chunks": 9,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 6069,
+          "usage_completion_tokens": 868,
+          "usage_source": "api",
+          "completion_text_len": 68,
+          "tpot_chunk_ms": 0.26,
+          "itl_mean_ms": 0.2,
+          "itl_p95_ms": 0.32,
+          "completion_tok_per_s": 33.0,
+          "tok_per_s_after_ttft": 416423.6,
+          "run": 1
+        },
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 35.841,
+          "ttft_reasoning_s": 20.413,
+          "ttft_answer_s": 35.839,
+          "n_reason_chunks": 275,
+          "n_answer_chunks": 9,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 6069,
+          "usage_completion_tokens": 734,
+          "usage_source": "api",
+          "completion_text_len": 68,
+          "tpot_chunk_ms": 0.25,
+          "itl_mean_ms": 0.19,
+          "itl_p95_ms": 0.32,
+          "completion_tok_per_s": 20.5,
+          "tok_per_s_after_ttft": 373236.0,
+          "run": 2
+        },
+        {
+          "ok": true,
+          "answer_reached": false,
+          "total_s": 70.501,
+          "ttft_reasoning_s": 9.946,
+          "ttft_answer_s": null,
+          "n_reason_chunks": 901,
+          "n_answer_chunks": 0,
+          "finish_reason": "length",
+          "usage_prompt_tokens": 6069,
+          "usage_completion_tokens": 2500,
+          "usage_source": "api",
+          "completion_text_len": 0,
+          "completion_tok_per_s": 35.5,
+          "run": 3
+        }
+      ]
+    },
+    {
+      "summary": {
+        "model": "zai:glm-4.5-flash",
+        "api_model": "glm-4.5-flash",
+        "think_mode": "think_off",
+        "scenario": "long",
+        "n_runs": 3,
+        "n_ok": 3,
+        "total_s": {
+          "n": 3,
+          "mean": 1.772,
+          "p50": 1.546,
+          "p95": 2.263,
+          "std": 0.347
+        },
+        "ttft_reasoning_s": {
+          "n": 0
+        },
+        "ttft_answer_s": {
+          "n": 3,
+          "mean": 1.769,
+          "p50": 1.543,
+          "p95": 2.26,
+          "std": 0.347
+        },
+        "tpot_chunk_ms": {
+          "n": 3,
+          "mean": 0.167,
+          "p50": 0.17,
+          "p95": 0.18,
+          "std": 0.012
+        },
+        "itl_mean_ms": {
+          "n": 3,
+          "mean": 0.16,
+          "p50": 0.17,
+          "p95": 0.17,
+          "std": 0.014
+        },
+        "usage_prompt_tokens": {
+          "n": 3,
+          "mean": 6073,
+          "p50": 6073,
+          "p95": 6073,
+          "std": 0.0
+        },
+        "usage_completion_tokens": {
+          "n": 3,
+          "mean": 23,
+          "p50": 23,
+          "p95": 23,
+          "std": 0.0
+        },
+        "completion_tok_per_s": {
+          "n": 3,
+          "mean": 13.467,
+          "p50": 14.9,
+          "p95": 15.3,
+          "std": 2.316
+        }
+      },
+      "runs": [
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 2.263,
+          "ttft_reasoning_s": null,
+          "ttft_answer_s": 2.26,
+          "n_reason_chunks": 0,
+          "n_answer_chunks": 22,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 6073,
+          "usage_completion_tokens": 23,
+          "usage_source": "api",
+          "completion_text_len": 69,
+          "tpot_chunk_ms": 0.17,
+          "itl_mean_ms": 0.17,
+          "itl_p95_ms": 0.26,
+          "completion_tok_per_s": 10.2,
+          "tok_per_s_after_ttft": 6281.7,
+          "run": 1
+        },
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 1.546,
+          "ttft_reasoning_s": null,
+          "ttft_answer_s": 1.543,
+          "n_reason_chunks": 0,
+          "n_answer_chunks": 22,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 6073,
+          "usage_completion_tokens": 23,
+          "usage_source": "api",
+          "completion_text_len": 69,
+          "tpot_chunk_ms": 0.18,
+          "itl_mean_ms": 0.17,
+          "itl_p95_ms": 0.33,
+          "completion_tok_per_s": 14.9,
+          "tok_per_s_after_ttft": 6001.1,
+          "run": 2
+        },
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 1.508,
+          "ttft_reasoning_s": null,
+          "ttft_answer_s": 1.505,
+          "n_reason_chunks": 0,
+          "n_answer_chunks": 22,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 6073,
+          "usage_completion_tokens": 23,
+          "usage_source": "api",
+          "completion_text_len": 69,
+          "tpot_chunk_ms": 0.15,
+          "itl_mean_ms": 0.14,
+          "itl_p95_ms": 0.15,
+          "completion_tok_per_s": 15.3,
+          "tok_per_s_after_ttft": 7480.9,
+          "run": 3
+        }
+      ]
+    },
+    {
+      "summary": {
+        "model": "zai:glm-4.5-flash",
+        "api_model": "glm-4.5-flash",
+        "think_mode": "think_on",
+        "scenario": "long",
+        "n_runs": 3,
+        "n_ok": 3,
+        "total_s": {
+          "n": 3,
+          "mean": 58.859,
+          "p50": 73.292,
+          "p95": 82.8,
+          "std": 27.41
+        },
+        "ttft_reasoning_s": {
+          "n": 3,
+          "mean": 3.001,
+          "p50": 2.932,
+          "p95": 3.609,
+          "std": 0.471
+        },
+        "ttft_answer_s": {
+          "n": 1,
+          "mean": 20.146,
+          "p50": 20.146,
+          "p95": 20.146,
+          "std": 0.0
+        },
+        "tpot_chunk_ms": {
+          "n": 1,
+          "mean": 15.43,
+          "p50": 15.43,
+          "p95": 15.43,
+          "std": 0.0
+        },
+        "itl_mean_ms": {
+          "n": 1,
+          "mean": 15.42,
+          "p50": 15.42,
+          "p95": 15.42,
+          "std": 0.0
+        },
+        "usage_prompt_tokens": {
+          "n": 3,
+          "mean": 6069,
+          "p50": 6069,
+          "p95": 6069,
+          "std": 0.0
+        },
+        "usage_completion_tokens": {
+          "n": 3,
+          "mean": 1905.333,
+          "p50": 2500,
+          "p95": 2500,
+          "std": 840.986
+        },
+        "completion_tok_per_s": {
+          "n": 3,
+          "mean": 33.1,
+          "p50": 34.1,
+          "p95": 35.0,
+          "std": 2.083
+        }
+      },
+      "runs": [
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 20.486,
+          "ttft_reasoning_s": 2.932,
+          "ttft_answer_s": 20.146,
+          "n_reason_chunks": 690,
+          "n_answer_chunks": 23,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 6069,
+          "usage_completion_tokens": 716,
+          "usage_source": "api",
+          "completion_text_len": 70,
+          "tpot_chunk_ms": 15.43,
+          "itl_mean_ms": 15.42,
+          "itl_p95_ms": 0.32,
+          "completion_tok_per_s": 35.0,
+          "tok_per_s_after_ttft": 2108.8,
+          "run": 1
+        },
+        {
+          "ok": true,
+          "answer_reached": false,
+          "total_s": 82.8,
+          "ttft_reasoning_s": 3.609,
+          "ttft_answer_s": null,
+          "n_reason_chunks": 2499,
+          "n_answer_chunks": 0,
+          "finish_reason": "length",
+          "usage_prompt_tokens": 6069,
+          "usage_completion_tokens": 2500,
+          "usage_source": "api",
+          "completion_text_len": 0,
+          "completion_tok_per_s": 30.2,
+          "run": 2
+        },
+        {
+          "ok": true,
+          "answer_reached": false,
+          "total_s": 73.292,
+          "ttft_reasoning_s": 2.461,
+          "ttft_answer_s": null,
+          "n_reason_chunks": 2499,
+          "n_answer_chunks": 0,
+          "finish_reason": "length",
+          "usage_prompt_tokens": 6069,
+          "usage_completion_tokens": 2500,
+          "usage_source": "api",
+          "completion_text_len": 0,
+          "completion_tok_per_s": 34.1,
+          "run": 3
+        }
+      ]
+    },
+    {
+      "summary": {
+        "model": "zai:glm-5.2",
+        "api_model": "glm-5.2",
+        "think_mode": "think_off",
+        "scenario": "long",
+        "n_runs": 3,
+        "n_ok": 3,
+        "total_s": {
+          "n": 3,
+          "mean": 1.949,
+          "p50": 1.905,
+          "p95": 2.144,
+          "std": 0.144
+        },
+        "ttft_reasoning_s": {
+          "n": 0
+        },
+        "ttft_answer_s": {
+          "n": 3,
+          "mean": 1.946,
+          "p50": 1.9,
+          "p95": 2.141,
+          "std": 0.144
+        },
+        "tpot_chunk_ms": {
+          "n": 3,
+          "mean": 0.193,
+          "p50": 0.18,
+          "p95": 0.24,
+          "std": 0.034
+        },
+        "itl_mean_ms": {
+          "n": 3,
+          "mean": 0.177,
+          "p50": 0.16,
+          "p95": 0.22,
+          "std": 0.031
+        },
+        "usage_prompt_tokens": {
+          "n": 3,
+          "mean": 6070,
+          "p50": 6070,
+          "p95": 6070,
+          "std": 0.0
+        },
+        "usage_completion_tokens": {
+          "n": 3,
+          "mean": 21,
+          "p50": 21,
+          "p95": 21,
+          "std": 0.0
+        },
+        "completion_tok_per_s": {
+          "n": 3,
+          "mean": 10.833,
+          "p50": 11.0,
+          "p95": 11.7,
+          "std": 0.785
+        }
+      },
+      "runs": [
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 1.799,
+          "ttft_reasoning_s": null,
+          "ttft_answer_s": 1.796,
+          "n_reason_chunks": 0,
+          "n_answer_chunks": 21,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 6070,
+          "usage_completion_tokens": 21,
+          "usage_source": "api",
+          "completion_text_len": 68,
+          "tpot_chunk_ms": 0.18,
+          "itl_mean_ms": 0.16,
+          "itl_p95_ms": 0.3,
+          "completion_tok_per_s": 11.7,
+          "tok_per_s_after_ttft": 5731.6,
+          "run": 1
+        },
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 1.905,
+          "ttft_reasoning_s": null,
+          "ttft_answer_s": 1.9,
+          "n_reason_chunks": 0,
+          "n_answer_chunks": 21,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 6070,
+          "usage_completion_tokens": 21,
+          "usage_source": "api",
+          "completion_text_len": 68,
+          "tpot_chunk_ms": 0.24,
+          "itl_mean_ms": 0.22,
+          "itl_p95_ms": 0.56,
+          "completion_tok_per_s": 11.0,
+          "tok_per_s_after_ttft": 4432.0,
+          "run": 2
+        },
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 2.144,
+          "ttft_reasoning_s": null,
+          "ttft_answer_s": 2.141,
+          "n_reason_chunks": 0,
+          "n_answer_chunks": 21,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 6070,
+          "usage_completion_tokens": 21,
+          "usage_source": "api",
+          "completion_text_len": 66,
+          "tpot_chunk_ms": 0.16,
+          "itl_mean_ms": 0.15,
+          "itl_p95_ms": 0.26,
+          "completion_tok_per_s": 9.8,
+          "tok_per_s_after_ttft": 6544.3,
+          "run": 3
+        }
+      ]
+    },
+    {
+      "summary": {
+        "model": "zai:glm-5.2",
+        "api_model": "glm-5.2",
+        "think_mode": "think_on",
+        "scenario": "long",
+        "n_runs": 3,
+        "n_ok": 3,
+        "total_s": {
+          "n": 3,
+          "mean": 10.587,
+          "p50": 6.047,
+          "p95": 19.956,
+          "std": 6.626
+        },
+        "ttft_reasoning_s": {
+          "n": 3,
+          "mean": 2.463,
+          "p50": 2.501,
+          "p95": 2.717,
+          "std": 0.224
+        },
+        "ttft_answer_s": {
+          "n": 3,
+          "mean": 10.583,
+          "p50": 6.041,
+          "p95": 19.955,
+          "std": 6.628
+        },
+        "tpot_chunk_ms": {
+          "n": 3,
+          "mean": 0.287,
+          "p50": 0.29,
+          "p95": 0.37,
+          "std": 0.069
+        },
+        "itl_mean_ms": {
+          "n": 3,
+          "mean": 0.227,
+          "p50": 0.22,
+          "p95": 0.28,
+          "std": 0.041
+        },
+        "usage_prompt_tokens": {
+          "n": 3,
+          "mean": 6076,
+          "p50": 6076,
+          "p95": 6076,
+          "std": 0.0
+        },
+        "usage_completion_tokens": {
+          "n": 3,
+          "mean": 1128.333,
+          "p50": 481,
+          "p95": 2500,
+          "std": 970.424
+        },
+        "completion_tok_per_s": {
+          "n": 3,
+          "mean": 91.867,
+          "p50": 83.5,
+          "p95": 125.3,
+          "std": 24.604
+        }
+      },
+      "runs": [
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 19.956,
+          "ttft_reasoning_s": 2.501,
+          "ttft_answer_s": 19.955,
+          "n_reason_chunks": 2495,
+          "n_answer_chunks": 4,
+          "finish_reason": "length",
+          "usage_prompt_tokens": 6076,
+          "usage_completion_tokens": 2500,
+          "usage_source": "api",
+          "completion_text_len": 13,
+          "tpot_chunk_ms": 0.37,
+          "itl_mean_ms": 0.22,
+          "itl_p95_ms": 0.31,
+          "completion_tok_per_s": 125.3,
+          "tok_per_s_after_ttft": 2239725.9,
+          "run": 1
+        },
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 6.047,
+          "ttft_reasoning_s": 2.717,
+          "ttft_answer_s": 6.041,
+          "n_reason_chunks": 381,
+          "n_answer_chunks": 22,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 6076,
+          "usage_completion_tokens": 404,
+          "usage_source": "api",
+          "completion_text_len": 66,
+          "tpot_chunk_ms": 0.29,
+          "itl_mean_ms": 0.28,
+          "itl_p95_ms": 0.21,
+          "completion_tok_per_s": 66.8,
+          "tok_per_s_after_ttft": 65931.4,
+          "run": 2
+        },
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 5.757,
+          "ttft_reasoning_s": 2.172,
+          "ttft_answer_s": 5.753,
+          "n_reason_chunks": 457,
+          "n_answer_chunks": 23,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 6076,
+          "usage_completion_tokens": 481,
+          "usage_source": "api",
+          "completion_text_len": 70,
+          "tpot_chunk_ms": 0.2,
+          "itl_mean_ms": 0.18,
+          "itl_p95_ms": 0.27,
+          "completion_tok_per_s": 83.5,
+          "tok_per_s_after_ttft": 110792.2,
+          "run": 3
+        }
+      ]
+    },
+    {
+      "summary": {
+        "model": "zai:glm-5.3",
+        "api_model": "glm-5.3",
+        "think_mode": "think_off",
+        "scenario": "long",
+        "n_runs": 3,
+        "n_ok": 0
+      },
+      "runs": [
+        {
+          "ok": false,
+          "answer_reached": false,
+          "total_s": 0.0,
+          "ttft_reasoning_s": null,
+          "ttft_answer_s": null,
+          "n_reason_chunks": 0,
+          "n_answer_chunks": 0,
+          "finish_reason": null,
+          "usage_prompt_tokens": null,
+          "usage_completion_tokens": null,
+          "usage_source": "absent",
+          "completion_text_len": 0,
+          "error": "BadRequestError: Error code: 400 - {'error': {'code': '1210', 'message': 'This model always engages in thinking and cannot be disabled; please use low, high, or max'}}",
+          "run": 1
+        },
+        {
+          "ok": false,
+          "answer_reached": false,
+          "total_s": 0.0,
+          "ttft_reasoning_s": null,
+          "ttft_answer_s": null,
+          "n_reason_chunks": 0,
+          "n_answer_chunks": 0,
+          "finish_reason": null,
+          "usage_prompt_tokens": null,
+          "usage_completion_tokens": null,
+          "usage_source": "absent",
+          "completion_text_len": 0,
+          "error": "BadRequestError: Error code: 400 - {'error': {'code': '1210', 'message': 'This model always engages in thinking and cannot be disabled; please use low, high, or max'}}",
+          "run": 2
+        },
+        {
+          "ok": false,
+          "answer_reached": false,
+          "total_s": 0.0,
+          "ttft_reasoning_s": null,
+          "ttft_answer_s": null,
+          "n_reason_chunks": 0,
+          "n_answer_chunks": 0,
+          "finish_reason": null,
+          "usage_prompt_tokens": null,
+          "usage_completion_tokens": null,
+          "usage_source": "absent",
+          "completion_text_len": 0,
+          "error": "BadRequestError: Error code: 400 - {'error': {'code': '1210', 'message': 'This model always engages in thinking and cannot be disabled; please use low, high, or max'}}",
+          "run": 3
+        }
+      ]
+    },
+    {
+      "summary": {
+        "model": "zai:glm-5.3",
+        "api_model": "glm-5.3",
+        "think_mode": "think_on",
+        "scenario": "long",
+        "n_runs": 3,
+        "n_ok": 3,
+        "total_s": {
+          "n": 3,
+          "mean": 4.43,
+          "p50": 4.56,
+          "p95": 5.339,
+          "std": 0.801
+        },
+        "ttft_reasoning_s": {
+          "n": 3,
+          "mean": 2.469,
+          "p50": 2.509,
+          "p95": 2.587,
+          "std": 0.116
+        },
+        "ttft_answer_s": {
+          "n": 3,
+          "mean": 4.425,
+          "p50": 4.554,
+          "p95": 5.335,
+          "std": 0.801
+        },
+        "tpot_chunk_ms": {
+          "n": 3,
+          "mean": 0.213,
+          "p50": 0.2,
+          "p95": 0.27,
+          "std": 0.042
+        },
+        "itl_mean_ms": {
+          "n": 3,
+          "mean": 0.207,
+          "p50": 0.19,
+          "p95": 0.27,
+          "std": 0.046
+        },
+        "usage_prompt_tokens": {
+          "n": 3,
+          "mean": 6076,
+          "p50": 6076,
+          "p95": 6076,
+          "std": 0.0
+        },
+        "usage_completion_tokens": {
+          "n": 3,
+          "mean": 244.667,
+          "p50": 247,
+          "p95": 297,
+          "std": 43.714
+        },
+        "completion_tok_per_s": {
+          "n": 3,
+          "mean": 55.267,
+          "p50": 55.6,
+          "p95": 56.0,
+          "std": 0.772
+        }
+      },
+      "runs": [
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 3.39,
+          "ttft_reasoning_s": 2.312,
+          "ttft_answer_s": 3.386,
+          "n_reason_chunks": 166,
+          "n_answer_chunks": 22,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 6076,
+          "usage_completion_tokens": 190,
+          "usage_source": "api",
+          "completion_text_len": 66,
+          "tpot_chunk_ms": 0.17,
+          "itl_mean_ms": 0.16,
+          "itl_p95_ms": 0.21,
+          "completion_tok_per_s": 56.0,
+          "tok_per_s_after_ttft": 52386.1,
+          "run": 1
+        },
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 5.339,
+          "ttft_reasoning_s": 2.509,
+          "ttft_answer_s": 5.335,
+          "n_reason_chunks": 273,
+          "n_answer_chunks": 22,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 6076,
+          "usage_completion_tokens": 297,
+          "usage_source": "api",
+          "completion_text_len": 66,
+          "tpot_chunk_ms": 0.2,
+          "itl_mean_ms": 0.19,
+          "itl_p95_ms": 0.31,
+          "completion_tok_per_s": 55.6,
+          "tok_per_s_after_ttft": 69826.9,
+          "run": 2
+        },
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 4.56,
+          "ttft_reasoning_s": 2.587,
+          "ttft_answer_s": 4.554,
+          "n_reason_chunks": 223,
+          "n_answer_chunks": 22,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 6076,
+          "usage_completion_tokens": 247,
+          "usage_source": "api",
+          "completion_text_len": 66,
+          "tpot_chunk_ms": 0.27,
+          "itl_mean_ms": 0.27,
+          "itl_p95_ms": 0.54,
+          "completion_tok_per_s": 54.2,
+          "tok_per_s_after_ttft": 42775.5,
+          "run": 3
+        }
+      ]
+    },
+    {
+      "summary": {
+        "model": "zai:glm-5.3-flash",
+        "api_model": "glm-5.3-flash",
+        "think_mode": "think_off",
+        "scenario": "long",
+        "n_runs": 3,
+        "n_ok": 0
+      },
+      "runs": [
+        {
+          "ok": false,
+          "answer_reached": false,
+          "total_s": 0.0,
+          "ttft_reasoning_s": null,
+          "ttft_answer_s": null,
+          "n_reason_chunks": 0,
+          "n_answer_chunks": 0,
+          "finish_reason": null,
+          "usage_prompt_tokens": null,
+          "usage_completion_tokens": null,
+          "usage_source": "absent",
+          "completion_text_len": 0,
+          "error": "BadRequestError: Error code: 400 - {'error': {'code': '1210', 'message': 'This model always engages in thinking and cannot be disabled; please use low, high, or max'}}",
+          "run": 1
+        },
+        {
+          "ok": false,
+          "answer_reached": false,
+          "total_s": 0.0,
+          "ttft_reasoning_s": null,
+          "ttft_answer_s": null,
+          "n_reason_chunks": 0,
+          "n_answer_chunks": 0,
+          "finish_reason": null,
+          "usage_prompt_tokens": null,
+          "usage_completion_tokens": null,
+          "usage_source": "absent",
+          "completion_text_len": 0,
+          "error": "BadRequestError: Error code: 400 - {'error': {'code': '1210', 'message': 'This model always engages in thinking and cannot be disabled; please use low, high, or max'}}",
+          "run": 2
+        },
+        {
+          "ok": false,
+          "answer_reached": false,
+          "total_s": 0.0,
+          "ttft_reasoning_s": null,
+          "ttft_answer_s": null,
+          "n_reason_chunks": 0,
+          "n_answer_chunks": 0,
+          "finish_reason": null,
+          "usage_prompt_tokens": null,
+          "usage_completion_tokens": null,
+          "usage_source": "absent",
+          "completion_text_len": 0,
+          "error": "BadRequestError: Error code: 400 - {'error': {'code': '1210', 'message': 'This model always engages in thinking and cannot be disabled; please use low, high, or max'}}",
+          "run": 3
+        }
+      ]
+    },
+    {
+      "summary": {
+        "model": "zai:glm-5.3-flash",
+        "api_model": "glm-5.3-flash",
+        "think_mode": "think_on",
+        "scenario": "long",
+        "n_runs": 3,
+        "n_ok": 3,
+        "total_s": {
+          "n": 3,
+          "mean": 11.041,
+          "p50": 13.959,
+          "p95": 14.89,
+          "std": 4.8
+        },
+        "ttft_reasoning_s": {
+          "n": 3,
+          "mean": 2.673,
+          "p50": 2.613,
+          "p95": 2.837,
+          "std": 0.117
+        },
+        "ttft_answer_s": {
+          "n": 3,
+          "mean": 10.55,
+          "p50": 12.964,
+          "p95": 14.883,
+          "std": 4.835
+        },
+        "tpot_chunk_ms": {
+          "n": 3,
+          "mean": 6.823,
+          "p50": 4.98,
+          "p95": 15.3,
+          "std": 6.305
+        },
+        "itl_mean_ms": {
+          "n": 3,
+          "mean": 6.82,
+          "p50": 4.98,
+          "p95": 15.3,
+          "std": 6.308
+        },
+        "usage_prompt_tokens": {
+          "n": 3,
+          "mean": 6076,
+          "p50": 6076,
+          "p95": 6076,
+          "std": 0.0
+        },
+        "usage_completion_tokens": {
+          "n": 3,
+          "mean": 700.667,
+          "p50": 918,
+          "p95": 982,
+          "std": 353.577
+        },
+        "completion_tok_per_s": {
+          "n": 3,
+          "mean": 59.667,
+          "p50": 65.8,
+          "p95": 65.9,
+          "std": 8.745
+        }
+      },
+      "runs": [
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 14.89,
+          "ttft_reasoning_s": 2.837,
+          "ttft_answer_s": 14.883,
+          "n_reason_chunks": 941,
+          "n_answer_chunks": 36,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 6076,
+          "usage_completion_tokens": 982,
+          "usage_source": "api",
+          "completion_text_len": 93,
+          "tpot_chunk_ms": 0.19,
+          "itl_mean_ms": 0.18,
+          "itl_p95_ms": 0.32,
+          "completion_tok_per_s": 65.9,
+          "tok_per_s_after_ttft": 148330.9,
+          "run": 1
+        },
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 13.959,
+          "ttft_reasoning_s": 2.569,
+          "ttft_answer_s": 12.964,
+          "n_reason_chunks": 850,
+          "n_answer_chunks": 66,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 6076,
+          "usage_completion_tokens": 918,
+          "usage_source": "api",
+          "completion_text_len": 167,
+          "tpot_chunk_ms": 15.3,
+          "itl_mean_ms": 15.3,
+          "itl_p95_ms": 6.46,
+          "completion_tok_per_s": 65.8,
+          "tok_per_s_after_ttft": 923.0,
+          "run": 2
+        },
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 4.275,
+          "ttft_reasoning_s": 2.613,
+          "ttft_answer_s": 3.802,
+          "n_reason_chunks": 102,
+          "n_answer_chunks": 96,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 6076,
+          "usage_completion_tokens": 202,
+          "usage_source": "api",
+          "completion_text_len": 183,
+          "tpot_chunk_ms": 4.98,
+          "itl_mean_ms": 4.98,
+          "itl_p95_ms": 0.52,
+          "completion_tok_per_s": 47.3,
+          "tok_per_s_after_ttft": 426.8,
+          "run": 3
+        }
+      ]
+    }
+  ]
+}

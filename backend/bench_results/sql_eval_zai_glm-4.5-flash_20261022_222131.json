@@ -1,0 +1,101 @@
+{
+  "summary": {
+    "model": "zai:glm-4.5-flash",
+    "n": 3,
+    "sql_execution_accuracy": 100.0,
+    "result_accuracy": 100.0,
+    "result_accuracy_n_checked": 3,
+    "exact_match_sql": 0.0,
+    "self_correction_rate": null,
+    "repaired_cases": 0,
+    "avg_llm_calls_per_task": 1,
+    "timeout_share": 0.0,
+    "guard_reject_share": 0.0,
+    "no_sql_share": 0.0,
+    "task_completion_rate": 100.0,
+    "latency_ms": {
+      "p50": 9235,
+      "p95": 9471,
+      "p99": null,
+      "mean": 8681
+    },
+    "by_category": {
+      "simple": {
+        "n": 3,
+        "execution_accuracy": 100.0,
+        "result_accuracy": 100.0
+      }
+    },
+    "suite_wall_s": 26.0
+  },
+  "manifest": {
+    "generated_at": "2026-10-22 22:21:31",
+    "git_rev": "904f226",
+    "model": {
+      "model_id": "zai:glm-4.5-flash",
+      "reported": "glm-4.5-flash"
+    },
+    "generation_params": {
+      "temperature_complete": 0.1,
+      "max_tokens": "provider default (not set by app)",
+      "thinking_mode": "provider default (GLM-5.x think by default; the app does not disable thinking)",
+      "note": "params are hardcoded in app/llm/providers.py — unchanged for this eval"
+    },
+    "prompt": {
+      "plan_system_sha256": "d8d2818d035ef8cf",
+      "schema_catalog_sha256": "6ea533bc25765ad8"
+    },
+    "golden_set": {
+      "path": "tests/golden/sql_golden.jsonl",
+      "n_cases": 3,
+      "sha256": "f3c860500846b1c6"
+    }
+  },
+  "details": [
+    {
+      "id": "sql_001",
+      "category": "simple",
+      "question": "Сколько всего поездок в базе?",
+      "executed": true,
+      "result_match": true,
+      "exact_match": false,
+      "llm_calls": 1,
+      "attempts": 1,
+      "repaired": false,
+      "err_kind": null,
+      "latency_ms": 9235,
+      "error": null,
+      "generated_sql": "SELECT COUNT(*) as total_rides FROM fact_rides"
+    },
+    {
+      "id": "sql_002",
+      "category": "simple",
+      "question": "Сколько всего зарегистрированных пользователей?",
+      "executed": true,
+      "result_match": true,
+      "exact_match": false,
+      "llm_calls": 1,
+      "attempts": 1,
+      "repaired": false,
+      "err_kind": null,
+      "latency_ms": 9471,
+      "error": null,
+      "generated_sql": "SELECT COUNT(*) AS total_users FROM dim_user"
+    },
+    {
+      "id": "sql_003",
+      "category": "simple",
+      "question": "Сколько городов присутствия RideGo?",
+      "executed": true,
+      "result_match": true,
+      "exact_match": false,
+      "llm_calls": 1,
+      "attempts": 1,
+      "repaired": false,
+      "err_kind": null,
+      "latency_ms": 7338,
+      "error": null,
+      "generated_sql": "SELECT COUNT(*) AS city_count FROM dim_city"
+    }
+  ]
+}

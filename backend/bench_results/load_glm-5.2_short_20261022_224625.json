@@ -1,0 +1,43 @@
+{
+  "tool": "llm_bench.py load",
+  "level": "external_api_concurrency",
+  "endpoint": "https://api.z.ai/api/paas/v4",
+  "generated_at": "2026-10-22 22:46:25",
+  "git_rev": "904f226",
+  "model": "zai:glm-5.2",
+  "api_model": "glm-5.2",
+  "thinking": "off",
+  "scenario": "short",
+  "prompt_sha256": "be31759d07525650",
+  "generation_params": {
+    "temperature": 0.1,
+    "max_tokens": 200
+  },
+  "levels": [
+    {
+      "level": 10,
+      "sent": 8,
+      "completed_ok": 8,
+      "errors": {},
+      "wall_s": 21.24,
+      "throughput_rps": 0.377,
+      "throughput_tps": 73.1,
+      "latency_total_s": {
+        "n": 8,
+        "mean": 7.731,
+        "p50": 5.016,
+        "p95": 21.223,
+        "std": 5.562
+      },
+      "latency_p99_s": 21.223,
+      "ttft_answer_s": {
+        "n": 8,
+        "mean": 6.506,
+        "p50": 4.874,
+        "p95": 19.818,
+        "std": 5.496
+      },
+      "mean_completion_tokens": 194.1
+    }
+  ]
+}

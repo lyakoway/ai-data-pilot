@@ -1,0 +1,336 @@
+{
+  "summary": {
+    "model": "zai:glm-4.6",
+    "n": 17,
+    "sql_execution_accuracy": 100.0,
+    "result_accuracy": 35.3,
+    "result_accuracy_n_checked": 17,
+    "exact_match_sql": 0.0,
+    "self_correction_rate": null,
+    "repaired_cases": 0,
+    "avg_llm_calls_per_task": 1,
+    "timeout_share": 0.0,
+    "guard_reject_share": 0.0,
+    "no_sql_share": 0.0,
+    "task_completion_rate": 100.0,
+    "latency_ms": {
+      "p50": 13422,
+      "p95": 22929,
+      "p99": null,
+      "mean": 14373
+    },
+    "by_category": {
+      "agg": {
+        "n": 1,
+        "execution_accuracy": 100.0,
+        "result_accuracy": 0.0
+      },
+      "edge": {
+        "n": 2,
+        "execution_accuracy": 100.0,
+        "result_accuracy": 100.0
+      },
+      "join": {
+        "n": 6,
+        "execution_accuracy": 100.0,
+        "result_accuracy": 16.7
+      },
+      "join_complex": {
+        "n": 1,
+        "execution_accuracy": 100.0,
+        "result_accuracy": 0.0
+      },
+      "simple": {
+        "n": 2,
+        "execution_accuracy": 100.0,
+        "result_accuracy": 100.0
+      },
+      "temporal": {
+        "n": 5,
+        "execution_accuracy": 100.0,
+        "result_accuracy": 20.0
+      }
+    },
+    "suite_wall_s": 244.6
+  },
+  "manifest": {
+    "generated_at": "2026-10-23 00:38:27",
+    "git_rev": "904f226",
+    "model": {
+      "model_id": "zai:glm-4.6",
+      "reported": "glm-4.6"
+    },
+    "generation_params": {
+      "temperature_complete": 0.1,
+      "max_tokens": "provider default (not set by app)",
+      "thinking_mode": "provider default (GLM-5.x think by default; the app does not disable thinking)",
+      "note": "params are hardcoded in app/llm/providers.py — unchanged for this eval"
+    },
+    "prompt": {
+      "plan_system_sha256": "d8d2818d035ef8cf",
+      "schema_catalog_sha256": "6ea533bc25765ad8"
+    },
+    "golden_set": {
+      "path": "tests/golden/sql_golden.jsonl",
+      "n_cases": 17,
+      "sha256": "f3c860500846b1c6"
+    }
+  },
+  "details": [
+    {
+      "id": "sql_009",
+      "category": "simple",
+      "question": "Какова максимальная выручка с одной поездки?",
+      "executed": true,
+      "result_match": true,
+      "exact_match": false,
+      "llm_calls": 1,
+      "attempts": 1,
+      "repaired": false,
+      "err_kind": null,
+      "latency_ms": 18029,
+      "error": null,
+      "generated_sql": "SELECT MAX(revenue_rub) AS max_revenue FROM fact_rides WHERE is_partner = 0"
+    },
+    {
+      "id": "sql_010",
+      "category": "simple",
+      "question": "Сколько пользователей из Москвы?",
+      "executed": true,
+      "result_match": true,
+      "exact_match": false,
+      "llm_calls": 1,
+      "attempts": 1,
+      "repaired": false,
+      "err_kind": null,
+      "latency_ms": 10638,
+      "error": null,
+      "generated_sql": "SELECT COUNT(u.user_id) AS user_count FROM dim_user u JOIN dim_city c ON u.city_id = c.city_id WHERE c.city_name = 'Москва'"
+    },
+    {
+      "id": "sql_011",
+      "category": "join",
+      "question": "Топ-5 городов по числу поездок",
+      "executed": true,
+      "result_match": false,
+      "exact_match": false,
+      "llm_calls": 1,
+      "attempts": 1,
+      "repaired": false,
+      "err_kind": null,
+      "latency_ms": 10554,
+      "error": null,
+      "generated_sql": "SELECT c.city_name, COUNT(r.ride_id) AS rides_count FROM fact_rides r JOIN dim_city c ON r.city_id = c.city_id WHERE r.is_partner = 0 GROUP BY c.city_id, c.city_name ORDER BY rides_count DESC LIMIT 5"
+    },
+    {
+      "id": "sql_012",
+      "category": "join",
+      "question": "Выручка по регионам за всё время",
+      "executed": true,
+      "result_match": false,
+      "exact_match": false,
+      "llm_calls": 1,
+      "attempts": 1,
+      "repaired": false,
+      "err_kind": null,
+      "latency_ms": 13108,
+      "error": null,
+      "generated_sql": "SELECT c.region, SUM(r.revenue_rub) AS revenue_rub FROM fact_rides r JOIN dim_city c ON r.city_id = c.city_id WHERE r.is_partner = 0 GROUP BY c.region ORDER BY revenue_rub DESC"
+    },
+    {
+      "id": "sql_013",
+      "category": "join",
+      "question": "Топ-5 пользователей по количеству поездок",
+      "executed": true,
+      "result_match": false,
+      "exact_match": false,
+      "llm_calls": 1,
+      "attempts": 1,
+      "repaired": false,
+      "err_kind": null,
+      "latency_ms": 10764,
+      "error": null,
+      "generated_sql": "SELECT u.user_id, COUNT(r.ride_id) AS ride_count FROM fact_rides r JOIN dim_user u ON r.user_id = u.user_id WHERE r.is_partner = 0 GROUP BY u.user_id ORDER BY ride_count DESC LIMIT 5"
+    },
+    {
+      "id": "sql_014",
+      "category": "join",
+      "question": "Выручка по типам транспорта",
+      "executed": true,
+      "result_match": false,
+      "exact_match": false,
+      "llm_calls": 1,
+      "attempts": 1,
+      "repaired": false,
+      "err_kind": null,
+      "latency_ms": 8084,
+      "error": null,
+      "generated_sql": "SELECT vehicle_type, SUM(revenue_rub) AS revenue_rub FROM fact_rides WHERE is_partner = 0 GROUP BY vehicle_type ORDER BY revenue_rub DESC"
+    },
+    {
+      "id": "sql_015",
+      "category": "join",
+      "question": "Сколько подписок у каждого бренда?",
+      "executed": true,
+      "result_match": true,
+      "exact_match": false,
+      "llm_calls": 1,
+      "attempts": 1,
+      "repaired": false,
+      "err_kind": null,
+      "latency_ms": 13315,
+      "error": null,
+      "generated_sql": "SELECT brand, COUNT(sub_id) AS subscription_count FROM fact_subscriptions GROUP BY brand"
+    },
+    {
+      "id": "sql_016",
+      "category": "join",
+      "question": "В каких городах есть активные подписки?",
+      "executed": true,
+      "result_match": false,
+      "exact_match": false,
+      "llm_calls": 1,
+      "attempts": 1,
+      "repaired": false,
+      "err_kind": null,
+      "latency_ms": 16669,
+      "error": null,
+      "generated_sql": "SELECT c.city_name, COUNT(*) AS active_subscriptions FROM fact_subscriptions s JOIN dim_city c ON s.city_id = c.city_id WHERE s.status = 'active' GROUP BY c.city_name ORDER BY active_subscriptions DESC"
+    },
+    {
+      "id": "sql_017",
+      "category": "agg",
+      "question": "Средняя выручка на поездку по городам",
+      "executed": true,
+      "result_match": false,
+      "exact_match": false,
+      "llm_calls": 1,
+      "attempts": 1,
+      "repaired": false,
+      "err_kind": null,
+      "latency_ms": 14937,
+      "error": null,
+      "generated_sql": "SELECT c.city_name, AVG(r.revenue_rub) AS avg_revenue_per_ride FROM fact_rides r JOIN dim_city c ON r.city_id = c.city_id WHERE r.is_partner = 0 GROUP BY c.city_name ORDER BY avg_revenue_per_ride DESC"
+    },
+    {
+      "id": "sql_018",
+      "category": "temporal",
+      "question": "Сколько поездок было в апреле 2026 года?",
+      "executed": true,
+      "result_match": false,
+      "exact_match": false,
+      "llm_calls": 1,
+      "attempts": 1,
+      "repaired": false,
+      "err_kind": null,
+      "latency_ms": 10212,
+      "error": null,
+      "generated_sql": "SELECT COUNT(*) AS ride_count FROM fact_rides WHERE ride_date >= '2026-04-01' AND ride_date < '2026-05-01' AND is_partner = 0"
+    },
+    {
+      "id": "sql_019",
+      "category": "temporal",
+      "question": "Выручка по месяцам",
+      "executed": true,
+      "result_match": false,
+      "exact_match": false,
+      "llm_calls": 1,
+      "attempts": 1,
+      "repaired": false,
+      "err_kind": null,
+      "latency_ms": 22929,
+      "error": null,
+      "generated_sql": "SELECT strftime('%Y-%m', ride_date) AS month, SUM(revenue_rub) AS revenue FROM fact_rides WHERE is_partner = 0 GROUP BY month ORDER BY month"
+    },
+    {
+      "id": "sql_020",
+      "category": "temporal",
+      "question": "Сколько поездок за первую неделю апреля?",
+      "executed": true,
+      "result_match": false,
+      "exact_match": false,
+      "llm_calls": 1,
+      "attempts": 1,
+      "repaired": false,
+      "err_kind": null,
+      "latency_ms": 18240,
+      "error": null,
+      "generated_sql": "SELECT COUNT(*) AS rides_count FROM fact_rides WHERE is_partner = 0 AND strftime('%m', ride_date) = '04' AND CAST(strftime('%d', ride_date) AS INTEGER) BETWEEN 1 AND 7"
+    },
+    {
+      "id": "sql_021",
+      "category": "temporal",
+      "question": "Сколько отмен подписок по месяцам?",
+      "executed": true,
+      "result_match": true,
+      "exact_match": false,
+      "llm_calls": 1,
+      "attempts": 1,
+      "repaired": false,
+      "err_kind": null,
+      "latency_ms": 13422,
+      "error": null,
+      "generated_sql": "SELECT strftime('%Y-%m', cancelled_at) AS month, COUNT(*) AS cancellations FROM fact_subscriptions WHERE cancelled_at IS NOT NULL GROUP BY month ORDER BY month"
+    },
+    {
+      "id": "sql_022",
+      "category": "temporal",
+      "question": "Какова средняя выручка на поездку в июне?",
+      "executed": true,
+      "result_match": false,
+      "exact_match": false,
+      "llm_calls": 1,
+      "attempts": 1,
+      "repaired": false,
+      "err_kind": null,
+      "latency_ms": 17080,
+      "error": null,
+      "generated_sql": "SELECT ROUND(AVG(revenue_rub), 2) AS avg_revenue_per_ride FROM fact_rides WHERE strftime('%m', ride_date) = '06' AND is_partner = 0"
+    },
+    {
+      "id": "sql_023",
+      "category": "edge",
+      "question": "Сколько поездок в городе Лондон?",
+      "executed": true,
+      "result_match": true,
+      "exact_match": false,
+      "llm_calls": 1,
+      "attempts": 1,
+      "repaired": false,
+      "err_kind": null,
+      "latency_ms": 11462,
+      "error": null,
+      "generated_sql": "SELECT COUNT(*) AS ride_count FROM fact_rides r JOIN dim_city c ON r.city_id = c.city_id WHERE c.city_name = 'Лондон' AND r.is_partner = 0"
+    },
+    {
+      "id": "sql_024",
+      "category": "edge",
+      "question": "Сколько подписок отменено из-за цены?",
+      "executed": true,
+      "result_match": true,
+      "exact_match": false,
+      "llm_calls": 1,
+      "attempts": 1,
+      "repaired": false,
+      "err_kind": null,
+      "latency_ms": 15164,
+      "error": null,
+      "generated_sql": "SELECT COUNT(*) AS cancelled_due_to_price FROM fact_subscriptions WHERE cancel_reason = 'price'"
+    },
+    {
+      "id": "sql_037",
+      "category": "join_complex",
+      "question": "Соотношение самокатов и велосипедов по городам",
+      "executed": true,
+      "result_match": false,
+      "exact_match": false,
+      "llm_calls": 1,
+      "attempts": 1,
+      "repaired": false,
+      "err_kind": null,
+      "latency_ms": 19738,
+      "error": null,
+      "generated_sql": "SELECT c.city_name, r.vehicle_type, COUNT(*) AS ride_count, ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (PARTITION BY c.city_name), 1) AS pct FROM fact_rides r JOIN dim_city c ON r.city_id = c.city_id WHERE r.is_partner = 0 GROUP BY c.city_name, r.vehicle_type ORDER BY c.city_name, r.vehicle_type"
+    }
+  ]
+}

@@ -1,0 +1,116 @@
+{
+  "tool": "e2e_bench.py",
+  "level": "application_sse",
+  "generated_at": "2026-10-22 22:25:13",
+  "git_rev": "904f226",
+  "server": "uvicorn (local subprocess), single worker",
+  "note": "time_to_first_event_s is the first agent-step SSE frame, NOT a model TTFT — the application streams steps, not tokens",
+  "questions": [
+    {
+      "kind": "simple",
+      "text": "Сколько всего поездок в базе?"
+    },
+    {
+      "kind": "simple",
+      "text": "Какова общая выручка за весь период?"
+    },
+    {
+      "kind": "complex",
+      "text": "Почему выручка упала в последнем месяце по сравнению с предыдущим?"
+    }
+  ],
+  "runs_per_question": 1,
+  "aggregate": [
+    {
+      "model": "mock",
+      "question_kind": "simple",
+      "n": 2,
+      "n_ok": 2,
+      "total_s_p50": 0.043,
+      "total_s_mean": 0.03,
+      "first_event_s_p50": 0.042,
+      "sql_repairs_total": 2,
+      "numeric_grounding_ok_share": 100.0,
+      "statuses": [
+        "demo"
+      ]
+    },
+    {
+      "model": "mock",
+      "question_kind": "complex",
+      "n": 1,
+      "n_ok": 1,
+      "total_s_p50": 0.026,
+      "total_s_mean": 0.03,
+      "first_event_s_p50": 0.025,
+      "sql_repairs_total": 1,
+      "numeric_grounding_ok_share": 0.0,
+      "statuses": [
+        "demo"
+      ]
+    }
+  ],
+  "details": [
+    {
+      "ok": true,
+      "total_s": 0.043,
+      "time_to_first_event_s": 0.042,
+      "n_steps": 10,
+      "llm_steps": 4,
+      "sql_repairs": 1,
+      "status": "demo",
+      "step_durations_ms": {
+        "planner": 0,
+        "database_query": 17,
+        "analyze": 0,
+        "chart": 0,
+        "answer": 0
+      },
+      "error": null,
+      "numeric_grounding": true,
+      "model": "mock",
+      "question_kind": "simple",
+      "run": 1
+    },
+    {
+      "ok": true,
+      "total_s": 0.02,
+      "time_to_first_event_s": 0.019,
+      "n_steps": 10,
+      "llm_steps": 4,
+      "sql_repairs": 1,
+      "status": "demo",
+      "step_durations_ms": {
+        "planner": 0,
+        "database_query": 4,
+        "analyze": 0,
+        "chart": 0,
+        "answer": 0
+      },
+      "error": null,
+      "numeric_grounding": true,
+      "model": "mock",
+      "question_kind": "simple",
+      "run": 1
+    },
+    {
+      "ok": true,
+      "total_s": 0.026,
+      "time_to_first_event_s": 0.025,
+      "n_steps": 10,
+      "llm_steps": 0,
+      "sql_repairs": 1,
+      "status": "demo",
+      "step_durations_ms": {
+        "database_query": 20,
+        "calculate": 0,
+        "analyze": 0
+      },
+      "error": null,
+      "numeric_grounding": false,
+      "model": "mock",
+      "question_kind": "complex",
+      "run": 1
+    }
+  ]
+}

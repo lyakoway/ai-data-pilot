@@ -1,0 +1,126 @@
+{
+  "tool": "llm_bench.py tokens",
+  "level": "external_api_streaming",
+  "generated_at": "2026-10-22 22:18:38",
+  "git_rev": "904f226",
+  "scenario": "short",
+  "prompt_sha256": "60d14a2d53a94d1a",
+  "prompt_chars": 70,
+  "generation_params": {
+    "temperature": 0.1,
+    "max_tokens": 120,
+    "stream": true
+  },
+  "results": [
+    {
+      "summary": {
+        "model": "zai:glm-4.5-flash",
+        "api_model": "glm-4.5-flash",
+        "think_mode": "think_off",
+        "scenario": "short",
+        "n_runs": 1,
+        "n_ok": 1,
+        "total_s": {
+          "n": 1,
+          "mean": 3.846,
+          "p50": 3.846,
+          "p95": 3.846,
+          "std": 0.0
+        },
+        "ttft_reasoning_s": {
+          "n": 0
+        },
+        "ttft_answer_s": {
+          "n": 1,
+          "mean": 3.814,
+          "p50": 3.814,
+          "p95": 3.814,
+          "std": 0.0
+        },
+        "tpot_chunk_ms": {
+          "n": 1,
+          "mean": 0.84,
+          "p50": 0.84,
+          "p95": 0.84,
+          "std": 0.0
+        },
+        "itl_mean_ms": {
+          "n": 1,
+          "mean": 0.73,
+          "p50": 0.73,
+          "p95": 0.73,
+          "std": 0.0
+        },
+        "usage_prompt_tokens": {
+          "n": 1,
+          "mean": 26,
+          "p50": 26,
+          "p95": 26,
+          "std": 0.0
+        },
+        "usage_completion_tokens": {
+          "n": 1,
+          "mean": 40,
+          "p50": 40,
+          "p95": 40,
+          "std": 0.0
+        },
+        "completion_tok_per_s": {
+          "n": 1,
+          "mean": 10.4,
+          "p50": 10.4,
+          "p95": 10.4,
+          "std": 0.0
+        }
+      },
+      "runs": [
+        {
+          "ok": true,
+          "total_s": 3.846,
+          "ttft_reasoning_s": null,
+          "ttft_answer_s": 3.814,
+          "n_reason_chunks": 0,
+          "n_answer_chunks": 39,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 26,
+          "usage_completion_tokens": 40,
+          "usage_source": "api",
+          "completion_text_len": 164,
+          "tpot_chunk_ms": 0.84,
+          "itl_mean_ms": 0.73,
+          "itl_p95_ms": 0.68,
+          "completion_tok_per_s": 10.4,
+          "tok_per_s_after_ttft": 1245.8,
+          "run": 1
+        }
+      ]
+    },
+    {
+      "summary": {
+        "model": "zai:glm-4.5-flash",
+        "api_model": "glm-4.5-flash",
+        "think_mode": "think_on",
+        "scenario": "short",
+        "n_runs": 1,
+        "n_ok": 0
+      },
+      "runs": [
+        {
+          "ok": false,
+          "total_s": 4.065,
+          "ttft_reasoning_s": 3.083,
+          "ttft_answer_s": null,
+          "n_reason_chunks": 119,
+          "n_answer_chunks": 0,
+          "finish_reason": "length",
+          "usage_prompt_tokens": 22,
+          "usage_completion_tokens": 120,
+          "usage_source": "api",
+          "completion_text_len": 0,
+          "completion_tok_per_s": 29.5,
+          "run": 1
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,99 @@
+{
+  "tool": "llm_bench.py load",
+  "level": "external_api_concurrency",
+  "endpoint": "https://api.z.ai/api/paas/v4",
+  "generated_at": "2026-10-22 22:43:23",
+  "git_rev": "904f226",
+  "model": "zai:glm-4.5-flash",
+  "api_model": "glm-4.5-flash",
+  "thinking": "off",
+  "scenario": "short",
+  "prompt_sha256": "be31759d07525650",
+  "generation_params": {
+    "temperature": 0.1,
+    "max_tokens": 200
+  },
+  "levels": [
+    {
+      "level": 1,
+      "sent": 10,
+      "completed_ok": 10,
+      "errors": {},
+      "wall_s": 42.97,
+      "throughput_rps": 0.233,
+      "throughput_tps": 29.3,
+      "latency_total_s": {
+        "n": 10,
+        "mean": 4.296,
+        "p50": 4.27,
+        "p95": 5.88,
+        "std": 0.692
+      },
+      "latency_p99_s": 5.88,
+      "ttft_answer_s": {
+        "n": 10,
+        "mean": 2.937,
+        "p50": 2.791,
+        "p95": 3.829,
+        "std": 0.385
+      },
+      "mean_completion_tokens": 126.1
+    },
+    {
+      "level": 2,
+      "sent": 10,
+      "completed_ok": 10,
+      "errors": {},
+      "wall_s": 21.8,
+      "throughput_rps": 0.459,
+      "throughput_tps": 55.7,
+      "latency_total_s": {
+        "n": 10,
+        "mean": 4.358,
+        "p50": 3.992,
+        "p95": 6.308,
+        "std": 0.972
+      },
+      "latency_p99_s": 6.308,
+      "ttft_answer_s": {
+        "n": 10,
+        "mean": 3.069,
+        "p50": 3.004,
+        "p95": 4.13,
+        "std": 0.396
+      },
+      "mean_completion_tokens": 121.5
+    },
+    {
+      "level": 5,
+      "sent": 10,
+      "completed_ok": 6,
+      "errors": {
+        "rate_limit": 4
+      },
+      "wall_s": 14.13,
+      "throughput_rps": 0.425,
+      "throughput_tps": 51.9,
+      "latency_total_s": {
+        "n": 6,
+        "mean": 5.611,
+        "p50": 5.561,
+        "p95": 10.831,
+        "std": 2.583
+      },
+      "latency_p99_s": 10.831,
+      "ttft_answer_s": {
+        "n": 6,
+        "mean": 4.187,
+        "p50": 2.661,
+        "p95": 9.212,
+        "std": 2.466
+      },
+      "mean_completion_tokens": 122.2
+    },
+    {
+      "level": 10,
+      "skipped": "rate_limit_seen"
+    }
+  ]
+}
