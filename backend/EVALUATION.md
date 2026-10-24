@@ -2,8 +2,13 @@
 
 Два уровня измерения, как в RAG Chat:
 
-1. **pytest (детерминированный)** — 174 теста: логика, guard, аналитика,
+1. **pytest (детерминированный)** — 186 тестов: логика, guard, аналитика,
    retrieval-метрики. Запускаются в CI, не требуют API-ключей.
+
+   Расширенный benchmark (TTFT/TPOT, нагрузочные, контекст-матрица, SQL-eval
+   с Wilson CI на двух версиях golden set) — `scripts/llm_bench.py`,
+   `scripts/eval_sql_full.py`, `scripts/compare_sql_evals.py`; методика в
+   [BENCHMARK.md](BENCHMARK.md), артефакты в `bench_results/`.
 2. **LLM evaluation (ручной прогон)** — качество генерации с реальной моделью:
    golden set → прогон → метрики. Числа воспроизводимы одной командой.
 

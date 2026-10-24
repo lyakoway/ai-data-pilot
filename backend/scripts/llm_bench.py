@@ -86,6 +86,18 @@ def long_prompt() -> str:
     )
 
 
+def env_info() -> dict[str, str]:
+    import platform
+    from importlib import metadata
+    out = {"python": platform.python_version(), "os": platform.platform()}
+    for lib in ("openai", "httpx"):
+        try:
+            out[lib] = metadata.version(lib)
+        except Exception:  # noqa: BLE001
+            out[lib] = "unknown"
+    return out
+
+
 def git_rev() -> str:
     try:
         return subprocess.run(
@@ -241,11 +253,17 @@ def rec_to_metrics(rec: StreamRecord) -> dict[str, Any]:
         out["itl_mean_ms"] = round(statistics.mean(rec.inter_answer), 2)
         out["itl_p95_ms"] = round(pct(rec.inter_answer, 95), 2)
     if rec.usage and rec.usage.completion_tokens and total > 0:
+        # NOTE: on Z.ai completion_tokens INCLUDES reasoning tokens for thinking
+        # models — this rate is "all generated tokens", not answer speed.
         out["completion_tok_per_s"] = round(rec.usage.completion_tokens / total, 1)
         if rec.t_first_answer is not None and total > rec.t_first_answer:
             out["tok_per_s_after_ttft"] = round(
                 rec.usage.completion_tokens / (total - rec.t_first_answer), 1
             )
+    if rec.t_first_answer is not None and rec.n_answer_chunks > 0 and total > rec.t_first_answer:
+        # Answer-stream-only rate from client-observed chunks (≈ tokens, gateway
+        # may merge several tokens per flush — see BENCHMARK.md).
+        out["answer_chunk_per_s"] = round(rec.n_answer_chunks / (total - rec.t_first_answer), 1)
     if rec.error:
         out["error"] = rec.error
     return out
@@ -311,6 +329,7 @@ async def cmd_tokens(args: argparse.Namespace) -> None:
         "endpoint": args.base_url or ZAI_BASE_URL,
         "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         "git_rev": git_rev(),
+        "env": env_info(),
         "scenario": args.scenario,
         "prompt_sha256": sha256(prompt),
         "prompt_chars": len(prompt),
@@ -380,6 +399,7 @@ async def cmd_load(args: argparse.Namespace) -> None:
 
     levels = [int(x) for x in args.levels.split(",")]
     level_results: list[dict[str, Any]] = []
+    raw_requests: list[dict[str, Any]] = []
     rate_limited = False
     for level in levels:
         if rate_limited:
@@ -394,6 +414,8 @@ async def cmd_load(args: argparse.Namespace) -> None:
                  for _ in range(n)]
         reqs = await asyncio.gather(*tasks)
         wall = time.perf_counter() - t0
+        for i, r in enumerate(reqs):
+            raw_requests.append({"level": level, "req": i + 1, **r})
 
         done = [r for r in reqs if r["kind"] == "ok"]
         errs = [r for r in reqs if r["kind"] != "ok"]
@@ -427,6 +449,7 @@ async def cmd_load(args: argparse.Namespace) -> None:
         "endpoint": args.base_url or ZAI_BASE_URL,
         "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         "git_rev": git_rev(),
+        "env": env_info(),
         "model": model_id,
         "api_model": api_model,
         "thinking": "off" if disable else "on",
@@ -434,6 +457,7 @@ async def cmd_load(args: argparse.Namespace) -> None:
         "prompt_sha256": sha256(prompt),
         "generation_params": {"temperature": 0.1, "max_tokens": max_tokens},
         "levels": level_results,
+        "raw_requests": raw_requests,
     }
     path = save_json(f"load_{api_model}_{args.scenario}", payload)
     print(f"\nSaved → {path}")
@@ -503,6 +527,187 @@ def cmd_retrieval(args: argparse.Namespace) -> None:
     print(f"\nSaved → {path}")
 
 
+# --------------------------------------------------------------------------- #
+# Context-length matrix: TTFT/total vs input size (1k..32k tokens)
+# --------------------------------------------------------------------------- #
+
+def padded_prompt(target_tokens: int) -> str:
+    """Analytics-style prompt padded to ~target input tokens (~2.5 chars/token
+    for RU text; actual size is recorded from usage.prompt_tokens)."""
+    target_chars = int(target_tokens * 2.5)
+    parts = ["Ниже фрагмент данных поездок такси.\n"]
+    i = 0
+    while sum(len(x) for x in parts) < target_chars:
+        tariff = "eco" if i % 3 else "comfort"
+        parts.append(
+            f"ride {i}: user=1{i % 100}, city={i % 7}, date=2026-0{1 + i % 9}-1{i % 9}, "
+            f"distance={5 + i % 25}.{i % 10} km, revenue={300 + i % 900}.{i % 10} RUB, "
+            f"tariff={tariff}, status=done. "
+        )
+        i += 1
+    parts.append("\n\nВопрос: одним предложением — сколько примерно строк в этом фрагменте?")
+    return "".join(parts)
+
+
+async def cmd_ctx(args: argparse.Namespace) -> None:
+    client = get_zai_client(args.base_url)
+    is_zai = (args.base_url or ZAI_BASE_URL) == ZAI_BASE_URL
+    api_model = args.api_model or ZAI_MODELS.get(args.model, args.model.split(":", 1)[-1])
+    sizes = [int(x) for x in args.sizes.split(",")]
+    # GLM context windows (documented by provider): 4.x/5.x >= 128k — sizes up
+    # to 32k are safe. For non-Z.ai endpoints the caller is responsible.
+    results = []
+    print(f"Context matrix: {args.model} (thinking off), sizes={sizes}, runs={args.runs}")
+    for size in sizes:
+        if size > 100_000:
+            print(f"  {size}: SKIPPED — exceeds safe context budget")
+            results.append({"target_tokens": size, "skipped": "context_budget"})
+            continue
+        prompt = padded_prompt(size)
+        runs = []
+        for i in range(args.runs):
+            rec = await stream_once(client, api_model, prompt, 96, True,
+                                    allow_thinking_flag=is_zai)
+            m = rec_to_metrics(rec)
+            m["run"] = i + 1
+            runs.append(m)
+            print(f"  {size:>6} tok run{i + 1}: {'ok' if m['ok'] else 'ERR ' + str(m.get('error'))[:60]} "
+                  f"in_tok={m.get('usage_prompt_tokens')} ttft={m['ttft_answer_s']}s total={m['total_s']}s",
+                  flush=True)
+        ok = [r for r in runs if r["ok"] and r.get("usage_prompt_tokens")]
+        entry = {
+            "target_tokens": size,
+            "prompt_chars": len(prompt),
+            "n_ok": len(ok),
+            "measured_prompt_tokens": agg([r["usage_prompt_tokens"] for r in ok]),
+            "ttft_answer_s": agg([r["ttft_answer_s"] for r in ok if r["ttft_answer_s"] is not None]),
+            "total_s": agg([r["total_s"] for r in ok]),
+        }
+        entry["derived_prefill_tok_per_s"] = (
+            round(entry["measured_prompt_tokens"]["p50"] / entry["ttft_answer_s"]["p50"], 1)
+            if ok and entry["ttft_answer_s"].get("p50") else None
+        )
+        results.append({"summary": entry, "runs": runs})
+    payload = {
+        "tool": "llm_bench.py ctx",
+        "level": "external_api_prefill_vs_context",
+        "note": "TTFT here = queue + prefill + first token; derived_prefill_tok_per_s is an "
+                "UPPER BOUND on prefill speed (queue time included), client-observed",
+        "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "git_rev": git_rev(),
+        "env": env_info(),
+        "endpoint": args.base_url or ZAI_BASE_URL,
+        "model": args.model,
+        "api_model": api_model,
+        "thinking": "off",
+        "generation_params": {"temperature": 0.1, "max_tokens": 96, "stream": True},
+        "results": results,
+    }
+    path = save_json(f"ctx_{api_model}", payload)
+    print(f"\nSaved → {path}")
+
+
+# --------------------------------------------------------------------------- #
+# Prefix-cache black-box probe (mechanism NOT verifiable on external API)
+# --------------------------------------------------------------------------- #
+
+PREFIX_BASE = (
+    "Ты — аналитик. Ниже схема аналитической базы RideGo.\n"
+    "fact_rides(ride_id, user_id, city_id, ride_date, ride_time, distance_km, "
+    "revenue_rub, is_partner, tariff, status); dim_city(city_id, city_name, "
+    "region, country, is_inhouse); dim_user(user_id, city_id, registered_at); "
+    "fact_subscriptions(sub_id, user_id, status, brand, cancel_reason).\n"
+    + "Дополнительный контекст: тарифы eco/comfort/prev, партнёрские поездки is_partner=1 "
+    "исключаются из финансовых метрик, выручка считается в рублях. " * 40
+)
+
+
+async def cmd_prefix(args: argparse.Namespace) -> None:
+    """Compare TTFT with a REPEATED shared prefix vs UNIQUE fresh prefixes.
+
+    This is a black-box client probe of the hosted endpoint: a TTFT drop on
+    repeated prefixes is CONSISTENT WITH server-side prefix caching but does
+    NOT prove it (queue placement, load balancers and other effects are not
+    observable). Explicitly labeled as such in the artifact.
+    """
+    import random
+
+    client = get_zai_client(args.base_url)
+    is_zai = (args.base_url or ZAI_BASE_URL) == ZAI_BASE_URL
+    api_model = args.api_model or ZAI_MODELS.get(args.model, args.model.split(":", 1)[-1])
+    rng = random.Random(42)
+    questions = [
+        "Сколько поездок в базе?",
+        "Какова средняя выручка?",
+        "Сколько городов присутствия?",
+        "Какая доля партнёрских поездок?",
+        "Сколько пользователей зарегистрировано?",
+    ]
+
+    async def measure(prefix: str, q: str) -> dict[str, Any]:
+        rec = await stream_once(client, api_model, prefix + "\n\nВопрос: " + q,
+                                48, True, allow_thinking_flag=is_zai)
+        m = rec_to_metrics(rec)
+        m["question"] = q
+        return m
+
+    # Pass 1 and 2: SAME shared prefix, shuffled question order.
+    same_runs: list[dict[str, Any]] = []
+    for pass_i in (1, 2):
+        order = questions[:]
+        rng.shuffle(order)
+        for q in order:
+            m = await measure(PREFIX_BASE, q)
+            m["pass"] = pass_i
+            same_runs.append(m)
+            print(f"  same-prefix pass{pass_i}: ttft={m['ttft_answer_s']}s in_tok={m.get('usage_prompt_tokens')} ({q[:24]})",
+                  flush=True)
+
+    # Pass 3: UNIQUE prefix per request (same length, random noise injected).
+    fresh_runs: list[dict[str, Any]] = []
+    for q in questions:
+        noise = f"\nСессия анализа #{rng.randrange(16**8):08x}."
+        m = await measure(PREFIX_BASE + noise, q)
+        m["pass"] = 3
+        fresh_runs.append(m)
+        print(f"  fresh-prefix: ttft={m['ttft_answer_s']}s in_tok={m.get('usage_prompt_tokens')} ({q[:24]})",
+              flush=True)
+
+    def med_ttft(runs):
+        vals = sorted(r["ttft_answer_s"] for r in runs if r["ttft_answer_s"] is not None)
+        return round(statistics.median(vals), 3) if vals else None
+
+    same_p2 = [r for r in same_runs if r["pass"] == 2]
+    payload = {
+        "tool": "llm_bench.py prefix",
+        "level": "external_api_blackbox_probe",
+        "caveat": "TTFT difference is consistent with prefix caching but the mechanism "
+                  "CANNOT be verified on a hosted endpoint; not a self-inference metric",
+        "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "git_rev": git_rev(),
+        "env": env_info(),
+        "endpoint": args.base_url or ZAI_BASE_URL,
+        "model": args.model,
+        "api_model": api_model,
+        "thinking": "off",
+        "prefix_chars": len(PREFIX_BASE),
+        "generation_params": {"temperature": 0.1, "max_tokens": 48, "stream": True},
+        "summary": {
+            "ttft_median_same_prefix_pass1": med_ttft([r for r in same_runs if r["pass"] == 1]),
+            "ttft_median_same_prefix_pass2": med_ttft(same_p2),
+            "ttft_median_fresh_prefix": med_ttft(fresh_runs),
+            "mean_prompt_tokens": round(statistics.mean(
+                [r["usage_prompt_tokens"] for r in same_runs + fresh_runs if r.get("usage_prompt_tokens")]), 1),
+        },
+        "raw": {"same_prefix": same_runs, "fresh_prefix": fresh_runs},
+    }
+    print("\n  ⇒ TTFT medians: same-prefix p1="
+          f"{payload['summary']['ttft_median_same_prefix_pass1']}s p2={payload['summary']['ttft_median_same_prefix_pass2']}s "
+          f"| fresh-prefix={payload['summary']['ttft_median_fresh_prefix']}s")
+    path = save_json(f"prefix_{api_model}", payload)
+    print(f"Saved → {path}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="LLM inference benchmark (external API level)")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -531,8 +736,22 @@ def main() -> None:
     p_ret = sub.add_parser("retrieval", help="deterministic RAG retrieval metrics")
     p_ret.set_defaults(func=cmd_retrieval)
 
+    p_ctx = sub.add_parser("ctx", help="context-length matrix (TTFT vs input size)")
+    p_ctx.add_argument("--model", default="zai:glm-4.5-flash")
+    p_ctx.add_argument("--sizes", default="1000,4000,8000,16000,32000")
+    p_ctx.add_argument("--runs", type=int, default=2)
+    p_ctx.add_argument("--base-url", default=None)
+    p_ctx.add_argument("--api-model", default=None)
+    p_ctx.set_defaults(func=cmd_ctx)
+
+    p_pre = sub.add_parser("prefix", help="prefix-cache black-box probe (repeated vs fresh prefix)")
+    p_pre.add_argument("--model", default="zai:glm-4.5-flash")
+    p_pre.add_argument("--base-url", default=None)
+    p_pre.add_argument("--api-model", default=None)
+    p_pre.set_defaults(func=cmd_prefix)
+
     args = parser.parse_args()
-    if args.cmd in ("tokens", "load"):
+    if args.cmd in ("tokens", "load", "ctx", "prefix"):
         asyncio.run(args.func(args))
     else:
         args.func(args)

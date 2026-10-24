@@ -1,0 +1,389 @@
+{
+  "tool": "llm_bench.py ctx",
+  "level": "external_api_prefill_vs_context",
+  "note": "TTFT here = queue + prefill + first token; derived_prefill_tok_per_s is an UPPER BOUND on prefill speed (queue time included), client-observed",
+  "generated_at": "2026-10-24 00:07:47",
+  "git_rev": "2d9de1e",
+  "env": {
+    "python": "3.13.5",
+    "os": "macOS-10.16-x86_64-i386-64bit-Mach-O",
+    "openai": "1.59.6",
+    "httpx": "0.28.1"
+  },
+  "endpoint": "https://api.z.ai/api/paas/v4",
+  "model": "zai:glm-4.5-flash",
+  "api_model": "glm-4.5-flash",
+  "thinking": "off",
+  "generation_params": {
+    "temperature": 0.1,
+    "max_tokens": 96,
+    "stream": true
+  },
+  "results": [
+    {
+      "summary": {
+        "target_tokens": 1000,
+        "prompt_chars": 2658,
+        "n_ok": 2,
+        "measured_prompt_tokens": {
+          "n": 2,
+          "mean": 1107,
+          "p50": 1107,
+          "p95": 1107,
+          "std": 0.0
+        },
+        "ttft_answer_s": {
+          "n": 2,
+          "mean": 3.917,
+          "p50": 6.572,
+          "p95": 6.572,
+          "std": 2.655
+        },
+        "total_s": {
+          "n": 2,
+          "mean": 3.922,
+          "p50": 6.58,
+          "p95": 6.58,
+          "std": 2.658
+        },
+        "derived_prefill_tok_per_s": 168.4
+      },
+      "runs": [
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 6.58,
+          "ttft_reasoning_s": null,
+          "ttft_answer_s": 6.572,
+          "n_reason_chunks": 0,
+          "n_answer_chunks": 11,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 1107,
+          "usage_completion_tokens": 12,
+          "usage_source": "api",
+          "completion_text_len": 36,
+          "tpot_chunk_ms": 0.83,
+          "itl_mean_ms": 0.28,
+          "itl_p95_ms": 0.48,
+          "completion_tok_per_s": 1.8,
+          "tok_per_s_after_ttft": 1444.3,
+          "answer_chunk_per_s": 1323.9,
+          "run": 1
+        },
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 1.264,
+          "ttft_reasoning_s": null,
+          "ttft_answer_s": 1.261,
+          "n_reason_chunks": 0,
+          "n_answer_chunks": 11,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 1107,
+          "usage_completion_tokens": 12,
+          "usage_source": "api",
+          "completion_text_len": 36,
+          "tpot_chunk_ms": 0.35,
+          "itl_mean_ms": 0.28,
+          "itl_p95_ms": 0.49,
+          "completion_tok_per_s": 9.5,
+          "tok_per_s_after_ttft": 3477.8,
+          "answer_chunk_per_s": 3188.0,
+          "run": 2
+        }
+      ]
+    },
+    {
+      "summary": {
+        "target_tokens": 4000,
+        "prompt_chars": 10159,
+        "n_ok": 2,
+        "measured_prompt_tokens": {
+          "n": 2,
+          "mean": 4251,
+          "p50": 4251,
+          "p95": 4251,
+          "std": 0.0
+        },
+        "ttft_answer_s": {
+          "n": 2,
+          "mean": 1.482,
+          "p50": 1.78,
+          "p95": 1.78,
+          "std": 0.298
+        },
+        "total_s": {
+          "n": 2,
+          "mean": 1.486,
+          "p50": 1.783,
+          "p95": 1.783,
+          "std": 0.297
+        },
+        "derived_prefill_tok_per_s": 2388.2
+      },
+      "runs": [
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 1.783,
+          "ttft_reasoning_s": null,
+          "ttft_answer_s": 1.78,
+          "n_reason_chunks": 0,
+          "n_answer_chunks": 12,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 4251,
+          "usage_completion_tokens": 13,
+          "usage_source": "api",
+          "completion_text_len": 43,
+          "tpot_chunk_ms": 0.3,
+          "itl_mean_ms": 0.24,
+          "itl_p95_ms": 1.02,
+          "completion_tok_per_s": 7.3,
+          "tok_per_s_after_ttft": 3998.2,
+          "answer_chunk_per_s": 3690.7,
+          "run": 1
+        },
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 1.189,
+          "ttft_reasoning_s": null,
+          "ttft_answer_s": 1.183,
+          "n_reason_chunks": 0,
+          "n_answer_chunks": 12,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 4251,
+          "usage_completion_tokens": 13,
+          "usage_source": "api",
+          "completion_text_len": 43,
+          "tpot_chunk_ms": 0.5,
+          "itl_mean_ms": 0.43,
+          "itl_p95_ms": 0.58,
+          "completion_tok_per_s": 10.9,
+          "tok_per_s_after_ttft": 2385.8,
+          "answer_chunk_per_s": 2202.3,
+          "run": 2
+        }
+      ]
+    },
+    {
+      "summary": {
+        "target_tokens": 8000,
+        "prompt_chars": 20087,
+        "n_ok": 2,
+        "measured_prompt_tokens": {
+          "n": 2,
+          "mean": 8388,
+          "p50": 8388,
+          "p95": 8388,
+          "std": 0.0
+        },
+        "ttft_answer_s": {
+          "n": 2,
+          "mean": 1.526,
+          "p50": 1.871,
+          "p95": 1.871,
+          "std": 0.345
+        },
+        "total_s": {
+          "n": 2,
+          "mean": 1.529,
+          "p50": 1.874,
+          "p95": 1.874,
+          "std": 0.345
+        },
+        "derived_prefill_tok_per_s": 4483.2
+      },
+      "runs": [
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 1.874,
+          "ttft_reasoning_s": null,
+          "ttft_answer_s": 1.871,
+          "n_reason_chunks": 0,
+          "n_answer_chunks": 11,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 8388,
+          "usage_completion_tokens": 12,
+          "usage_source": "api",
+          "completion_text_len": 36,
+          "tpot_chunk_ms": 0.33,
+          "itl_mean_ms": 0.28,
+          "itl_p95_ms": 0.35,
+          "completion_tok_per_s": 6.4,
+          "tok_per_s_after_ttft": 3582.1,
+          "answer_chunk_per_s": 3283.6,
+          "run": 1
+        },
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 1.184,
+          "ttft_reasoning_s": null,
+          "ttft_answer_s": 1.182,
+          "n_reason_chunks": 0,
+          "n_answer_chunks": 11,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 8388,
+          "usage_completion_tokens": 12,
+          "usage_source": "api",
+          "completion_text_len": 36,
+          "tpot_chunk_ms": 0.22,
+          "itl_mean_ms": 0.18,
+          "itl_p95_ms": 0.21,
+          "completion_tok_per_s": 10.1,
+          "tok_per_s_after_ttft": 5359.0,
+          "answer_chunk_per_s": 4912.5,
+          "run": 2
+        }
+      ]
+    },
+    {
+      "summary": {
+        "target_tokens": 16000,
+        "prompt_chars": 40075,
+        "n_ok": 2,
+        "measured_prompt_tokens": {
+          "n": 2,
+          "mean": 16836,
+          "p50": 16836,
+          "p95": 16836,
+          "std": 0.0
+        },
+        "ttft_answer_s": {
+          "n": 2,
+          "mean": 2.062,
+          "p50": 2.863,
+          "p95": 2.863,
+          "std": 0.801
+        },
+        "total_s": {
+          "n": 2,
+          "mean": 2.064,
+          "p50": 2.866,
+          "p95": 2.866,
+          "std": 0.802
+        },
+        "derived_prefill_tok_per_s": 5880.5
+      },
+      "runs": [
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 2.866,
+          "ttft_reasoning_s": null,
+          "ttft_answer_s": 2.863,
+          "n_reason_chunks": 0,
+          "n_answer_chunks": 13,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 16836,
+          "usage_completion_tokens": 14,
+          "usage_source": "api",
+          "completion_text_len": 37,
+          "tpot_chunk_ms": 0.3,
+          "itl_mean_ms": 0.27,
+          "itl_p95_ms": 0.44,
+          "completion_tok_per_s": 4.9,
+          "tok_per_s_after_ttft": 3925.7,
+          "answer_chunk_per_s": 3645.3,
+          "run": 1
+        },
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 1.263,
+          "ttft_reasoning_s": null,
+          "ttft_answer_s": 1.261,
+          "n_reason_chunks": 0,
+          "n_answer_chunks": 11,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 16836,
+          "usage_completion_tokens": 12,
+          "usage_source": "api",
+          "completion_text_len": 36,
+          "tpot_chunk_ms": 0.21,
+          "itl_mean_ms": 0.16,
+          "itl_p95_ms": 0.19,
+          "completion_tok_per_s": 9.5,
+          "tok_per_s_after_ttft": 5832.3,
+          "answer_chunk_per_s": 5346.3,
+          "run": 2
+        }
+      ]
+    },
+    {
+      "summary": {
+        "target_tokens": 32000,
+        "prompt_chars": 80083,
+        "n_ok": 2,
+        "measured_prompt_tokens": {
+          "n": 2,
+          "mean": 33847,
+          "p50": 33847,
+          "p95": 33847,
+          "std": 0.0
+        },
+        "ttft_answer_s": {
+          "n": 2,
+          "mean": 3.575,
+          "p50": 5.446,
+          "p95": 5.446,
+          "std": 1.87
+        },
+        "total_s": {
+          "n": 2,
+          "mean": 3.579,
+          "p50": 5.449,
+          "p95": 5.449,
+          "std": 1.87
+        },
+        "derived_prefill_tok_per_s": 6215.0
+      },
+      "runs": [
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 5.449,
+          "ttft_reasoning_s": null,
+          "ttft_answer_s": 5.446,
+          "n_reason_chunks": 0,
+          "n_answer_chunks": 13,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 33847,
+          "usage_completion_tokens": 14,
+          "usage_source": "api",
+          "completion_text_len": 37,
+          "tpot_chunk_ms": 0.26,
+          "itl_mean_ms": 0.24,
+          "itl_p95_ms": 0.47,
+          "completion_tok_per_s": 2.6,
+          "tok_per_s_after_ttft": 4537.4,
+          "answer_chunk_per_s": 4213.3,
+          "run": 1
+        },
+        {
+          "ok": true,
+          "answer_reached": true,
+          "total_s": 1.709,
+          "ttft_reasoning_s": null,
+          "ttft_answer_s": 1.705,
+          "n_reason_chunks": 0,
+          "n_answer_chunks": 13,
+          "finish_reason": "stop",
+          "usage_prompt_tokens": 33847,
+          "usage_completion_tokens": 14,
+          "usage_source": "api",
+          "completion_text_len": 37,
+          "tpot_chunk_ms": 0.3,
+          "itl_mean_ms": 0.28,
+          "itl_p95_ms": 0.5,
+          "completion_tok_per_s": 8.2,
+          "tok_per_s_after_ttft": 3825.6,
+          "answer_chunk_per_s": 3552.4,
+          "run": 2
+        }
+      ]
+    }
+  ]
+}

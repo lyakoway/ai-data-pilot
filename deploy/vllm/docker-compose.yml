@@ -1,0 +1,34 @@
+# vLLM OpenAI-compatible endpoint — delivery scenario (PREPARED, NOT RUN).
+# Requires: NVIDIA GPU host, Docker + nvidia-container-toolkit.
+# Weights live OUTSIDE the image (./models volume) so the image stays small
+# and model revisions are pinned independently of the runtime version.
+services:
+  vllm:
+    image: vllm/vllm-openai:v0.6.6          # pinned runtime version
+    container_name: ai-data-pilot-vllm
+    command: >
+      --model ${VLLM_MODEL:-Qwen/Qwen2.5-7B-Instruct}
+      --revision ${VLLM_MODEL_REVISION:-main}
+      --max-model-len 32768
+      --enable-prefix-caching
+      --gpu-memory-utilization 0.90
+      --api-key ${VLLM_API_KEY:-local-dev-only}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface   # weights cache outside the image
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}
+    deploy:
+      resources:
+        limits:
+          memory: 32g
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 120s
+    restart: unless-stopped
+    stop_grace_period: 60s
+    # graceful stop: vLLM finishes in-flight requests on SIGTERM within the grace period

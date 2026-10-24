@@ -1,0 +1,54 @@
+# Kubernetes manifest — PREPARED, NOT APPLIED/VERIFIED.
+# Minimal GPU deployment for the vLLM endpoint; probes mirror the compose file.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: adp-vllm
+  labels: {app: adp-vllm}
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate          # zero-downtime restarts; surge keeps the old pod serving
+    rollingUpdate: {maxSurge: 0, maxUnavailable: 0}  # single-GPU node: replace after drain
+  selector:
+    matchLabels: {app: adp-vllm}
+  template:
+    metadata:
+      labels: {app: adp-vllm}
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:v0.6.6
+          args:
+            - --model
+            - Qwen/Qwen2.5-7B-Instruct   # pin revision with --revision <sha>
+            - --max-model-len
+            - "32768"
+            - --enable-prefix-caching
+            - --gpu-memory-utilization
+            - "0.90"
+          ports: [{containerPort: 8000}]
+          readinessProbe:
+            httpGet: {path: /health, port: 8000}
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /health, port: 8000}
+            initialDelaySeconds: 120
+            periodSeconds: 20
+          resources:
+            requests: {nvidia.com/gpu: 1, memory: "24Gi", cpu: "4"}
+            limits: {nvidia.com/gpu: 1, memory: "32Gi", cpu: "8"}
+          volumeMounts:
+            - {name: hf-cache, mountPath: /root/.cache/huggingface}
+      volumes:
+        - name: hf-cache
+          hostPath: {path: /data/hf-cache, type: DirectoryOrCreate}  # weights outside the image/pod
+---
+apiVersion: v1
+kind: Service
+metadata: {name: adp-vllm}
+spec:
+  selector: {app: adp-vllm}
+  ports: [{port: 8000, targetPort: 8000}]

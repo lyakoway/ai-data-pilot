@@ -54,12 +54,35 @@ python scripts/llm_bench.py load --model zai:glm-4.5-flash --scenario long
 # E2E через реальный SSE-эндпоинт (поднимает uvicorn сам)
 python scripts/e2e_bench.py --models mock,zai:glm-4.6,zai:glm-5.2,zai:glm-5.3-flash --runs 3
 
-# Качество SQL на golden set (50 кейсов)
+# Качество SQL на golden set v1 (50 кейсов) / v2 (20 кейсов, temporal/join/groupby/pct)
 python scripts/eval_sql_full.py --model zai:glm-4.6
+python scripts/eval_sql_full.py --model zai:glm-4.5-flash --golden tests/golden/sql_golden_v2.jsonl
+python scripts/eval_sql_full.py --model zai:glm-4.6 --only sql_009,sql_010   # точечный rerun
+
+# Единая сравнительная таблица из артефактов (с mержем rerun-ов и Wilson 95% CI)
+python scripts/compare_sql_evals.py --merge
+
+# Контекст-матрица: TTFT vs длина входа (1k/4k/8k/16k/32k)
+python scripts/llm_bench.py ctx --model zai:glm-4.5-flash
+
+# Black-box проба prefix caching (одинаковый префикс vs уникальные)
+python scripts/llm_bench.py prefix --model zai:glm-4.5-flash
 
 # Retrieval-метрики (без LLM, детерминированно)
 python scripts/llm_bench.py retrieval
 ```
+
+## Уровни измерений — строгое разделение
+
+| Уровень | Инструмент | Что нельзя заявлять |
+|---|---|---|
+| Внешний API Z.ai (tokens/load/ctx/prefix) | `llm_bench.py --base-url` (по умолчанию Z.ai) | это client-observed метрики ХОСТЕД-эндпоинта: очереди, шлюз-батчинг и серверные решения провайдера не наблюдаемы; это НЕ метрики собственного GPU-инференса |
+| Приложение E2E (SSE) | `e2e_bench.py` | `time_to_first_event` — момент первого шага агента, НЕ TTFT модели |
+| Собственный runtime (vLLM/ollama) | тот же `llm_bench.py --base-url http://...` | сравнение рантаймов валидно только на одинаковых весях/входах/параметрах |
+
+Проба `prefix` на внешнем API — индикатор совместимости с серверным кэшем,
+НЕ доказательство его работы; на своём vLLM доказательством служат cache-hit
+в серверном логе (см. deploy/vllm/RUNBOOK.md).
 
 ## Формулы
 

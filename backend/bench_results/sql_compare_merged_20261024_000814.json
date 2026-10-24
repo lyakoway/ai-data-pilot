@@ -1,0 +1,193 @@
+{
+  "mode": "merged per model+set (infra failures replaced by real reruns)",
+  "rows": [
+    {
+      "model": "zai:glm-4.5-flash",
+      "golden_set": "v1",
+      "model_reported": "glm-4.5-flash",
+      "generated_at": "2026-10-23 00:24:28",
+      "git_rev": "904f226",
+      "golden_sha": "f3c860500846b1c6",
+      "params": {
+        "temperature_complete": 0.1,
+        "max_tokens": "provider default (not set by app)",
+        "thinking_mode": "provider default (GLM-5.x think by default; the app does not disable thinking)",
+        "note": "params are hardcoded in app/llm/providers.py — unchanged for this eval"
+      },
+      "sources": [
+        "sql_eval_zai_glm-4.5-flash_20261022_222131.json",
+        "sql_eval_zai_glm-4.5-flash_20261023_002431.json"
+      ],
+      "n": 50,
+      "n_infra": 1,
+      "execution_accuracy": 98.0,
+      "execution_accuracy_excl_infra": 100.0,
+      "result_match": 29,
+      "result_checked": 44,
+      "result_accuracy": 65.9,
+      "result_accuracy_wilson95": [
+        51.1,
+        78.1
+      ],
+      "exact_match": 0.0,
+      "latency_p50_ms": 15262,
+      "latency_p95_ms": 69029
+    },
+    {
+      "model": "zai:glm-4.5-flash",
+      "golden_set": "v2",
+      "model_reported": "glm-4.5-flash",
+      "generated_at": "2026-10-23 23:34:30",
+      "git_rev": "2d9de1e",
+      "golden_sha": "42142cd8e6b97d00",
+      "params": {
+        "temperature_complete": 0.1,
+        "max_tokens": "provider default (not set by app)",
+        "thinking_mode": "provider default (GLM-5.x think by default; the app does not disable thinking)",
+        "note": "params are hardcoded in app/llm/providers.py — unchanged for this eval"
+      },
+      "sources": [
+        "sql_eval_zai_glm-4.5-flash_v2_20261023_233430.json"
+      ],
+      "n": 20,
+      "n_infra": 0,
+      "execution_accuracy": 95.0,
+      "execution_accuracy_excl_infra": 95.0,
+      "result_match": 9,
+      "result_checked": 20,
+      "result_accuracy": 45.0,
+      "result_accuracy_wilson95": [
+        25.8,
+        65.8
+      ],
+      "exact_match": 0.0,
+      "latency_p50_ms": 17997,
+      "latency_p95_ms": 430713
+    },
+    {
+      "model": "zai:glm-4.6",
+      "golden_set": "v1",
+      "model_reported": "glm-4.6",
+      "generated_at": "2026-10-23 00:38:27",
+      "git_rev": "904f226",
+      "golden_sha": "f3c860500846b1c6",
+      "params": {
+        "temperature_complete": 0.1,
+        "max_tokens": "provider default (not set by app)",
+        "thinking_mode": "provider default (GLM-5.x think by default; the app does not disable thinking)",
+        "note": "params are hardcoded in app/llm/providers.py — unchanged for this eval"
+      },
+      "sources": [
+        "sql_eval_zai_glm-4.6_20261022_233936.json",
+        "sql_eval_zai_glm-4.6_20261023_003829.json"
+      ],
+      "n": 50,
+      "n_infra": 0,
+      "execution_accuracy": 100.0,
+      "execution_accuracy_excl_infra": 100.0,
+      "result_match": 18,
+      "result_checked": 45,
+      "result_accuracy": 40.0,
+      "result_accuracy_wilson95": [
+        27.0,
+        54.5
+      ],
+      "exact_match": 2.0,
+      "latency_p50_ms": 13712,
+      "latency_p95_ms": 22929
+    },
+    {
+      "model": "zai:glm-5.2",
+      "golden_set": "v1",
+      "model_reported": "glm-5.2",
+      "generated_at": "2026-10-22 23:45:00",
+      "git_rev": "904f226",
+      "golden_sha": "f3c860500846b1c6",
+      "params": {
+        "temperature_complete": 0.1,
+        "max_tokens": "provider default (not set by app)",
+        "thinking_mode": "provider default (GLM-5.x think by default; the app does not disable thinking)",
+        "note": "params are hardcoded in app/llm/providers.py — unchanged for this eval"
+      },
+      "sources": [
+        "sql_eval_zai_glm-5.2_20261022_234501.json"
+      ],
+      "n": 50,
+      "n_infra": 0,
+      "execution_accuracy": 100.0,
+      "execution_accuracy_excl_infra": 100.0,
+      "result_match": 17,
+      "result_checked": 45,
+      "result_accuracy": 37.8,
+      "result_accuracy_wilson95": [
+        25.1,
+        52.4
+      ],
+      "exact_match": 2.0,
+      "latency_p50_ms": 5673,
+      "latency_p95_ms": 12045
+    },
+    {
+      "model": "zai:glm-5.3-flash",
+      "golden_set": "v1",
+      "model_reported": "glm-5.3-flash",
+      "generated_at": "2026-10-22 23:51:43",
+      "git_rev": "904f226",
+      "golden_sha": "f3c860500846b1c6",
+      "params": {
+        "temperature_complete": 0.1,
+        "max_tokens": "provider default (not set by app)",
+        "thinking_mode": "provider default (GLM-5.x think by default; the app does not disable thinking)",
+        "note": "params are hardcoded in app/llm/providers.py — unchanged for this eval"
+      },
+      "sources": [
+        "sql_eval_zai_glm-5.3-flash_20261022_235144.json"
+      ],
+      "n": 50,
+      "n_infra": 0,
+      "execution_accuracy": 100.0,
+      "execution_accuracy_excl_infra": 100.0,
+      "result_match": 16,
+      "result_checked": 45,
+      "result_accuracy": 35.6,
+      "result_accuracy_wilson95": [
+        23.2,
+        50.2
+      ],
+      "exact_match": 2.0,
+      "latency_p50_ms": 7082,
+      "latency_p95_ms": 12322
+    },
+    {
+      "model": "zai:glm-5.3",
+      "golden_set": "v1",
+      "model_reported": "glm-5.3",
+      "generated_at": "2026-10-23 00:31:19",
+      "git_rev": "904f226",
+      "golden_sha": "f3c860500846b1c6",
+      "params": {
+        "temperature_complete": 0.1,
+        "max_tokens": "provider default (not set by app)",
+        "thinking_mode": "provider default (GLM-5.x think by default; the app does not disable thinking)",
+        "note": "params are hardcoded in app/llm/providers.py — unchanged for this eval"
+      },
+      "sources": [
+        "sql_eval_zai_glm-5.3_20261023_003120.json"
+      ],
+      "n": 50,
+      "n_infra": 0,
+      "execution_accuracy": 100.0,
+      "execution_accuracy_excl_infra": 100.0,
+      "result_match": 15,
+      "result_checked": 45,
+      "result_accuracy": 33.3,
+      "result_accuracy_wilson95": [
+        21.4,
+        47.9
+      ],
+      "exact_match": 2.0,
+      "latency_p50_ms": 6621,
+      "latency_p95_ms": 15647
+    }
+  ]
+}
