@@ -238,9 +238,35 @@ def dispatch_tool(
         return _err(f"Ошибка инструмента {name}: {str(e)[:200]}")
 
 
+# Bounded rows preview fed back to the model in the ReAct loop. Without it the
+# agent sees only row_count and cannot reason about the data (it used to
+# re-query endlessly and exhaust the step budget). Caps keep the history small.
+MAX_PREVIEW_ROWS = 8
+MAX_CELL_CHARS = 40
+
+
 def tool_result_to_message(result: dict[str, Any]) -> str:
-    """Serialise a tool result into a compact string for the LLM history."""
+    """Serialise a tool result into a compact string for the LLM history.
+
+    ``rows`` is replaced by a bounded preview (first MAX_PREVIEW_ROWS rows,
+    cells truncated) plus ``row_count`` — the model gets enough data to reason
+    and to call ``finish``, but never an unbounded dump.
+    """
     data = {k: v for k, v in result.get("data", {}).items() if k != "rows"}
-    if "rows" in result.get("data", {}):
-        data["row_count"] = len(result["data"]["rows"])
+    rows = result.get("data", {}).get("rows")
+    if rows is not None:
+        data["row_count"] = len(rows)
+        columns = data.get("columns") or []
+        preview = []
+        for row in rows[:MAX_PREVIEW_ROWS]:
+            preview.append({
+                col: (val if isinstance(val, (int, float, bool)) or val is None
+                      else str(val)[:MAX_CELL_CHARS])
+                for col, val in zip(columns, row)
+            })
+        data["rows_preview"] = preview
+        if len(rows) > MAX_PREVIEW_ROWS:
+            data["rows_preview_note"] = (
+                f"первые {MAX_PREVIEW_ROWS} из {len(rows)} строк; для точных сумм используй SQL-агрегаты"
+            )
     return json.dumps({"ok": result["ok"], "summary": result["summary"], **data}, ensure_ascii=False)

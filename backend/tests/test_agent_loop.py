@@ -172,3 +172,26 @@ async def test_run_loop_handles_invalid_model_output(tmp_db, monkeypatch, fake_p
     assert r["status"] == "error"
     # The agent reasoning step errored.
     assert any(s["tool"] == "agent" and s["status"] == "error" for s in r["steps"])
+    # One bounded retry happened before giving up.
+    assert fake.calls == 2
+
+
+@pytest.mark.asyncio
+async def test_run_loop_recovers_from_truncated_json_with_single_retry(
+    tmp_db, monkeypatch, fake_provider_factory
+):
+    """Thinking models occasionally return JSON truncated mid-string (reasoning
+    eats the output budget — observed live on glm-4.5-flash). One strict-format
+    retry must recover the loop instead of wasting the whole step budget."""
+    truncated = '{"thought": "Анализирую падение выручки по гор'
+    valid = json.dumps(
+        {"thought": "Данных достаточно", "tool": "finish",
+         "args": {"answer": "Выручка снизилась на 45.5% месяц к месяцу."}}
+    )
+    fake = fake_provider_factory(responses=[truncated, valid], provider="openai")
+    monkeypatch.setattr(atlas_module, "get_provider", lambda model_id: fake)
+
+    r = await run_atlas("Почему выручка упала в июле?", model_id="openai:gpt-4o", lang="ru")
+    assert r["status"] == "ok"
+    assert "45.5" in r["answer"]
+    assert fake.calls == 2  # exactly one retry — no retry storms

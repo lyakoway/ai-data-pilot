@@ -67,8 +67,15 @@ class OpenAIProvider:
     provider = "openai"
     base_url: str | None = None
 
+    # Explicit, bounded transport policy (was: SDK defaults — 600 s timeout,
+    # hidden retries). max_retries=3 covers 429/5xx with the SDK's built-in
+    # Retry-After handling; hard cap stops runaway retries under rate limits.
+    REQUEST_TIMEOUT = httpx.Timeout(300.0, connect=10.0)
+    MAX_RETRIES = 3
+
     def __init__(self, model: str = "gpt-4o-mini") -> None:
         self.model = model
+        self._client: AsyncOpenAI | None = None
 
     def _api_key(self) -> str | None:
         return settings.openai_api_key
@@ -76,34 +83,59 @@ class OpenAIProvider:
     def available(self) -> bool:
         return bool(self._api_key())
 
+    def _get_client(self) -> AsyncOpenAI:
+        """Lazily build one shared client (connection pooling, bounded retries)."""
+        if self._client is None:
+            from openai import AsyncOpenAI
+
+            self._client = AsyncOpenAI(
+                api_key=self._api_key(), base_url=self.base_url,
+                timeout=self.REQUEST_TIMEOUT, max_retries=self.MAX_RETRIES,
+            )
+        return self._client
+
+    def _payload(self, system: str, messages: list[ChatMessage]) -> list[dict]:
+        return [{"role": "system", "content": system}] + [
+            {"role": _norm_role(m.role), "content": m.content} for m in messages
+        ]
+
+    async def stream_events(
+        self, system: str, messages: list[ChatMessage], lang: str = "ru"
+    ) -> AsyncIterator[dict]:
+        """Typed streaming events, correct for thinking models (GLM-4.5+/5.x):
+        their deltas carry ``reasoning_content`` first, ``content`` only after.
+        Yields:
+          {"type": "reasoning_delta", "text": ...}  — internal thinking (NEVER
+              shown to the user; a UI may use it to render a "thinking…" state)
+          {"type": "answer_delta", "text": ...}     — the actual answer text
+        """
+        stream = await self._get_client().chat.completions.create(
+            model=self.model, messages=self._payload(system, messages),
+            stream=True, temperature=0.2,
+        )
+        async for chunk in stream:
+            if not chunk.choices:
+                continue
+            delta = chunk.choices[0].delta
+            reasoning = getattr(delta, "reasoning_content", None)
+            if reasoning:
+                yield {"type": "reasoning_delta", "text": reasoning}
+            if delta.content:
+                yield {"type": "answer_delta", "text": delta.content}
+
     async def stream(
         self, system: str, messages: list[ChatMessage], lang: str = "ru"
     ) -> AsyncIterator[str]:
-        from openai import AsyncOpenAI
-
-        client = AsyncOpenAI(api_key=self._api_key(), base_url=self.base_url)
-        payload = [{"role": "system", "content": system}] + [
-            {"role": _norm_role(m.role), "content": m.content} for m in messages
-        ]
-        stream = await client.chat.completions.create(
-            model=self.model, messages=payload, stream=True, temperature=0.2
-        )
-        async for chunk in stream:
-            delta = chunk.choices[0].delta.content
-            if delta:
-                yield delta
+        """Answer tokens only — internal reasoning never leaks to the caller."""
+        async for event in self.stream_events(system, messages, lang):
+            if event["type"] == "answer_delta":
+                yield event["text"]
 
     async def complete(
         self, system: str, messages: list[ChatMessage], lang: str = "ru"
     ) -> str:
-        from openai import AsyncOpenAI
-
-        client = AsyncOpenAI(api_key=self._api_key(), base_url=self.base_url)
-        payload = [{"role": "system", "content": system}] + [
-            {"role": _norm_role(m.role), "content": m.content} for m in messages
-        ]
-        resp = await client.chat.completions.create(
-            model=self.model, messages=payload, temperature=0.1
+        resp = await self._get_client().chat.completions.create(
+            model=self.model, messages=self._payload(system, messages), temperature=0.1
         )
         return resp.choices[0].message.content or ""
 
@@ -113,7 +145,7 @@ class ZaiProvider(OpenAIProvider):
     base_url = "https://api.z.ai/api/paas/v4"
 
     def __init__(self, model: str = "glm-4.6") -> None:
-        self.model = model
+        super().__init__(model=model)  # shares the pooled client + retry policy
 
     def _api_key(self) -> str | None:
         return settings.zai_api_key
@@ -192,7 +224,9 @@ class OllamaProvider:
         }
         if settings.ollama_num_gpu is not None:
             payload["options"] = {"num_gpu": settings.ollama_num_gpu}
-        async with httpx.AsyncClient(timeout=None) as client:
+        # Bounded timeout (was None — a hung local server blocked forever).
+        # Read budget is generous: local generation streams with long gaps.
+        async with httpx.AsyncClient(timeout=httpx.Timeout(300.0, connect=10.0)) as client:
             async with client.stream(
                 "POST", f"{settings.ollama_base_url}/api/chat", json=payload
             ) as resp:

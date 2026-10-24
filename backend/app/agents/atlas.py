@@ -501,8 +501,26 @@ async def _run_loop(
         raw = await provider.complete(
             LOOP_SYSTEM + schema_catalog, list(messages), lang=lang
         )
-        think_step["duration_ms"] = int((time.perf_counter() - t0) * 1000)
         decision = _extract_json(raw)
+        if not decision or "tool" not in decision:
+            # One bounded retry: hosted thinking models occasionally return a
+            # response truncated mid-JSON (reasoning eats the output budget).
+            # A retry with a strict-format reminder usually yields valid JSON;
+            # it never masks tool errors and is capped at a single attempt.
+            retry_messages = list(messages) + [
+                ChatMessage(
+                    "user",
+                    "Предыдущий ответ не был валидным JSON (вероятно, оборван). "
+                    "Повтори решение ОДНИМ коротким валидным JSON-объектом без пояснений: "
+                    '{"thought": "...", "tool": "...", "args": {...}}',
+                )
+            ]
+            raw2 = await provider.complete(
+                LOOP_SYSTEM + schema_catalog, retry_messages, lang=lang
+            )
+            decision = _extract_json(raw2)
+            raw = raw2 if decision else (raw2 or raw)
+        think_step["duration_ms"] = int((time.perf_counter() - t0) * 1000)
         if not decision or "tool" not in decision:
             think_step["status"] = "error"
             think_step["summary"] = (raw or "")[:140]
