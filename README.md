@@ -22,7 +22,7 @@ docs and uploads) — plus a dual auto-router.
 [![Demo](https://img.shields.io/badge/demo-lyakoway--ai--data--pilot.hf.space-ff9d00)](https://lyakoway-ai-data-pilot.hf.space/)
 ![backend](https://img.shields.io/badge/backend-FastAPI-009688)
 ![frontend](https://img.shields.io/badge/frontend-React%2019%20%2B%20Vite-61dafb)
-![tests](https://img.shields.io/badge/tests-174%20passed-brightgreen)
+![tests](https://img.shields.io/badge/tests-186%20passed-brightgreen)
 ![sources](https://img.shields.io/badge/sources-PostgreSQL%20·%20ClickHouse%20·%20CSV%20·%20Excel-6366f1)
 
 <sub>On the free tier the demo Space may fall asleep — the first visit after
@@ -38,10 +38,14 @@ first search (~10 s).</sub>
 3. **Two agents, not one prompt** — Atlas for SQL, Doc for
    docs. Dual router — the decision is visible in the SSE trace.
 
-Headline SQL quality on the public test pack (GLM-4.6): **~85% normalized
-result correctness** (same numbers after dropping aliases, row order and number
-format — not string exact-match). **~98% execution** only means the query ran.
-**2h → 2min** report prep is from production experience, not this demo.
+Headline SQL quality on the public test pack — **measured, with confidence
+intervals** (50-case golden set, execution match): best model
+**GLM-4.5-flash 65.9%** normalized result correctness (Wilson 95% CI
+51.1–78.1), default **GLM-4.6 40.0%** (27.0–54.5). An earlier "~85%" claim
+could not be reproduced from artifacts and has been replaced by these
+numbers — methodology and raw runs: [backend/BENCHMARK.md](backend/BENCHMARK.md),
+[reports](backend/bench_results/). **~98–100% execution** only means the query
+ran. **2h → 2min** report prep is from production experience, not this demo.
 
 **Scale and validation:**
 
@@ -49,9 +53,9 @@ format — not string exact-match). **~98% execution** only means the query ran.
 | ------------- | ----------------------------------- |
 | **~15**       | analysts · internal pilot           |
 | **~80**       | scenarios / week                    |
-| **~85%**      | normalized SQL · held-out           |
+| **40–66%**    | normalized SQL · measured, CI in [BENCHMARK.md](backend/BENCHMARK.md) |
 | **2h → 2min** | report prep · production experience |
-| **174**       | pytest tests                        |
+| **186**       | pytest tests                        |
 | **Python**    | counts · LLM writes prose           |
 
 <sub>Scale figures are from internal production experience. The demo and SQL
@@ -75,7 +79,7 @@ eval in this repo run on a public test dataset (RideGo ~21k rides).</sub>
 - ⚡ **Parameterized scenarios** — templates with `{period}`, `{group_by}`.
 - 👍 **Feedback** — 👍/👎 analytics by agent.
 - 🚦 **Status transparency** — every response carries an explicit `ok / demo / partial / error` status. No silent fallback.
-- 🤖 **13 model configs** — OpenAI, Anthropic, Z.ai, Ollama + offline Demo. **GLM-4.6 is the default** (the ~85% SQL eval ran on it).
+- 🤖 **13 model configs** — OpenAI, Anthropic, Z.ai, Ollama + offline Demo. **GLM-4.6 is the default** (see the measured quality/latency trade-off below).
 
 ## Use cases
 
@@ -190,9 +194,11 @@ Routing to a specialized agent keeps each workflow bounded and measurable.
   agent's role. Decision: two specialized agents + two-level routing with a
   visible decision in the trace.
 - **Model pick is a quality/latency trade-off, not a default from a blog.** On
-  the latency table (3 runs, one question) GLM-5.2 is ~16 s vs GLM-4.6 ~30 s.
-  GLM-5.3-flash is faster still but weaker at SQL. GLM-4.6 stays the default
-  because the ~85% held-out eval ran on it.
+  the latency table (3 runs, one question) GLM-5.2 is ~16 s vs GLM-4.6 ~30 s
+  (re-measured E2E: 16.9 vs 33.5 s median). On the SQL golden set the free
+  GLM-4.5-flash actually leads on quality (65.9% vs 40.0% result accuracy,
+  n=45, ±13 p.p. Wilson CI) — GLM-4.6 stays the default as a product choice
+  while the trade-off is re-evaluated.
 
 ## Evaluation & Benchmarks
 
@@ -200,15 +206,17 @@ Figures below match
 [the case page](https://lyakoway.vercel.app/portfolio/ai-data-pilot).
 SQL eval is on the **public RideGo test pack**, not production databases.
 
-**174 pytest tests:** Agent Loop, SQL guard, self-correction, retrieval
+**186 pytest tests:** Agent Loop, SQL guard, self-correction, retrieval
 (Recall@1/5 · MRR for BM25 / Vector / Hybrid), numeric analytics contracts,
-routing, sources. Isolated temp SQLite, no API keys required.
+routing, sources, plus regression tests for the ReAct rows-preview, thinking
+model streaming and provider retry policy. Isolated temp SQLite, no API keys
+required.
 
-**Test coverage — 174 pytest tests:**
+**Test coverage — 186 pytest tests:**
 
 | Component                               | Tests | Covers                                                         |
 | --------------------------------------- | ----- | -------------------------------------------------------------- |
-| Agent Loop (ReAct)                      | 22    | tool calling, self-correction, step limit, fallback            |
+| Agent Loop (ReAct)                      | 24    | tool calling, self-correction, step limit, truncated-JSON retry, fallback |
 | SQL guard                               | 18    | DML bans, multi-statement, timeouts, row limit                 |
 | Analytics layer                         | 16    | trends, z-score threshold, top-N, RU/EN highlights             |
 | Sources (CSV/Excel/PG/CH)               | 27    | parsers, introspection, name dedup, password masking           |
@@ -217,26 +225,38 @@ routing, sources. Isolated temp SQLite, no API keys required.
 | Parameterized scenarios                 | 10    | substitution, defaults, migration                              |
 | Other (app_db, export)                  | 22    | CRUD, feedback, DB isolation                                   |
 | Retrieval quality + analytics contracts | 13    | Recall@1/5, MRR (BM25/Vector/Hybrid), numeric golden contracts |
+| Tool rows-preview contract              | 7     | bounded preview, empty/oversized results, error results        |
+| Provider streaming + retry policy       | 4     | thinking-model deltas, no reasoning leak, bounded retries      |
 
 <sub>Tests run on isolated temp SQLite databases with fake providers — no API
-keys required, full run ~50 s.</sub>
+keys required, full run ~1–3 min.</sub>
 
-Harness: `backend/scripts/evaluate.py` — methodology in
-[EVALUATION.md](backend/EVALUATION.md).
+Harness: `backend/scripts/evaluate.py` + the benchmark suite
+(`backend/scripts/llm_bench.py`, `eval_sql_full.py`, `e2e_bench.py`,
+`compare_sql_evals.py`) — methodology in
+[BENCHMARK.md](backend/BENCHMARK.md), raw artifacts in
+[bench_results/](backend/bench_results/).
 
-**SQL quality — held-out eval, live GLM-4.6 run:**
+**SQL quality — 5 GLM models, one 50-case golden set (execution match,
+Wilson 95% CI), live runs 2026-10:**
 
-| Metric                                                                  | Result   |
-| ----------------------------------------------------------------------- | -------- |
-| **Normalized result correctness** (same numbers after canonicalization) | **~85%** |
-| SQL Execution Accuracy (generated SQL ran — not the same as correct)    | ~98%     |
+| Metric per model                                            | Result accuracy (match/checked) |
+| ----------------------------------------------------------- | ------------------------------- |
+| **GLM-4.5-flash (free)** — best                             | **65.9%** (29/44), CI 51.1–78.1 |
+| **GLM-4.6 (default)**                                       | **40.0%** (18/45), CI 27.0–54.5 |
+| GLM-5.2                                                     | 37.8% (17/45), CI 25.1–52.4     |
+| GLM-5.3-flash                                               | 35.6% (16/45), CI 23.2–50.2     |
+| GLM-5.3                                                     | 33.3% (15/45), CI 21.4–47.9     |
 
-Headline quality is **~85% normalized**: same numbers after ignoring column
-aliases, row order and number format. Strict string exact-match is not a
-headline. ~98% only means the query executed.
+Execution Accuracy is 98–100% for all models (the query ran — not the same as
+correct). Exact Match 0–2% (aliases differ — expected for Text-to-SQL). An
+extended harder set v2 (20 cases: temporal, complex joins, group/sort,
+percent changes) drops the leader to 45.0% — temporal is the weakest category.
+Weakest spot overall: multi-join and temporal questions.
 
-**Default model: GLM-4.6** — the ~85% eval ran on it. Faster models are not
-automatically better at SQL.
+**Default model: GLM-4.6** — kept as a product choice; the measured data now
+shows free GLM-4.5-flash leading on quality at similar plan latency, at the
+cost of a long p95 tail (thinking-heavy).
 
 ### Latency by model (live run)
 
@@ -248,10 +268,10 @@ automatically better at SQL.
 | GLM-5.3 (Z.ai)               | 13.8 s     | 11 ms          | 5.1 s        | ~19.0 s | 1/3    |
 
 <sub>Medians of 3 runs of **one** question through the full cycle (plan → DB →
-answer). External API latency varies. GLM-4.6 stays the default because the
-~85% SQL eval ran on it. GLM-5.2 is faster on this sample. GLM-5.3-flash is
-faster still but weaker at SQL. Script: `python scripts/latency_benchmark.py`
-(from `backend/`).</sub>
+answer). External API latency varies. Independently re-measured E2E via SSE
+(2026-10, `scripts/e2e_bench.py`, 3 questions × 3 runs): GLM-4.6 33.5 s,
+GLM-5.2 16.9 s, GLM-5.3-flash 16.5 s median — reproduces this table. Script:
+`python scripts/latency_benchmark.py` (from `backend/`).</sub>
 
 Full cycle is **~16–30 s** depending on the model — provider floor on plan +
 answer, not a sub-second dashboard. Streamed steps — local sources skip the
