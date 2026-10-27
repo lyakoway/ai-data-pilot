@@ -13,7 +13,7 @@ Excel) и **Док** (Knowledge Agent: RAG по документам и загр
 [![Demo](https://img.shields.io/badge/demo-lyakoway--ai--data--pilot.hf.space-ff9d00)](https://lyakoway-ai-data-pilot.hf.space/)
 ![backend](https://img.shields.io/badge/backend-FastAPI-009688)
 ![frontend](https://img.shields.io/badge/frontend-React%2019%20%2B%20Vite-61dafb)
-![tests](https://img.shields.io/badge/tests-186%20passed-brightgreen)
+![tests](https://img.shields.io/badge/tests-215%20passed-brightgreen)
 ![sources](https://img.shields.io/badge/sources-PostgreSQL%20·%20ClickHouse%20·%20CSV%20·%20Excel-6366f1)
 
 <sub>Демо-Space на бесплатном тарифе может «засыпать» — первый заход после
@@ -46,7 +46,7 @@ Headline SQL-качества на публичном тестовом паке 
 | **~80**       | сценариев / неделю             |
 | **40–66%**    | нормализованный SQL · измерено, CI в [BENCHMARK.md](backend/BENCHMARK.md) |
 | **2ч → 2мин** | отчётность · продовый опыт     |
-| **186**       | pytest-теста                   |
+| **215**       | pytest-теста                   |
 | **Python**    | считает · LLM пишет текст      |
 
 <sub>Цифры масштаба — из внутреннего продового опыта. Демо и SQL-оценка
@@ -64,7 +64,7 @@ Headline SQL-качества на публичном тестовом паке 
   - **Self-correction** — упавший SQL возвращается с ошибкой БД. Агент переписывает (до 2 раундов).
   - **Детерминированная аналитика** — числа считает Python. LLM только интерпретирует.
 - 👩‍💻 **Док (Knowledge Agent)**
-  - **Гибридный поиск** — BM25-IDF (русский стемминг) + векторные эмбеддинги (fastembed, 50+ языков). Ablation поиска — в кейсе RAG Chat, не здесь.
+  - **Гибридный поиск** — BM25-IDF (русский стемминг) + векторные эмбеддинги (fastembed, 50+ языков). Измерено на chunk-level наборе из 24 кейсов (конфузибл-пары, EN-запросы, негативы): Recall@1 у гибрида **1.0** против **0.95** у BM25-only и vector-only; LLM-judge ответов: релевантность 0.95, но промпт «отвечай подробно» провоцирует уточнения сверх контекста (направленный вывод — калибровка judge нестабильна; детали в [docs/ERROR_ANALYSIS.md](docs/ERROR_ANALYSIS.md)).
   - **Загрузки** — PDF, Word, Excel, CSV, TXT, MD. Excel — ещё и SQL-таблица для Атласа.
   - **Инлайн-цитаты `[1]`** и просмотрщик документов (PDF-страница, DOCX, Excel-таблица).
 - 🗄️ **Источники** — PostgreSQL и ClickHouse (UI или env, интроспекция схемы, диалектные промпты), виртуальный источник **«Все загрузки»** с JOIN между файлами.
@@ -178,6 +178,17 @@ LLM не считает бизнес-метрики. Численная рабо
 - **«Грязные» Excel-файлы — норма.** Реальная выгрузка падала на
   merged-заголовке и дубликатах колонок. Решение: устойчивые парсеры,
   находящие строку заголовка, + тесты на «грязных» файлах.
+- **Лексический guard — не граница безопасности, пока не проверен как граница.**
+  Тесты на обход, написанные первыми, сразу нашли реальные дыры:
+  `load_extension`, `readfile`/`writefile` и доступ к `sqlite_master`
+  проходили SELECT-only guard; некорректный аргумент инструмента ронял цикл
+  агента. Исправлено + закреплено 29 security-тестами
+  ([docs/EVALUATION_AUDIT.md](docs/EVALUATION_AUDIT.md)).
+- **«Отвечай подробно» провоцирует уточнения сверх контекста.** LLM-judge по
+  агенту Доку показал высокую релевантность, но систематические дополнения за
+  пределами найденного контекста и отсутствие отказа, когда ответа в корпусе
+  нет — качество retrieval ≠ качество ответа. Переработка промпта — в очереди
+  (P1).
 - **Поиск без стемминга бесполезен для русского.** «Затраты» не находили
   «расходы». Решение: русский стемминг для BM25 + векторный канал для
   семантики и мультиязычности.
@@ -197,13 +208,14 @@ LLM не считает бизнес-метрики. Численная рабо
 [страницей кейса](https://lyakoway.vercel.app/portfolio/ai-data-pilot).
 SQL-оценка — на **публичном паке RideGo**, не продовых базах.
 
-**186 pytest-тестов:** Agent Loop, SQL guard, self-correction, качество поиска
+**215 pytest-тестов:** Agent Loop, SQL guard, self-correction, качество поиска
 (Recall@1/5 · MRR для BM25 / Vector / Hybrid), контракты численной аналитики,
 роутинг, источники + регрессионные тесты на rows-превью в ReAct-цикле,
-стриминг thinking-моделей и retry-политику провайдеров. Изолированные
-temp-SQLite, ключи API не нужны.
+стриминг thinking-моделей, retry-политику провайдеров и security-набор
+(обходы guard, prompt-injection, некорректные аргументы инструментов, честные
+статусы). Изолированные temp-SQLite, ключи API не нужны.
 
-**Покрытие тестами — 186 pytest-тестов:**
+**Покрытие тестами — 215 pytest-тестов:**
 
 | Компонент                               | Тестов | Проверяет                                                       |
 | --------------------------------------- | ------ | --------------------------------------------------------------- |
@@ -218,14 +230,24 @@ temp-SQLite, ключи API не нужны.
 | Retrieval quality + analytics contracts | 13     | Recall@1/5, MRR (BM25/Vector/Hybrid), числовые golden-контракты |
 | Контракт rows-превью инструментов       | 7      | ограниченное превью, пустые/большие результаты, ошибки          |
 | Стриминг провайдеров + retry            | 4      | thinking-дельты, без утечки reasoning, ограниченные ретраи      |
+| Security & robustness                   | 29     | 13 векторов обхода guard (вкл. `load_extension`/`readfile`/`sqlite_master` — найдено и закрыто), prompt-injection, oversized-входы, некорректные tool-args, статусы при сбоях |
 
 <sub>Тесты выполняются на изолированных temp-SQLite базах и fake-провайдерах —
-не требуют API-ключей. Полный прогон ~1–3 мин.</sub>
+не требуют API-ключей. Полный прогон ~2 мин. CI: быстрый pytest на каждый
+push; детерминированный evaluation-suite (RAG-метрики + проверки харнесса) —
+по расписанию/ручному запуску; платные LLM-прогоны в CI не выполняются
+принципиально.</sub>
 
-Харнесс: `backend/scripts/evaluate.py` + benchmark-набор
-(`backend/scripts/llm_bench.py`, `eval_sql_full.py`, `e2e_bench.py`,
-`compare_sql_evals.py`) — методология в
-[BENCHMARK.md](backend/BENCHMARK.md), сырые артефакты в
+Харнесс: `backend/scripts/run_eval.py` (единая точка входа: run id, manifest,
+suites — SQL / RAG / routing / E2E / deterministic) поверх набора
+инструментов (`evaluate.py`, `llm_bench.py`, `eval_sql_full.py`,
+`e2e_bench.py`, `eval_rag.py`, `rag_judge.py`, `error_analysis.py`,
+`compare_sql_evals.py`, `check_regression.py`) — методология в
+[docs/EVALUATION.md](docs/EVALUATION.md), команды в
+[backend/BENCHMARK.md](backend/BENCHMARK.md), сводные результаты в
+[docs/BENCHMARK_RESULTS.md](docs/BENCHMARK_RESULTS.md), анализ ошибок в
+[docs/ERROR_ANALYSIS.md](docs/ERROR_ANALYSIS.md), аудит с приоритетами P0–P2
+в [docs/EVALUATION_AUDIT.md](docs/EVALUATION_AUDIT.md), сырые артефакты в
 [bench_results/](backend/bench_results/).
 
 **Качество SQL — 5 моделей GLM, один golden set 50 кейсов (execution match,

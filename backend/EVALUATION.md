@@ -1,69 +1,18 @@
 # Evaluation — методика оценки качества
 
-Два уровня измерения, как в RAG Chat:
+> Методология и определения всех метрик консолидированы в
+> [docs/EVALUATION.md](../docs/EVALUATION.md) (canonical).
+> Команды запуска — [BENCHMARK.md](BENCHMARK.md); сводка результатов —
+> [docs/BENCHMARK_RESULTS.md](../docs/BENCHMARK_RESULTS.md).
 
-1. **pytest (детерминированный)** — 186 тестов: логика, guard, аналитика,
-   retrieval-метрики. Запускаются в CI, не требуют API-ключей.
+Кратко (детали и ограничения — в canonical-документе):
 
-   Расширенный benchmark (TTFT/TPOT, нагрузочные, контекст-матрица, SQL-eval
-   с Wilson CI на двух версиях golden set) — `scripts/llm_bench.py`,
-   `scripts/eval_sql_full.py`, `scripts/compare_sql_evals.py`; методика в
-   [BENCHMARK.md](BENCHMARK.md), артефакты в `bench_results/`.
-2. **LLM evaluation (ручной прогон)** — качество генерации с реальной моделью:
-   golden set → прогон → метрики. Числа воспроизводимы одной командой.
+1. **pytest (детерминированный)** — 215 тестов: логика, guard, аналитика,
+   retrieval, security/regression. CI, без ключей.
+2. **LLM evaluation (живые прогоны)** — golden set → метрики; воспроизводимо
+   командами из BENCHMARK.md; артефакты в `bench_results/` с manifest.
 
-## Быстрый старт
-
-```bash
-cd backend
-python scripts/evaluate.py --suite all --model zai:glm-4.6
-python scripts/evaluate.py --suite sql --model openai:gpt-4o-mini --limit 10   # debug
-```
-
-Результаты: консольный отчёт + `evaluation_results.json`.
-
-## Метрики LLM-прогона (SQL suite — 50 golden-вопросов)
-
-| Метрика | Что показывает |
-|---|---|
-| **SQL Execution Accuracy** | % запросов, выполнившихся без ошибки |
-| **Result Accuracy** | % совпадений результата с эталонными строками (execution match) |
-| **Self-Correction Rate** | % исправленных агентом упавших запросов |
-| **Task Completion Rate** | % вопросов, доведённых до результата |
-| **Schema Accuracy** | % правильного выбора таблиц |
-| **Latency p50 / p95** | время plan → execute → repair |
-
-## Метрики Routing suite (20 golden-вопросов)
-
-| Метрика | Что показывает |
-|---|---|
-| **Agent Routing Accuracy** | % вопросов, направленных правильному агенту (Атлас/Док) |
-
-## Метрики Retrieval (pytest, детерминированно)
-
-`tests/test_retrieval_quality.py` — 8 golden-пар «вопрос → документ»:
-Recall@1, Recall@5, MRR для трёх режимов (**bm25**, **vector**, **hybrid**).
-Гарантия тестами: hybrid Recall@5 = 100% и hybrid не хуже каждого из компонентов.
-Замер на текущем сете: bm25 / vector / hybrid — все Recall@1 = Recall@5 = MRR = 1.0
-(сет маленький и не дискриминирует режимы — см. «Ограничения»).
-
-## Golden set
-
-- `tests/golden/sql_golden.jsonl` — 50 вопросов: simple(12) + join(8) +
-  join_complex/multi-table(10) + temporal(6) + agg(1) + edge(3) +
-  ambiguous(5, execution-only) + cross-source(5, фикстуры clients/orders).
-  Каждому — `reference_sql` (эталон) и `expected_tables`.
-- `tests/golden/routing_golden.jsonl` — 20 вопросов: atlas(10) / doc(10).
-
-Формат совпадения результатов — execution match: множества строк
-(порядко- и формат-независимо, float до 2 знаков).
-
-## Ограничения (честно)
-
-- Result Accuracy чувствительна к выбору колонок: LLM может вернуть тот же
-  ответ с другим набором/именами колонок → false negative. Смягчение —
-  точные формулировки в вопросах.
-- Embeddings загружаются при первом прогоне retrieval-тестов (~10 сек).
-- Прогон LLM-суит требует рабочего провайдера (GLM / OpenAI / Ollama).
-- Retrieval-сет из 8 пар маленький: все режимы дают на нём 1.0 — он пока
-  не дискриминирует режимы поиска; нужен более сложный сет.
+- SQL: Execution Accuracy, Result Accuracy (execution match, нормализация
+  множеств строк), Exact Match, Wilson 95% CI, таксономия ошибок.
+- RAG: chunk-level Recall/Precision/MRR/nDCG + ablation bm25/vector/hybrid;
+  генеративные свойства — LLM-judge с калибровкой.

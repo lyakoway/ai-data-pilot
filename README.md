@@ -22,7 +22,7 @@ docs and uploads) — plus a dual auto-router.
 [![Demo](https://img.shields.io/badge/demo-lyakoway--ai--data--pilot.hf.space-ff9d00)](https://lyakoway-ai-data-pilot.hf.space/)
 ![backend](https://img.shields.io/badge/backend-FastAPI-009688)
 ![frontend](https://img.shields.io/badge/frontend-React%2019%20%2B%20Vite-61dafb)
-![tests](https://img.shields.io/badge/tests-186%20passed-brightgreen)
+![tests](https://img.shields.io/badge/tests-215%20passed-brightgreen)
 ![sources](https://img.shields.io/badge/sources-PostgreSQL%20·%20ClickHouse%20·%20CSV%20·%20Excel-6366f1)
 
 <sub>On the free tier the demo Space may fall asleep — the first visit after
@@ -55,7 +55,7 @@ ran. **2h → 2min** report prep is from production experience, not this demo.
 | **~80**       | scenarios / week                    |
 | **40–66%**    | normalized SQL · measured, CI in [BENCHMARK.md](backend/BENCHMARK.md) |
 | **2h → 2min** | report prep · production experience |
-| **186**       | pytest tests                        |
+| **215**       | pytest tests                        |
 | **Python**    | counts · LLM writes prose           |
 
 <sub>Scale figures are from internal production experience. The demo and SQL
@@ -72,7 +72,7 @@ eval in this repo run on a public test dataset (RideGo ~21k rides).</sub>
   - **Self-correction** — failed SQL comes back with the DB error. The agent rewrites (up to 2 rounds).
   - **Deterministic analytics** — Python computes the numbers. The LLM only interprets.
 - 👩‍💻 **Doc**
-  - **Hybrid search** — BM25-IDF (Russian stemming) + vector embeddings (fastembed, 50+ languages). Retrieval ablation lives on the RAG Chat case, not here.
+  - **Hybrid search** — BM25-IDF (Russian stemming) + vector embeddings (fastembed, 50+ languages). Measured on a chunk-level 24-case set (confusable pairs, EN queries, negatives): hybrid Recall@1 **1.0** vs **0.95** for BM25-only and vector-only; LLM-judge on answers: relevancy 0.95, but the verbose answer prompt invites context-unsupported elaboration (directional finding — judge calibration is unstable; details in [docs/ERROR_ANALYSIS.md](docs/ERROR_ANALYSIS.md)).
   - **Uploads** — PDF, Word, Excel, CSV, TXT, MD. Excel is also a SQL table for Atlas.
   - **Inline citations `[1]`** and a document viewer (PDF page, DOCX, Excel table).
 - 🗄️ **Sources** — PostgreSQL and ClickHouse (UI or env, schema introspection, dialect prompts), virtual **All uploads** with cross-file JOINs.
@@ -190,6 +190,16 @@ Routing to a specialized agent keeps each workflow bounded and measurable.
 - **Keyword search without stemming is useless for Russian.** «Затраты» did
   not match «расходы». Decision: Russian stemming for BM25 + a vector channel
   for semantics and multilinguality.
+- **A lexical guard is not a security boundary until tested as one.** Writing
+  bypass tests first immediately found real holes: `load_extension`,
+  `readfile`/`writefile` and `sqlite_master` probing all passed the SELECT-only
+  guard; a malformed tool argument could crash the agent loop. Fixed + pinned
+  by 29 security tests ([docs/EVALUATION_AUDIT.md](docs/EVALUATION_AUDIT.md)).
+- **"Answer thoroughly" invites context-unsupported elaboration.** An
+  LLM-judge over the Doc agent showed high relevancy but systematic
+  embellishment beyond the retrieved context and no abstention when the
+  corpus has no answer — retrieval quality ≠ answer quality. Prompt rework
+  is queued (P1).
 - **Routing saves trust, not steps.** A single universal prompt blurred the
   agent's role. Decision: two specialized agents + two-level routing with a
   visible decision in the trace.
@@ -206,13 +216,14 @@ Figures below match
 [the case page](https://lyakoway.vercel.app/portfolio/ai-data-pilot).
 SQL eval is on the **public RideGo test pack**, not production databases.
 
-**186 pytest tests:** Agent Loop, SQL guard, self-correction, retrieval
+**215 pytest tests:** Agent Loop, SQL guard, self-correction, retrieval
 (Recall@1/5 · MRR for BM25 / Vector / Hybrid), numeric analytics contracts,
 routing, sources, plus regression tests for the ReAct rows-preview, thinking
-model streaming and provider retry policy. Isolated temp SQLite, no API keys
-required.
+model streaming, provider retry policy, and a security suite (guard bypass
+vectors, prompt-injection confinement, malformed tool args, honest statuses).
+Isolated temp SQLite, no API keys required.
 
-**Test coverage — 186 pytest tests:**
+**Test coverage — 215 pytest tests:**
 
 | Component                               | Tests | Covers                                                         |
 | --------------------------------------- | ----- | -------------------------------------------------------------- |
@@ -227,15 +238,23 @@ required.
 | Retrieval quality + analytics contracts | 13    | Recall@1/5, MRR (BM25/Vector/Hybrid), numeric golden contracts |
 | Tool rows-preview contract              | 7     | bounded preview, empty/oversized results, error results        |
 | Provider streaming + retry policy       | 4     | thinking-model deltas, no reasoning leak, bounded retries      |
+| Security & robustness                   | 29    | 13 SQL-guard bypass vectors (incl. `load_extension`/`readfile`/`sqlite_master` — found & fixed), prompt-injection confinement, oversized inputs, malformed tool args, provider-failure statuses |
 
 <sub>Tests run on isolated temp SQLite databases with fake providers — no API
-keys required, full run ~1–3 min.</sub>
+keys required, full run ~2 min. CI: fast pytest on every push; the
+deterministic evaluation suite (RAG metrics + harness checks) runs on a
+weekly schedule / manual dispatch — no paid LLM calls in CI by design.</sub>
 
-Harness: `backend/scripts/evaluate.py` + the benchmark suite
-(`backend/scripts/llm_bench.py`, `eval_sql_full.py`, `e2e_bench.py`,
-`compare_sql_evals.py`) — methodology in
-[BENCHMARK.md](backend/BENCHMARK.md), raw artifacts in
-[bench_results/](backend/bench_results/).
+Harness: `backend/scripts/run_eval.py` (one entry point: run id, manifest,
+suites — SQL / RAG / routing / E2E / deterministic) over the tool set
+(`evaluate.py`, `llm_bench.py`, `eval_sql_full.py`, `e2e_bench.py`,
+`eval_rag.py`, `rag_judge.py`, `error_analysis.py`, `compare_sql_evals.py`,
+`check_regression.py`) — methodology in [docs/EVALUATION.md](docs/EVALUATION.md),
+commands in [backend/BENCHMARK.md](backend/BENCHMARK.md), consolidated
+results in [docs/BENCHMARK_RESULTS.md](docs/BENCHMARK_RESULTS.md),
+error analysis in [docs/ERROR_ANALYSIS.md](docs/ERROR_ANALYSIS.md),
+audit with P0–P2 priorities in [docs/EVALUATION_AUDIT.md](docs/EVALUATION_AUDIT.md),
+raw artifacts in [bench_results/](backend/bench_results/).
 
 **SQL quality — 5 GLM models, one 50-case golden set (execution match,
 Wilson 95% CI), live runs 2026-10:**
