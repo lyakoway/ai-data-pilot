@@ -1,0 +1,24 @@
+{"id": "rag2_01", "kind": "positive", "query": "Что возвращает API если SIM disabled при сбросе ошибок?", "expected_chunks": ["backend_logic.md#1"], "note": "confusable: 409 только здесь"}
+{"id": "rag2_02", "kind": "positive", "query": "В каком файле живёт сервис антифрода серийников АКБ?", "expected_chunks": ["backend_logic.md#2"]}
+{"id": "rag2_03", "kind": "positive", "query": "Что происходит с полем location при переводе города в inactive?", "expected_chunks": ["backend_logic.md#3"]}
+{"id": "rag2_04", "kind": "positive", "query": "Какие коды позиций ТС считаются сервисными?", "expected_chunks": ["backend_logic.md#3"]}
+{"id": "rag2_05", "kind": "positive", "query": "Откуда берутся поля distance_km и revenue_rub в витрине поездок?", "expected_chunks": ["data_lineage.md#1"]}
+{"id": "rag2_06", "kind": "positive", "query": "Почему франшизные города исключают из unit-экономики HQ?", "expected_chunks": ["data_lineage.md#2"], "note": "confusable: 'исключается' также в Partner trip"}
+{"id": "rag2_07", "kind": "positive", "query": "Почему аналитика не читает MongoDB напрямую для подписок?", "expected_chunks": ["data_lineage.md#3"]}
+{"id": "rag2_08", "kind": "positive", "query": "Какой TTL у кэша тарифов и по какому ключу он хранится?", "expected_chunks": ["data_lineage.md#4"], "note": "confusable: Redis TTL также в anti-fraud whitelist"}
+{"id": "rag2_09", "kind": "positive", "query": "Может ли отдаваться устаревшая цена после изменения в админке?", "expected_chunks": ["data_lineage.md#4"]}
+{"id": "rag2_10", "kind": "positive", "query": "По какой формуле считается utilization и что делать если сырых полей нет?", "expected_chunks": ["metrics_dictionary.md#1"]}
+{"id": "rag2_11", "kind": "positive", "query": "Кто считается активным подписчиком на дату отчёта?", "expected_chunks": ["metrics_dictionary.md#2"]}
+{"id": "rag2_12", "kind": "positive", "query": "Почему партнёрские поездки не попадают в стандартные отчёты?", "expected_chunks": ["metrics_dictionary.md#3"], "note": "confusable: 'исключают' также у франшизы"}
+{"id": "rag2_13", "kind": "positive", "query": "Что за whitelist SkippableSerialNumber и зачем он?", "expected_chunks": ["backend_logic.md#2"]}
+{"id": "rag2_14", "kind": "positive", "query": "Где источник истины по utilization в проде?", "expected_chunks": ["metrics_dictionary.md#1"]}
+{"id": "rag2_15", "kind": "positive", "query": "Витрина fact_rides — инкрементальная или полная?", "expected_chunks": ["data_lineage.md#1"]}
+{"id": "rag2_16", "kind": "confusable", "query": "TTL 15 минут — где это настроено?", "expected_chunks": ["data_lineage.md#4"], "note": "дистрактор: anti-fraud Redis whitelist"}
+{"id": "rag2_17", "kind": "confusable", "query": "Как не дают накручивать счётчик замен АКБ?", "expected_chunks": ["backend_logic.md#2"], "note": "дистрактор: Redis pricing"}
+{"id": "rag2_18", "kind": "positive_en", "query": "How is utilization calculated and what is the production source of truth?", "expected_chunks": ["metrics_dictionary.md#1"]}
+{"id": "rag2_19", "kind": "positive_en", "query": "What happens to a city's location field when the city becomes inactive?", "expected_chunks": ["backend_logic.md#3"]}
+{"id": "rag2_20", "kind": "positive_en", "query": "Why does analytics read fact_subscriptions instead of MongoDB?", "expected_chunks": ["data_lineage.md#3"]}
+{"id": "rag2_n1", "kind": "negative", "query": "Какой SLA поддержки у тарифа premium?", "expected_chunks": []}
+{"id": "rag2_n2", "kind": "negative", "query": "Какая зарплата у CEO компании?", "expected_chunks": []}
+{"id": "rag2_n3", "kind": "negative", "query": "Как настроить API-ключи для биллинга?", "expected_chunks": []}
+{"id": "rag2_n4", "kind": "negative_en", "query": "What GPU model is used for ML training?", "expected_chunks": []}

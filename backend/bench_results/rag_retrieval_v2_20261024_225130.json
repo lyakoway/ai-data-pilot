@@ -1,0 +1,1108 @@
+{
+  "manifest": {
+    "tool": "eval_rag.py",
+    "generated_at": "2026-10-24 22:51:30",
+    "git_rev": "6dee1da",
+    "env": {
+      "python": "3.13.5",
+      "os": "macOS-10.16-x86_64-i386-64bit-Mach-O",
+      "openai": "1.59.6",
+      "httpx": "0.28.1"
+    },
+    "golden_set": {
+      "path": "rag_retrieval_golden_v2.jsonl",
+      "n_cases": 24,
+      "sha256": "39d6dbe3949b19c5"
+    },
+    "grounding": "chunk-level (doc_id exact match); negatives have no gold → excluded from metrics, top-1 reported for the abstention check",
+    "limitations": [
+      "корпус из 10 чанков: Precision@5 ограничен сверху (максимум 0.2 при одном gold-чанке)",
+      "retrieval-метрики НЕ доказывают корректность финального ответа (см. rag_judge.py)"
+    ]
+  },
+  "results": {
+    "bm25": {
+      "summary": {
+        "mode": "bm25",
+        "n_positive": 20,
+        "recall@1": 0.95,
+        "precision@1": 0.95,
+        "recall@5": 1.0,
+        "precision@5": 0.2,
+        "recall@10": 1.0,
+        "precision@10": 0.1,
+        "mrr@10": 0.975,
+        "ndcg@10": 0.982,
+        "recall@5[positive]": 1.0,
+        "recall@5[confusable]": 1.0,
+        "recall@5[positive_en]": 1.0
+      },
+      "details": [
+        {
+          "id": "rag2_01",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "backend_logic.md#1",
+          "gold_hit": [
+            "backend_logic.md#1"
+          ]
+        },
+        {
+          "id": "rag2_02",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "backend_logic.md#2",
+          "gold_hit": [
+            "backend_logic.md#2"
+          ]
+        },
+        {
+          "id": "rag2_03",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "backend_logic.md#3",
+          "gold_hit": [
+            "backend_logic.md#3"
+          ]
+        },
+        {
+          "id": "rag2_04",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "backend_logic.md#3",
+          "gold_hit": [
+            "backend_logic.md#3"
+          ]
+        },
+        {
+          "id": "rag2_05",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "data_lineage.md#1",
+          "gold_hit": [
+            "data_lineage.md#1"
+          ]
+        },
+        {
+          "id": "rag2_06",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "data_lineage.md#2",
+          "gold_hit": [
+            "data_lineage.md#2"
+          ]
+        },
+        {
+          "id": "rag2_07",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "data_lineage.md#3",
+          "gold_hit": [
+            "data_lineage.md#3"
+          ]
+        },
+        {
+          "id": "rag2_08",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "data_lineage.md#4",
+          "gold_hit": [
+            "data_lineage.md#4"
+          ]
+        },
+        {
+          "id": "rag2_09",
+          "kind": "positive",
+          "recall@1": 0.0,
+          "precision@1": 0.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 0.5,
+          "ndcg@10": 0.6309297535714575,
+          "top1": "backend_logic.md#1",
+          "gold_hit": [
+            "data_lineage.md#4"
+          ]
+        },
+        {
+          "id": "rag2_10",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "metrics_dictionary.md#1",
+          "gold_hit": [
+            "metrics_dictionary.md#1"
+          ]
+        },
+        {
+          "id": "rag2_11",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "metrics_dictionary.md#2",
+          "gold_hit": [
+            "metrics_dictionary.md#2"
+          ]
+        },
+        {
+          "id": "rag2_12",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "metrics_dictionary.md#3",
+          "gold_hit": [
+            "metrics_dictionary.md#3"
+          ]
+        },
+        {
+          "id": "rag2_13",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "backend_logic.md#2",
+          "gold_hit": [
+            "backend_logic.md#2"
+          ]
+        },
+        {
+          "id": "rag2_14",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "metrics_dictionary.md#1",
+          "gold_hit": [
+            "metrics_dictionary.md#1"
+          ]
+        },
+        {
+          "id": "rag2_15",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "data_lineage.md#1",
+          "gold_hit": [
+            "data_lineage.md#1"
+          ]
+        },
+        {
+          "id": "rag2_16",
+          "kind": "confusable",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "data_lineage.md#4",
+          "gold_hit": [
+            "data_lineage.md#4"
+          ]
+        },
+        {
+          "id": "rag2_17",
+          "kind": "confusable",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "backend_logic.md#2",
+          "gold_hit": [
+            "backend_logic.md#2"
+          ]
+        },
+        {
+          "id": "rag2_18",
+          "kind": "positive_en",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "metrics_dictionary.md#1",
+          "gold_hit": [
+            "metrics_dictionary.md#1"
+          ]
+        },
+        {
+          "id": "rag2_19",
+          "kind": "positive_en",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "backend_logic.md#3",
+          "gold_hit": [
+            "backend_logic.md#3"
+          ]
+        },
+        {
+          "id": "rag2_20",
+          "kind": "positive_en",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "data_lineage.md#3",
+          "gold_hit": [
+            "data_lineage.md#3"
+          ]
+        }
+      ],
+      "negatives_top1": [
+        {
+          "id": "rag2_n1",
+          "kind": "negative",
+          "top1": "data_lineage.md#4"
+        },
+        {
+          "id": "rag2_n2",
+          "kind": "negative",
+          "top1": "metrics_dictionary.md#1"
+        },
+        {
+          "id": "rag2_n3",
+          "kind": "negative",
+          "top1": "backend_logic.md#0"
+        },
+        {
+          "id": "rag2_n4",
+          "kind": "negative_en",
+          "top1": "backend_logic.md#0"
+        }
+      ]
+    },
+    "vector": {
+      "summary": {
+        "mode": "vector",
+        "n_positive": 20,
+        "recall@1": 0.95,
+        "precision@1": 0.95,
+        "recall@5": 1.0,
+        "precision@5": 0.2,
+        "recall@10": 1.0,
+        "precision@10": 0.1,
+        "mrr@10": 0.975,
+        "ndcg@10": 0.982,
+        "recall@5[positive]": 1.0,
+        "recall@5[confusable]": 1.0,
+        "recall@5[positive_en]": 1.0
+      },
+      "details": [
+        {
+          "id": "rag2_01",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "backend_logic.md#1",
+          "gold_hit": [
+            "backend_logic.md#1"
+          ]
+        },
+        {
+          "id": "rag2_02",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "backend_logic.md#2",
+          "gold_hit": [
+            "backend_logic.md#2"
+          ]
+        },
+        {
+          "id": "rag2_03",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "backend_logic.md#3",
+          "gold_hit": [
+            "backend_logic.md#3"
+          ]
+        },
+        {
+          "id": "rag2_04",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "backend_logic.md#3",
+          "gold_hit": [
+            "backend_logic.md#3"
+          ]
+        },
+        {
+          "id": "rag2_05",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "data_lineage.md#1",
+          "gold_hit": [
+            "data_lineage.md#1"
+          ]
+        },
+        {
+          "id": "rag2_06",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "data_lineage.md#2",
+          "gold_hit": [
+            "data_lineage.md#2"
+          ]
+        },
+        {
+          "id": "rag2_07",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "data_lineage.md#3",
+          "gold_hit": [
+            "data_lineage.md#3"
+          ]
+        },
+        {
+          "id": "rag2_08",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "data_lineage.md#4",
+          "gold_hit": [
+            "data_lineage.md#4"
+          ]
+        },
+        {
+          "id": "rag2_09",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "data_lineage.md#4",
+          "gold_hit": [
+            "data_lineage.md#4"
+          ]
+        },
+        {
+          "id": "rag2_10",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "metrics_dictionary.md#1",
+          "gold_hit": [
+            "metrics_dictionary.md#1"
+          ]
+        },
+        {
+          "id": "rag2_11",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "metrics_dictionary.md#2",
+          "gold_hit": [
+            "metrics_dictionary.md#2"
+          ]
+        },
+        {
+          "id": "rag2_12",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "metrics_dictionary.md#3",
+          "gold_hit": [
+            "metrics_dictionary.md#3"
+          ]
+        },
+        {
+          "id": "rag2_13",
+          "kind": "positive",
+          "recall@1": 0.0,
+          "precision@1": 0.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 0.5,
+          "ndcg@10": 0.6309297535714575,
+          "top1": "backend_logic.md#0",
+          "gold_hit": [
+            "backend_logic.md#2"
+          ]
+        },
+        {
+          "id": "rag2_14",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "metrics_dictionary.md#1",
+          "gold_hit": [
+            "metrics_dictionary.md#1"
+          ]
+        },
+        {
+          "id": "rag2_15",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "data_lineage.md#1",
+          "gold_hit": [
+            "data_lineage.md#1"
+          ]
+        },
+        {
+          "id": "rag2_16",
+          "kind": "confusable",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "data_lineage.md#4",
+          "gold_hit": [
+            "data_lineage.md#4"
+          ]
+        },
+        {
+          "id": "rag2_17",
+          "kind": "confusable",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "backend_logic.md#2",
+          "gold_hit": [
+            "backend_logic.md#2"
+          ]
+        },
+        {
+          "id": "rag2_18",
+          "kind": "positive_en",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "metrics_dictionary.md#1",
+          "gold_hit": [
+            "metrics_dictionary.md#1"
+          ]
+        },
+        {
+          "id": "rag2_19",
+          "kind": "positive_en",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "backend_logic.md#3",
+          "gold_hit": [
+            "backend_logic.md#3"
+          ]
+        },
+        {
+          "id": "rag2_20",
+          "kind": "positive_en",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "data_lineage.md#3",
+          "gold_hit": [
+            "data_lineage.md#3"
+          ]
+        }
+      ],
+      "negatives_top1": [
+        {
+          "id": "rag2_n1",
+          "kind": "negative",
+          "top1": "data_lineage.md#4"
+        },
+        {
+          "id": "rag2_n2",
+          "kind": "negative",
+          "top1": "data_lineage.md#2"
+        },
+        {
+          "id": "rag2_n3",
+          "kind": "negative",
+          "top1": "backend_logic.md#3"
+        },
+        {
+          "id": "rag2_n4",
+          "kind": "negative_en",
+          "top1": "data_lineage.md#1"
+        }
+      ]
+    },
+    "hybrid": {
+      "summary": {
+        "mode": "hybrid",
+        "n_positive": 20,
+        "recall@1": 1.0,
+        "precision@1": 1.0,
+        "recall@5": 1.0,
+        "precision@5": 0.2,
+        "recall@10": 1.0,
+        "precision@10": 0.1,
+        "mrr@10": 1.0,
+        "ndcg@10": 1.0,
+        "recall@5[positive]": 1.0,
+        "recall@5[confusable]": 1.0,
+        "recall@5[positive_en]": 1.0
+      },
+      "details": [
+        {
+          "id": "rag2_01",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "backend_logic.md#1",
+          "gold_hit": [
+            "backend_logic.md#1"
+          ]
+        },
+        {
+          "id": "rag2_02",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "backend_logic.md#2",
+          "gold_hit": [
+            "backend_logic.md#2"
+          ]
+        },
+        {
+          "id": "rag2_03",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "backend_logic.md#3",
+          "gold_hit": [
+            "backend_logic.md#3"
+          ]
+        },
+        {
+          "id": "rag2_04",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "backend_logic.md#3",
+          "gold_hit": [
+            "backend_logic.md#3"
+          ]
+        },
+        {
+          "id": "rag2_05",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "data_lineage.md#1",
+          "gold_hit": [
+            "data_lineage.md#1"
+          ]
+        },
+        {
+          "id": "rag2_06",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "data_lineage.md#2",
+          "gold_hit": [
+            "data_lineage.md#2"
+          ]
+        },
+        {
+          "id": "rag2_07",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "data_lineage.md#3",
+          "gold_hit": [
+            "data_lineage.md#3"
+          ]
+        },
+        {
+          "id": "rag2_08",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "data_lineage.md#4",
+          "gold_hit": [
+            "data_lineage.md#4"
+          ]
+        },
+        {
+          "id": "rag2_09",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "data_lineage.md#4",
+          "gold_hit": [
+            "data_lineage.md#4"
+          ]
+        },
+        {
+          "id": "rag2_10",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "metrics_dictionary.md#1",
+          "gold_hit": [
+            "metrics_dictionary.md#1"
+          ]
+        },
+        {
+          "id": "rag2_11",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "metrics_dictionary.md#2",
+          "gold_hit": [
+            "metrics_dictionary.md#2"
+          ]
+        },
+        {
+          "id": "rag2_12",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "metrics_dictionary.md#3",
+          "gold_hit": [
+            "metrics_dictionary.md#3"
+          ]
+        },
+        {
+          "id": "rag2_13",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "backend_logic.md#2",
+          "gold_hit": [
+            "backend_logic.md#2"
+          ]
+        },
+        {
+          "id": "rag2_14",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "metrics_dictionary.md#1",
+          "gold_hit": [
+            "metrics_dictionary.md#1"
+          ]
+        },
+        {
+          "id": "rag2_15",
+          "kind": "positive",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "data_lineage.md#1",
+          "gold_hit": [
+            "data_lineage.md#1"
+          ]
+        },
+        {
+          "id": "rag2_16",
+          "kind": "confusable",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "data_lineage.md#4",
+          "gold_hit": [
+            "data_lineage.md#4"
+          ]
+        },
+        {
+          "id": "rag2_17",
+          "kind": "confusable",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "backend_logic.md#2",
+          "gold_hit": [
+            "backend_logic.md#2"
+          ]
+        },
+        {
+          "id": "rag2_18",
+          "kind": "positive_en",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "metrics_dictionary.md#1",
+          "gold_hit": [
+            "metrics_dictionary.md#1"
+          ]
+        },
+        {
+          "id": "rag2_19",
+          "kind": "positive_en",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "backend_logic.md#3",
+          "gold_hit": [
+            "backend_logic.md#3"
+          ]
+        },
+        {
+          "id": "rag2_20",
+          "kind": "positive_en",
+          "recall@1": 1.0,
+          "precision@1": 1.0,
+          "recall@5": 1.0,
+          "precision@5": 0.2,
+          "recall@10": 1.0,
+          "precision@10": 0.1,
+          "mrr@10": 1.0,
+          "ndcg@10": 1.0,
+          "top1": "data_lineage.md#3",
+          "gold_hit": [
+            "data_lineage.md#3"
+          ]
+        }
+      ],
+      "negatives_top1": [
+        {
+          "id": "rag2_n1",
+          "kind": "negative",
+          "top1": "data_lineage.md#4"
+        },
+        {
+          "id": "rag2_n2",
+          "kind": "negative",
+          "top1": "data_lineage.md#2"
+        },
+        {
+          "id": "rag2_n3",
+          "kind": "negative",
+          "top1": "backend_logic.md#0"
+        },
+        {
+          "id": "rag2_n4",
+          "kind": "negative_en",
+          "top1": "data_lineage.md#1"
+        }
+      ]
+    }
+  }
+}

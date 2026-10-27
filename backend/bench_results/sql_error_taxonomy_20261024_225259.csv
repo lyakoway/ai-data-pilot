@@ -1,0 +1,254 @@
+model,set,id,category,executed,error_type,question,generated_sql,error
+zai:glm-4.5-flash,v1,sql_011,join,True,filter,Топ-5 городов по числу поездок,"SELECT dc.city_name, COUNT(fr.ride_id) as ride_count FROM fact_rides fr JOIN dim_city dc ON fr.city_id = dc.city_id WHERE fr.is_partner = 0 GROUP BY dc.city_name ORDER BY ride_count DESC LIMIT 5",
+zai:glm-4.5-flash,v1,sql_012,join,False,infra,Выручка по регионам за всё время,,harness: Request timed out.
+zai:glm-4.5-flash,v1,sql_014,join,True,aggregation,Выручка по типам транспорта,"SELECT vehicle_type, SUM(revenue_rub) as total_revenue FROM fact_rides WHERE is_partner = 0 GROUP BY vehicle_type",
+zai:glm-4.5-flash,v1,sql_017,agg,True,aggregation,Средняя выручка на поездку по городам,"SELECT dc.city_name, AVG(fr.revenue_rub) AS avg_revenue_per_ride FROM fact_rides fr JOIN dim_city dc ON fr.city_id = dc.city_id WHERE fr.is_partner = 0 GROUP BY dc.city_name ORDER BY dc.city_name",
+zai:glm-4.5-flash,v1,sql_020,temporal,True,temporal,Сколько поездок за первую неделю апреля?,SELECT COUNT(*) AS trip_count FROM fact_rides WHERE ride_date >= date('2024-04-01') AND ride_date < date('2024-04-08') AND is_partner = 0,
+zai:glm-4.5-flash,v1,sql_022,temporal,True,aggregation,Какова средняя выручка на поездку в июне?,"SELECT AVG(revenue_rub) as avg_revenue FROM fact_rides WHERE strftime('%m', ride_date) = '06' AND is_partner = 0",
+zai:glm-4.5-flash,v1,sql_033,join_complex,True,aggregation,Распределение партнёрских и непартнёрских поездок по типам транспорта,"SELECT is_partner, vehicle_type, COUNT(ride_id) as ride_count FROM fact_rides GROUP BY is_partner, vehicle_type ORDER BY is_partner, vehicle_type",
+zai:glm-4.5-flash,v1,sql_034,join_complex,True,aggregation,Какой месяц был самым прибыльным?,"SELECT strftime('%Y-%m', ride_date) as month, SUM(revenue_rub) as total_revenue FROM fact_rides WHERE is_partner = 0 GROUP BY strftime('%Y-%m', ride_date) ORDER BY total_revenue DESC LIMIT 1",
+zai:glm-4.5-flash,v1,sql_035,join_complex,True,wrong_table,"Пользователи, совершившие более 30 поездок","SELECT u.user_id, u.registered_at, c.city_name, u.phone_country, u.app_version, COUNT(r.ride_id) as ride_count FROM fact_rides r JOIN dim_user u ON r.user_id = u.user_id JOIN dim_city c ON u.city_id = c.city_id GROUP BY ",
+zai:glm-4.5-flash,v1,sql_036,join_complex,True,aggregation,Доля отменённых подписок по каждому бренду,"SELECT brand, 
+       COUNT(*) as total_subscriptions,
+       SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_subscriptions,
+       ROUND(SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) * 100.0 /",
+zai:glm-4.5-flash,v1,sql_037,join_complex,True,wrong_join,Соотношение самокатов и велосипедов по городам,"SELECT 
+    dc.city_name,
+    SUM(CASE WHEN fr.vehicle_type = 'scooter' THEN 1 ELSE 0 END) AS scooter_count,
+    SUM(CASE WHEN fr.vehicle_type = 'bike' THEN 1 ELSE 0 END) AS bike_count,
+    ROUND(SUM(CASE WHEN fr.vehicle",
+zai:glm-4.5-flash,v1,sql_038,join_complex,True,wrong_table,"Города, где средняя длительность поездки выше общей средней","WITH overall_avg AS (
+    SELECT AVG(duration_min) as avg_duration
+    FROM fact_rides
+    WHERE is_partner = 0
+),
+city_avg AS (
+    SELECT 
+        c.city_id,
+        c.city_name,
+        AVG(f.duration_min) as avg_dura",
+zai:glm-4.5-flash,v1,sql_040,join_complex,True,filter,Топ-3 месяца по количеству уникальных пользователей,"SELECT strftime('%Y-%m', ride_date) AS month, COUNT(DISTINCT user_id) AS unique_users FROM fact_rides WHERE is_partner = 0 GROUP BY strftime('%Y-%m', ride_date) ORDER BY unique_users DESC LIMIT 3",
+zai:glm-4.5-flash,v1,sql_041,ambiguous,True,interpretation,Самые популярные города,"SELECT dc.city_name, COUNT(fr.ride_id) as ride_count FROM fact_rides fr JOIN dim_city dc ON fr.city_id = dc.city_id GROUP BY dc.city_name ORDER BY ride_count DESC",
+zai:glm-4.5-flash,v1,sql_042,ambiguous,True,aggregation,Как обстоят дела с подписками?,"SELECT 
+  COUNT(CASE WHEN status = 'active' THEN 1 END) AS active_subscriptions,
+  COUNT(CASE WHEN status = 'cancelled' THEN 1 END) AS cancelled_subscriptions,
+  COUNT(CASE WHEN started_at >= date('now', '-30 days') THEN",
+zai:glm-4.5-flash,v1,sql_043,ambiguous,True,wrong_table,Что с активностью пользователей?,"SELECT 
+    strftime('%Y-%m', ride_date) as month,
+    COUNT(DISTINCT user_id) as unique_users,
+    COUNT(ride_id) as total_rides,
+    ROUND(COUNT(ride_id) * 1000.0 / c.population, 2) as utilization_per_1000
+FROM fact_ri",
+zai:glm-4.5-flash,v1,sql_044,ambiguous,True,aggregation,Общая картина по транспорту,"SELECT vehicle_type, COUNT(ride_id) AS ride_count, SUM(revenue_rub) AS total_revenue, AVG(distance_km) AS avg_distance, AVG(duration_min) AS avg_duration FROM fact_rides WHERE is_partner = 0 GROUP BY vehicle_type ORDER B",
+zai:glm-4.5-flash,v1,sql_045,ambiguous,True,wrong_join,Какие регионы лучше?,"WITH region_metrics AS (
+  SELECT 
+    dc.region,
+    COUNT(DISTINCT fr.user_id) as unique_users,
+    COUNT(fr.ride_id) as total_rides,
+    SUM(fr.revenue_rub) as total_revenue,
+    SUM(fr.distance_km) as total_distance,",
+zai:glm-4.5-flash,v1,sql_046,cross_source,True,wrong_table,Какова общая сумма заказов клиентов из Москвы?,SELECT SUM(o.amount) AS total_amount FROM (SELECT * FROM src_csv_c5a823e66b UNION SELECT * FROM src_csv_e9c529daba) c JOIN (SELECT * FROM src_csv_2222807a9d UNION SELECT * FROM src_csv_b49334fae0) o ON c.client_id = o.cl,
+zai:glm-4.5-flash,v1,sql_048,cross_source,True,wrong_table,Сколько заказов у каждого клиента?,"SELECT c.client_id, c.name, COUNT(o.order_id) AS order_count FROM src_csv_c5a823e66b AS c JOIN src_csv_2222807a9d AS o ON c.client_id = o.client_id GROUP BY c.client_id, c.name ORDER BY c.client_id",
+zai:glm-4.5-flash,v1,sql_049,cross_source,True,wrong_table,Есть ли клиенты без заказов?,"WITH all_clients AS (SELECT * FROM src_csv_c5a823e66b UNION SELECT * FROM src_csv_e9c529daba), all_orders AS (SELECT * FROM src_csv_2222807a9d UNION SELECT * FROM src_csv_b49334fae0) SELECT c.client_id, c.name, c.city FR",
+zai:glm-4.5-flash,v2,sql2_002,temporal,True,wrong_table,На сколько процентов выросла выручка в мае по сравнению с апрелем? Учти только с,"WITH april_revenue AS (SELECT SUM(revenue_rub) AS april_total FROM fact_rides WHERE is_partner = 0 AND strftime('%Y-%m', ride_date) = '2024-04'), may_revenue AS (SELECT SUM(revenue_rub) AS may_total FROM fact_rides WHERE",
+zai:glm-4.5-flash,v2,sql2_003,temporal,True,interpretation,Сколько поездок было в последние 7 дней от самой поздней даты в данных?,"SELECT COUNT(*) as ride_count FROM fact_rides WHERE ride_date >= date((SELECT MAX(ride_date) FROM fact_rides), '-7 days')",
+zai:glm-4.5-flash,v2,sql2_004,temporal,True,temporal,Сравни количество поездок в выходные и будние дни за июнь 2026,"SELECT 
+    CASE 
+        WHEN strftime('%w', ride_date) IN ('0', '6') THEN 'Выходной'
+        ELSE 'Будний'
+    END AS day_type,
+    COUNT(*) AS ride_count
+FROM fact_rides
+WHERE ride_date BETWEEN '2026-06-01' AND '2026-",
+zai:glm-4.5-flash,v2,sql2_005,temporal,True,aggregation,Как менялось среднее расстояние поездки от месяца к месяцу?,"SELECT strftime('%Y-%m', ride_date) AS month, AVG(distance_km) AS avg_distance FROM fact_rides WHERE is_partner = 0 GROUP BY strftime('%Y-%m', ride_date) ORDER BY month",
+zai:glm-4.5-flash,v2,sql2_008,join_complex,True,wrong_join,"Найди пользователей из России с телефоном RU, у которых было больше 30 поездок, ","SELECT u.user_id, c.city_name, COUNT(r.ride_id) as ride_count FROM dim_user u JOIN dim_city c ON u.city_id = c.city_id JOIN fact_rides r ON u.user_id = r.user_id WHERE c.country = 'Россия' AND u.phone_country = 'RU' AND ",
+zai:glm-4.5-flash,v2,sql2_009,join_complex,True,aggregation,Какая доля отменённых подписок у каждого бренда в процентах от всех подписок это,"SELECT 
+    brand,
+    COUNT(*) as total_subscriptions,
+    SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_subscriptions,
+    ROUND(SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) * 100.0 / COUN",
+zai:glm-4.5-flash,v2,sql2_012,group_sort,True,filter,Пять городов с наименьшим количеством поездок,"SELECT dc.city_name, COUNT(fr.ride_id) AS ride_count FROM fact_rides fr JOIN dim_city dc ON fr.city_id = dc.city_id WHERE fr.is_partner = 0 GROUP BY dc.city_name ORDER BY ride_count ASC LIMIT 5",
+zai:glm-4.5-flash,v2,sql2_013,group_sort,True,aggregation,Кто из пользователей проехал больше всех по суммарному расстоянию? Покажи топ-10,"SELECT u.user_id, u.registered_at, c.city_name, SUM(f.distance_km) as total_distance FROM fact_rides f JOIN dim_user u ON f.user_id = u.user_id JOIN dim_city c ON u.city_id = c.city_id WHERE f.is_partner = 0 GROUP BY u.u",
+zai:glm-4.5-flash,v2,sql2_016,pct_change,True,wrong_table,На сколько процентов изменилось число поездок в июне по сравнению с маем?,"WITH may_rides AS (
+  SELECT COUNT(*) AS count_may
+  FROM fact_rides
+  WHERE strftime('%m', ride_date) = '05'
+  AND is_partner = 0
+),
+june_rides AS (
+  SELECT COUNT(*) AS count_june
+  FROM fact_rides
+  WHERE strftime('%m",
+zai:glm-4.5-flash,v2,sql2_018,pct_change,False,no_sql,Какую долю в процентах от общей выручки даёт самый прибыльный город?,,model returned no SQL
+zai:glm-4.5-flash,v2,sql2_020,pct_change,True,wrong_table,"На сколько процентов выручка в июле меньше июньской, если считать только собстве","WITH june_revenue AS (
+  SELECT SUM(revenue_rub) AS revenue
+  FROM fact_rides
+  JOIN dim_city ON fact_rides.city_id = dim_city.city_id
+  WHERE dim_city.is_inhouse = 1
+    AND strftime('%Y-%m', ride_date) = '2023-06'
+    ",
+zai:glm-4.6,v1,sql_001,simple,True,filter,Сколько всего поездок в базе?,SELECT COUNT(*) AS total_rides FROM fact_rides WHERE is_partner = 0,
+zai:glm-4.6,v1,sql_004,simple,True,aggregation,Какова общая выручка за весь период?,SELECT SUM(revenue_rub) AS total_revenue FROM fact_rides WHERE is_partner = 0,
+zai:glm-4.6,v1,sql_007,simple,True,filter,Сколько поездок на велосипеде?,SELECT COUNT(*) AS bike_rides FROM fact_rides WHERE vehicle_type = 'bike' AND is_partner = 0,
+zai:glm-4.6,v1,sql_008,simple,True,filter,Какова средняя длительность поездки в минутах?,"SELECT ROUND(AVG(duration_min), 2) AS avg_duration_min FROM fact_rides WHERE is_partner = 0",
+zai:glm-4.6,v1,sql_011,join,True,filter,Топ-5 городов по числу поездок,"SELECT c.city_name, COUNT(r.ride_id) AS rides_count FROM fact_rides r JOIN dim_city c ON r.city_id = c.city_id WHERE r.is_partner = 0 GROUP BY c.city_id, c.city_name ORDER BY rides_count DESC LIMIT 5",
+zai:glm-4.6,v1,sql_012,join,True,aggregation,Выручка по регионам за всё время,"SELECT c.region, SUM(r.revenue_rub) AS revenue_rub FROM fact_rides r JOIN dim_city c ON r.city_id = c.city_id WHERE r.is_partner = 0 GROUP BY c.region ORDER BY revenue_rub DESC",
+zai:glm-4.6,v1,sql_013,join,True,wrong_table,Топ-5 пользователей по количеству поездок,"SELECT u.user_id, COUNT(r.ride_id) AS ride_count FROM fact_rides r JOIN dim_user u ON r.user_id = u.user_id WHERE r.is_partner = 0 GROUP BY u.user_id ORDER BY ride_count DESC LIMIT 5",
+zai:glm-4.6,v1,sql_014,join,True,aggregation,Выручка по типам транспорта,"SELECT vehicle_type, SUM(revenue_rub) AS revenue_rub FROM fact_rides WHERE is_partner = 0 GROUP BY vehicle_type ORDER BY revenue_rub DESC",
+zai:glm-4.6,v1,sql_016,join,True,aggregation,В каких городах есть активные подписки?,"SELECT c.city_name, COUNT(*) AS active_subscriptions FROM fact_subscriptions s JOIN dim_city c ON s.city_id = c.city_id WHERE s.status = 'active' GROUP BY c.city_name ORDER BY active_subscriptions DESC",
+zai:glm-4.6,v1,sql_017,agg,True,aggregation,Средняя выручка на поездку по городам,"SELECT c.city_name, AVG(r.revenue_rub) AS avg_revenue_per_ride FROM fact_rides r JOIN dim_city c ON r.city_id = c.city_id WHERE r.is_partner = 0 GROUP BY c.city_name ORDER BY avg_revenue_per_ride DESC",
+zai:glm-4.6,v1,sql_018,temporal,True,temporal,Сколько поездок было в апреле 2026 года?,SELECT COUNT(*) AS ride_count FROM fact_rides WHERE ride_date >= '2026-04-01' AND ride_date < '2026-05-01' AND is_partner = 0,
+zai:glm-4.6,v1,sql_019,temporal,True,aggregation,Выручка по месяцам,"SELECT strftime('%Y-%m', ride_date) AS month, SUM(revenue_rub) AS revenue FROM fact_rides WHERE is_partner = 0 GROUP BY month ORDER BY month",
+zai:glm-4.6,v1,sql_020,temporal,True,temporal,Сколько поездок за первую неделю апреля?,"SELECT COUNT(*) AS rides_count FROM fact_rides WHERE is_partner = 0 AND strftime('%m', ride_date) = '04' AND CAST(strftime('%d', ride_date) AS INTEGER) BETWEEN 1 AND 7",
+zai:glm-4.6,v1,sql_022,temporal,True,temporal,Какова средняя выручка на поездку в июне?,"SELECT ROUND(AVG(revenue_rub), 2) AS avg_revenue_per_ride FROM fact_rides WHERE strftime('%m', ride_date) = '06' AND is_partner = 0",
+zai:glm-4.6,v1,sql_031,join_complex,True,wrong_table,Сколько поездок у пользователей из Казани?,SELECT COUNT(*) AS total_rides FROM fact_rides r JOIN dim_city c ON r.city_id = c.city_id WHERE c.city_name = 'Казань' AND r.is_partner = 0,
+zai:glm-4.6,v1,sql_032,join_complex,True,filter,Какие города имеют более 3000 поездок?,"SELECT c.city_name, COUNT(r.ride_id) AS total_rides FROM fact_rides r JOIN dim_city c ON r.city_id = c.city_id WHERE r.is_partner = 0 GROUP BY c.city_id, c.city_name HAVING COUNT(r.ride_id) > 3000 ORDER BY total_rides DE",
+zai:glm-4.6,v1,sql_033,join_complex,True,aggregation,Распределение партнёрских и непартнёрских поездок по типам транспорта,"SELECT CASE WHEN is_partner = 1 THEN 'Партнёрская' ELSE 'Непартнёрская' END AS trip_type, vehicle_type, COUNT(*) AS ride_count FROM fact_rides GROUP BY is_partner, vehicle_type ORDER BY is_partner, vehicle_type",
+zai:glm-4.6,v1,sql_034,join_complex,True,filter,Какой месяц был самым прибыльным?,"SELECT strftime('%Y-%m', ride_date) AS month, ROUND(SUM(revenue_rub), 2) AS total_revenue FROM fact_rides WHERE is_partner = 0 GROUP BY month ORDER BY total_revenue DESC LIMIT 1",
+zai:glm-4.6,v1,sql_035,join_complex,True,wrong_table,"Пользователи, совершившие более 30 поездок","SELECT r.user_id, u.registered_at, c.city_name, COUNT(r.ride_id) AS total_rides, SUM(r.revenue_rub) AS total_revenue, ROUND(AVG(r.distance_km), 1) AS avg_distance_km FROM fact_rides r JOIN dim_user u ON r.user_id = u.use",
+zai:glm-4.6,v1,sql_036,join_complex,True,aggregation,Доля отменённых подписок по каждому бренду,"SELECT brand, COUNT(*) AS total_subs, SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_subs, ROUND(SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS cancel_share_pct FROM f",
+zai:glm-4.6,v1,sql_037,join_complex,True,aggregation,Соотношение самокатов и велосипедов по городам,"SELECT c.city_name, r.vehicle_type, COUNT(*) AS ride_count, ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (PARTITION BY c.city_name), 1) AS pct FROM fact_rides r JOIN dim_city c ON r.city_id = c.city_id WHERE r.is_partner ",
+zai:glm-4.6,v1,sql_038,join_complex,True,filter,"Города, где средняя длительность поездки выше общей средней","SELECT c.city_name, ROUND(AVG(r.duration_min), 1) AS avg_duration_min FROM fact_rides r JOIN dim_city c ON r.city_id = c.city_id WHERE r.is_partner = 0 GROUP BY r.city_id HAVING AVG(r.duration_min) > (SELECT AVG(duration",
+zai:glm-4.6,v1,sql_039,join_complex,True,filter,Число поездок по версиям приложения,"SELECT u.app_version, COUNT(r.ride_id) AS rides_count FROM fact_rides r JOIN dim_user u ON r.user_id = u.user_id WHERE r.is_partner = 0 GROUP BY u.app_version ORDER BY rides_count DESC",
+zai:glm-4.6,v1,sql_040,join_complex,True,filter,Топ-3 месяца по количеству уникальных пользователей,"SELECT strftime('%Y-%m', ride_date) AS month, COUNT(DISTINCT user_id) AS unique_users FROM fact_rides WHERE is_partner = 0 GROUP BY month ORDER BY unique_users DESC LIMIT 3",
+zai:glm-4.6,v1,sql_041,ambiguous,True,aggregation,Самые популярные города,"SELECT c.city_name, COUNT(r.ride_id) AS rides_count, COUNT(DISTINCT r.user_id) AS unique_users, SUM(r.revenue_rub) AS total_revenue FROM fact_rides r JOIN dim_city c ON r.city_id = c.city_id WHERE r.is_partner = 0 GROUP ",
+zai:glm-4.6,v1,sql_042,ambiguous,True,aggregation,Как обстоят дела с подписками?,"SELECT brand, status, COUNT(*) AS subscription_count, COUNT(DISTINCT user_id) AS unique_users FROM fact_subscriptions GROUP BY brand, status ORDER BY brand, status",
+zai:glm-4.6,v1,sql_043,ambiguous,True,wrong_table,Что с активностью пользователей?,"SELECT c.city_name, COUNT(DISTINCT r.user_id) AS unique_users, COUNT(r.ride_id) AS total_rides, ROUND(COUNT(r.ride_id) * 1.0 / COUNT(DISTINCT r.user_id), 1) AS rides_per_user, ROUND(AVG(r.distance_km), 1) AS avg_distance",
+zai:glm-4.6,v1,sql_044,ambiguous,True,aggregation,Общая картина по транспорту,"SELECT r.vehicle_type AS тип_транспорта, COUNT(r.ride_id) AS количество_поездок, COUNT(DISTINCT r.user_id) AS уникальные_пользователи, ROUND(SUM(r.revenue_rub), 0) AS выручка_руб, ROUND(AVG(r.revenue_rub), 0) AS средняя_",
+zai:glm-4.6,v1,sql_045,ambiguous,True,aggregation,Какие регионы лучше?,"SELECT c.region, COUNT(r.ride_id) AS total_rides, ROUND(SUM(r.revenue_rub), 0) AS total_revenue, COUNT(DISTINCT r.user_id) AS unique_users, ROUND(AVG(r.revenue_rub), 2) AS avg_revenue_per_ride, ROUND(AVG(r.distance_km), ",
+zai:glm-4.6,v1,sql_046,cross_source,True,wrong_table,Какова общая сумма заказов клиентов из Москвы?,SELECT SUM(o.amount) AS total_amount FROM src_csv_2222807a9d o JOIN src_csv_c5a823e66b c ON o.client_id = c.client_id WHERE c.city = 'Москва',
+zai:glm-4.6,v1,sql_048,cross_source,True,wrong_table,Сколько заказов у каждого клиента?,"SELECT c.name, COUNT(o.order_id) AS order_count FROM src_csv_c5a823e66b c LEFT JOIN src_csv_2222807a9d o ON c.client_id = o.client_id GROUP BY c.client_id, c.name ORDER BY order_count DESC",
+zai:glm-4.6,v1,sql_049,cross_source,True,wrong_table,Есть ли клиенты без заказов?,"SELECT c.client_id, c.name, c.city FROM src_csv_c5a823e66b c LEFT JOIN src_csv_2222807a9d o ON c.client_id = o.client_id WHERE o.order_id IS NULL",
+zai:glm-5.2,v1,sql_001,simple,True,filter,Сколько всего поездок в базе?,SELECT COUNT(*) AS total_rides FROM fact_rides WHERE is_partner = 0,
+zai:glm-5.2,v1,sql_004,simple,True,aggregation,Какова общая выручка за весь период?,SELECT SUM(revenue_rub) AS total_revenue FROM fact_rides WHERE is_partner = 0,
+zai:glm-5.2,v1,sql_007,simple,True,filter,Сколько поездок на велосипеде?,SELECT COUNT(ride_id) AS bike_rides_count FROM fact_rides WHERE vehicle_type = 'bike' AND is_partner = 0,
+zai:glm-5.2,v1,sql_008,simple,True,aggregation,Какова средняя длительность поездки в минутах?,SELECT AVG(duration_min) AS avg_duration_min FROM fact_rides WHERE is_partner = 0,
+zai:glm-5.2,v1,sql_011,join,True,filter,Топ-5 городов по числу поездок,"SELECT c.city_name, COUNT(r.ride_id) AS rides_count FROM fact_rides r JOIN dim_city c ON r.city_id = c.city_id WHERE r.is_partner = 0 GROUP BY c.city_id, c.city_name ORDER BY rides_count DESC LIMIT 5",
+zai:glm-5.2,v1,sql_012,join,True,aggregation,Выручка по регионам за всё время,"SELECT c.region, SUM(f.revenue_rub) AS total_revenue FROM fact_rides f JOIN dim_city c ON f.city_id = c.city_id WHERE f.is_partner = 0 GROUP BY c.region ORDER BY total_revenue DESC",
+zai:glm-5.2,v1,sql_013,join,True,wrong_table,Топ-5 пользователей по количеству поездок,"SELECT u.user_id, COUNT(r.ride_id) AS rides_count, SUM(r.revenue_rub) AS total_revenue, u.registered_at FROM fact_rides r JOIN dim_user u ON r.user_id = u.user_id WHERE r.is_partner = 0 GROUP BY u.user_id ORDER BY rides_",
+zai:glm-5.2,v1,sql_014,join,True,aggregation,Выручка по типам транспорта,"SELECT vehicle_type, SUM(revenue_rub) AS total_revenue FROM fact_rides WHERE is_partner = 0 GROUP BY vehicle_type ORDER BY total_revenue DESC",
+zai:glm-5.2,v1,sql_016,join,True,aggregation,В каких городах есть активные подписки?,"SELECT c.city_name, COUNT(f.sub_id) AS active_subs FROM fact_subscriptions f JOIN dim_city c ON f.city_id = c.city_id WHERE f.status = 'active' GROUP BY c.city_name ORDER BY active_subs DESC",
+zai:glm-5.2,v1,sql_017,agg,True,aggregation,Средняя выручка на поездку по городам,"SELECT c.city_name, AVG(f.revenue_rub) AS avg_revenue_per_ride FROM fact_rides f JOIN dim_city c ON f.city_id = c.city_id WHERE f.is_partner = 0 GROUP BY c.city_id, c.city_name ORDER BY avg_revenue_per_ride DESC",
+zai:glm-5.2,v1,sql_018,temporal,True,temporal,Сколько поездок было в апреле 2026 года?,"SELECT COUNT(*) AS rides_count FROM fact_rides WHERE strftime('%Y-%m', ride_date) = '2026-04' AND is_partner = 0",
+zai:glm-5.2,v1,sql_019,temporal,True,filter,Выручка по месяцам,"SELECT strftime('%Y-%m', ride_date) AS month, ROUND(SUM(revenue_rub), 2) AS revenue FROM fact_rides WHERE is_partner = 0 GROUP BY month ORDER BY month",
+zai:glm-5.2,v1,sql_020,temporal,True,temporal,Сколько поездок за первую неделю апреля?,"SELECT COUNT(ride_id) AS rides_count FROM fact_rides WHERE is_partner = 0 AND strftime('%m-%d', ride_date) BETWEEN '04-01' AND '04-07'",
+zai:glm-5.2,v1,sql_022,temporal,True,aggregation,Какова средняя выручка на поездку в июне?,"SELECT AVG(revenue_rub) AS avg_revenue_per_ride FROM fact_rides WHERE is_partner = 0 AND strftime('%m', ride_date) = '06'",
+zai:glm-5.2,v1,sql_031,join_complex,True,filter,Сколько поездок у пользователей из Казани?,SELECT COUNT(fr.ride_id) AS total_rides FROM fact_rides fr JOIN dim_user du ON fr.user_id = du.user_id JOIN dim_city dc ON du.city_id = dc.city_id WHERE dc.city_name = 'Казань' AND fr.is_partner = 0,
+zai:glm-5.2,v1,sql_032,join_complex,True,filter,Какие города имеют более 3000 поездок?,"SELECT c.city_name, COUNT(f.ride_id) AS rides_count FROM fact_rides f JOIN dim_city c ON f.city_id = c.city_id WHERE f.is_partner = 0 GROUP BY c.city_name HAVING COUNT(f.ride_id) > 3000 ORDER BY rides_count DESC",
+zai:glm-5.2,v1,sql_033,join_complex,True,aggregation,Распределение партнёрских и непартнёрских поездок по типам транспорта,"SELECT CASE is_partner WHEN 1 THEN 'Партнёрские' ELSE 'Непартнёрские' END AS trip_type, vehicle_type, COUNT(*) AS rides_count FROM fact_rides GROUP BY is_partner, vehicle_type ORDER BY is_partner, vehicle_type",
+zai:glm-5.2,v1,sql_034,join_complex,True,aggregation,Какой месяц был самым прибыльным?,"SELECT strftime('%Y-%m', ride_date) AS month, SUM(revenue_rub) AS total_revenue FROM fact_rides WHERE is_partner = 0 GROUP BY month ORDER BY total_revenue DESC LIMIT 1;",
+zai:glm-5.2,v1,sql_035,join_complex,True,wrong_table,"Пользователи, совершившие более 30 поездок","SELECT u.user_id, u.registered_at, c.city_name, COUNT(r.ride_id) AS total_rides, SUM(r.distance_km) AS total_distance_km, SUM(r.revenue_rub) AS total_revenue_rub FROM fact_rides r JOIN dim_user u ON r.user_id = u.user_id",
+zai:glm-5.2,v1,sql_036,join_complex,True,aggregation,Доля отменённых подписок по каждому бренду,"SELECT brand, COUNT(CASE WHEN status = 'cancelled' THEN 1 END) * 1.0 / COUNT(*) AS cancel_rate, COUNT(*) AS total_subs, COUNT(CASE WHEN status = 'cancelled' THEN 1 END) AS cancelled_count FROM fact_subscriptions GROUP BY",
+zai:glm-5.2,v1,sql_037,join_complex,True,aggregation,Соотношение самокатов и велосипедов по городам,"SELECT c.city_name, f.vehicle_type, COUNT(*) AS rides_count FROM fact_rides f JOIN dim_city c ON f.city_id = c.city_id WHERE f.is_partner = 0 GROUP BY c.city_name, f.vehicle_type ORDER BY c.city_name, f.vehicle_type",
+zai:glm-5.2,v1,sql_038,join_complex,True,filter,"Города, где средняя длительность поездки выше общей средней","SELECT dc.city_name, ROUND(AVG(fr.duration_min), 1) AS avg_duration_min FROM fact_rides fr JOIN dim_city dc ON fr.city_id = dc.city_id WHERE fr.is_partner = 0 GROUP BY dc.city_id, dc.city_name HAVING AVG(fr.duration_min)",
+zai:glm-5.2,v1,sql_039,join_complex,True,filter,Число поездок по версиям приложения,"SELECT u.app_version AS app_version, COUNT(*) AS rides_count FROM fact_rides r JOIN dim_user u ON r.user_id = u.user_id WHERE r.is_partner = 0 GROUP BY u.app_version ORDER BY rides_count DESC",
+zai:glm-5.2,v1,sql_040,join_complex,True,filter,Топ-3 месяца по количеству уникальных пользователей,"SELECT strftime('%Y-%m', ride_date) AS month, COUNT(DISTINCT user_id) AS unique_users FROM fact_rides WHERE is_partner = 0 GROUP BY month ORDER BY unique_users DESC LIMIT 3;",
+zai:glm-5.2,v1,sql_041,ambiguous,True,aggregation,Самые популярные города,"SELECT c.city_name, COUNT(r.ride_id) AS rides_count, COUNT(DISTINCT r.user_id) AS unique_users, SUM(r.revenue_rub) AS total_revenue FROM fact_rides r JOIN dim_city c ON r.city_id = c.city_id WHERE r.is_partner = 0 GROUP ",
+zai:glm-5.2,v1,sql_042,ambiguous,True,interpretation,Как обстоят дела с подписками?,"SELECT brand, status, COUNT(*) AS subs_count FROM fact_subscriptions GROUP BY brand, status ORDER BY brand, status",
+zai:glm-5.2,v1,sql_043,ambiguous,True,aggregation,Что с активностью пользователей?,"SELECT strftime('%Y-%m', ride_date) AS month, COUNT(DISTINCT user_id) AS active_users, COUNT(ride_id) AS total_rides, ROUND(COUNT(ride_id) * 1.0 / COUNT(DISTINCT user_id), 2) AS rides_per_user FROM fact_rides WHERE is_pa",
+zai:glm-5.2,v1,sql_044,ambiguous,True,aggregation,Общая картина по транспорту,"SELECT vehicle_type, COUNT(ride_id) AS total_rides, COUNT(DISTINCT user_id) AS unique_users, SUM(revenue_rub) AS total_revenue, SUM(distance_km) AS total_distance_km, SUM(duration_min) AS total_duration_min, ROUND(SUM(re",
+zai:glm-5.2,v1,sql_045,ambiguous,True,wrong_join,Какие регионы лучше?,"SELECT c.region, COUNT(r.ride_id) AS rides_count, COUNT(DISTINCT r.user_id) AS unique_users, ROUND(SUM(r.revenue_rub), 0) AS total_revenue, ROUND(SUM(r.revenue_rub) / COUNT(r.ride_id), 2) AS avg_revenue_per_ride, ROUND(C",
+zai:glm-5.2,v1,sql_046,cross_source,True,wrong_table,Какова общая сумма заказов клиентов из Москвы?,"WITH all_clients AS (SELECT client_id, name, city FROM src_csv_c5a823e66b UNION ALL SELECT client_id, name, city FROM src_csv_e37c814b60), all_orders AS (SELECT order_id, client_id, amount FROM src_csv_2222807a9d UNION A",
+zai:glm-5.2,v1,sql_047,cross_source,True,wrong_table,Какой клиент потратил больше всех?,"WITH all_clients AS (SELECT client_id, name, city FROM src_csv_c5a823e66b UNION ALL SELECT client_id, name, city FROM src_csv_e37c814b60), all_orders AS (SELECT client_id, amount FROM src_csv_2222807a9d UNION ALL SELECT ",
+zai:glm-5.2,v1,sql_048,cross_source,True,wrong_table,Сколько заказов у каждого клиента?,"SELECT c.name, COUNT(o.order_id) AS order_count FROM src_csv_c5a823e66b c LEFT JOIN src_csv_2222807a9d o ON c.client_id = o.client_id GROUP BY c.client_id, c.name ORDER BY order_count DESC",
+zai:glm-5.2,v1,sql_049,cross_source,True,wrong_table,Есть ли клиенты без заказов?,"WITH all_clients AS (SELECT client_id, name, city FROM src_csv_c5a823e66b UNION SELECT client_id, name, city FROM src_csv_e37c814b60), all_orders AS (SELECT DISTINCT client_id FROM src_csv_2222807a9d UNION SELECT DISTINC",
+zai:glm-5.3,v1,sql_001,simple,True,filter,Сколько всего поездок в базе?,SELECT COUNT(*) AS total_rides FROM fact_rides WHERE is_partner = 0,
+zai:glm-5.3,v1,sql_004,simple,True,aggregation,Какова общая выручка за весь период?,"SELECT ROUND(SUM(revenue_rub), 2) AS total_revenue, COUNT(*) AS rides_count FROM fact_rides WHERE is_partner = 0",
+zai:glm-5.3,v1,sql_007,simple,True,filter,Сколько поездок на велосипеде?,SELECT COUNT(*) AS bike_rides FROM fact_rides WHERE vehicle_type = 'bike' AND is_partner = 0,
+zai:glm-5.3,v1,sql_008,simple,True,aggregation,Какова средняя длительность поездки в минутах?,"SELECT ROUND(AVG(duration_min), 2) AS avg_duration_min, COUNT(*) AS rides_count FROM fact_rides WHERE is_partner = 0",
+zai:glm-5.3,v1,sql_011,join,True,filter,Топ-5 городов по числу поездок,"SELECT c.city_name AS city, COUNT(r.ride_id) AS rides_count FROM fact_rides r JOIN dim_city c ON c.city_id = r.city_id WHERE r.is_partner = 0 GROUP BY c.city_name ORDER BY rides_count DESC LIMIT 5",
+zai:glm-5.3,v1,sql_012,join,True,filter,Выручка по регионам за всё время,"SELECT c.region AS region, ROUND(SUM(f.revenue_rub), 2) AS total_revenue_rub FROM fact_rides f JOIN dim_city c ON c.city_id = f.city_id WHERE f.is_partner = 0 GROUP BY c.region ORDER BY total_revenue_rub DESC",
+zai:glm-5.3,v1,sql_013,join,True,wrong_table,Топ-5 пользователей по количеству поездок,"SELECT fr.user_id, dc.city_name, COUNT(*) AS rides_count, ROUND(SUM(fr.revenue_rub), 2) AS total_revenue_rub FROM fact_rides fr LEFT JOIN dim_user du ON du.user_id = fr.user_id LEFT JOIN dim_city dc ON dc.city_id = du.ci",
+zai:glm-5.3,v1,sql_014,join,True,aggregation,Выручка по типам транспорта,"SELECT vehicle_type, COUNT(*) AS rides_count, SUM(revenue_rub) AS total_revenue_rub, ROUND(AVG(revenue_rub), 2) AS avg_revenue_per_ride FROM fact_rides WHERE is_partner = 0 GROUP BY vehicle_type ORDER BY total_revenue_ru",
+zai:glm-5.3,v1,sql_016,join,True,aggregation,В каких городах есть активные подписки?,"SELECT c.city_name AS город, COUNT(*) AS активные_подписки FROM fact_subscriptions s JOIN dim_city c ON c.city_id = s.city_id WHERE s.status = 'active' GROUP BY c.city_name ORDER BY активные_подписки DESC",
+zai:glm-5.3,v1,sql_017,agg,True,aggregation,Средняя выручка на поездку по городам,"SELECT c.city_name AS city, COUNT(f.ride_id) AS rides_count, ROUND(SUM(f.revenue_rub), 2) AS total_revenue_rub, ROUND(AVG(f.revenue_rub), 2) AS avg_revenue_per_ride FROM fact_rides f JOIN dim_city c ON c.city_id = f.city",
+zai:glm-5.3,v1,sql_018,temporal,True,temporal,Сколько поездок было в апреле 2026 года?,SELECT COUNT(*) AS rides_count FROM fact_rides WHERE ride_date >= '2026-04-01' AND ride_date < '2026-05-01' AND is_partner = 0,
+zai:glm-5.3,v1,sql_019,temporal,True,aggregation,Выручка по месяцам,"SELECT strftime('%Y-%m', ride_date) AS month, ROUND(SUM(revenue_rub), 2) AS total_revenue_rub, COUNT(*) AS rides_count FROM fact_rides WHERE is_partner = 0 GROUP BY strftime('%Y-%m', ride_date) ORDER BY month",
+zai:glm-5.3,v1,sql_020,temporal,True,temporal,Сколько поездок за первую неделю апреля?,"SELECT COUNT(*) AS rides_count FROM fact_rides WHERE is_partner = 0 AND strftime('%m', ride_date) = '04' AND CAST(strftime('%d', ride_date) AS INTEGER) BETWEEN 1 AND 7",
+zai:glm-5.3,v1,sql_022,temporal,True,wrong_table,Какова средняя выручка на поездку в июне?,"WITH last_june AS (
+  SELECT MAX(strftime('%Y-%m', ride_date)) AS ym
+  FROM fact_rides
+  WHERE strftime('%m', ride_date) = '06'
+)
+SELECT
+  ROUND(AVG(revenue_rub), 2) AS avg_revenue_per_ride,
+  COUNT(*) AS rides_count,
+  ",
+zai:glm-5.3,v1,sql_028,simple,True,aggregation,Сколько разных типов транспорта в данных?,"SELECT vehicle_type, COUNT(*) AS rides_count, COUNT(DISTINCT user_id) AS users_count FROM fact_rides WHERE is_partner = 0 GROUP BY vehicle_type ORDER BY rides_count DESC",
+zai:glm-5.3,v1,sql_031,join_complex,True,filter,Сколько поездок у пользователей из Казани?,SELECT COUNT(*) AS rides_count FROM fact_rides r JOIN dim_user u ON u.user_id = r.user_id JOIN dim_city c ON c.city_id = u.city_id WHERE c.city_name = 'Казань' AND r.is_partner = 0,
+zai:glm-5.3,v1,sql_032,join_complex,True,filter,Какие города имеют более 3000 поездок?,"SELECT c.city_name, COUNT(r.ride_id) AS rides_count FROM fact_rides r JOIN dim_city c ON c.city_id = r.city_id WHERE r.is_partner = 0 GROUP BY c.city_id, c.city_name HAVING COUNT(r.ride_id) > 3000 ORDER BY rides_count DE",
+zai:glm-5.3,v1,sql_033,join_complex,True,aggregation,Распределение партнёрских и непартнёрских поездок по типам транспорта,"SELECT is_partner, vehicle_type, COUNT(*) AS rides_count FROM fact_rides GROUP BY is_partner, vehicle_type ORDER BY is_partner, vehicle_type",
+zai:glm-5.3,v1,sql_034,join_complex,True,aggregation,Какой месяц был самым прибыльным?,"SELECT strftime('%Y-%m', ride_date) AS month, ROUND(SUM(revenue_rub), 0) AS total_revenue_rub, COUNT(*) AS rides_count FROM fact_rides WHERE is_partner = 0 GROUP BY 1 ORDER BY total_revenue_rub DESC LIMIT 12",
+zai:glm-5.3,v1,sql_035,join_complex,True,wrong_table,"Пользователи, совершившие более 30 поездок","SELECT fr.user_id, du.registered_at, dc.city_name, COUNT(*) AS rides_count, ROUND(SUM(fr.distance_km), 1) AS total_km, ROUND(SUM(fr.revenue_rub), 0) AS total_revenue_rub FROM fact_rides fr LEFT JOIN dim_user du ON du.use",
+zai:glm-5.3,v1,sql_036,join_complex,True,aggregation,Доля отменённых подписок по каждому бренду,"SELECT brand, COUNT(*) AS total_subscriptions, SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_subscriptions, ROUND(100.0 * SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) / COUNT(*), 2) AS cance",
+zai:glm-5.3,v1,sql_037,join_complex,True,aggregation,Соотношение самокатов и велосипедов по городам,"SELECT c.city_name, SUM(CASE WHEN r.vehicle_type = 'scooter' THEN 1 ELSE 0 END) AS scooter_rides, SUM(CASE WHEN r.vehicle_type = 'bike' THEN 1 ELSE 0 END) AS bike_rides, ROUND(1.0 * SUM(CASE WHEN r.vehicle_type = 'scoote",
+zai:glm-5.3,v1,sql_038,join_complex,True,aggregation,"Города, где средняя длительность поездки выше общей средней","SELECT c.city_name AS city, COUNT(f.ride_id) AS rides_count, ROUND(AVG(f.duration_min), 1) AS avg_duration_min, ROUND((SELECT AVG(f2.duration_min) FROM fact_rides f2 WHERE f2.is_partner = 0), 1) AS overall_avg_min, ROUND",
+zai:glm-5.3,v1,sql_039,join_complex,True,filter,Число поездок по версиям приложения,"SELECT u.app_version AS app_version, COUNT(r.ride_id) AS rides_count FROM fact_rides r JOIN dim_user u ON u.user_id = r.user_id WHERE r.is_partner = 0 GROUP BY u.app_version ORDER BY rides_count DESC",
+zai:glm-5.3,v1,sql_040,join_complex,True,filter,Топ-3 месяца по количеству уникальных пользователей,"SELECT strftime('%Y-%m', ride_date) AS month, COUNT(DISTINCT user_id) AS unique_users FROM fact_rides WHERE is_partner = 0 GROUP BY strftime('%Y-%m', ride_date) ORDER BY unique_users DESC, month ASC LIMIT 3",
+zai:glm-5.3,v1,sql_041,ambiguous,True,aggregation,Самые популярные города,"SELECT c.city_name AS city, COUNT(r.ride_id) AS rides_count, COUNT(DISTINCT r.user_id) AS unique_users, ROUND(SUM(r.revenue_rub), 0) AS total_revenue FROM fact_rides r JOIN dim_city c ON c.city_id = r.city_id WHERE r.is_",
+zai:glm-5.3,v1,sql_042,ambiguous,True,aggregation,Как обстоят дела с подписками?,"SELECT brand, COUNT(*) AS total_subs, SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active_subs, SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_subs, ROUND(SUM(CASE WHEN status = 'cancelled' T",
+zai:glm-5.3,v1,sql_043,ambiguous,True,wrong_table,Что с активностью пользователей?,"WITH m AS (
+  SELECT
+    strftime('%Y-%m', ride_date) AS month,
+    COUNT(DISTINCT user_id) AS active_users,
+    COUNT(*) AS total_rides,
+    SUM(revenue_rub) AS revenue_rub
+  FROM fact_rides
+  WHERE is_partner = 0
+  GRO",
+zai:glm-5.3,v1,sql_044,ambiguous,True,aggregation,Общая картина по транспорту,"SELECT vehicle_type, COUNT(*) AS rides, COUNT(DISTINCT user_id) AS unique_users, ROUND(SUM(revenue_rub), 0) AS total_revenue, ROUND(AVG(revenue_rub), 2) AS avg_revenue_per_ride, ROUND(SUM(distance_km), 0) AS total_km, RO",
+zai:glm-5.3,v1,sql_045,ambiguous,True,aggregation,Какие регионы лучше?,"SELECT c.region, COUNT(r.ride_id) AS rides, COUNT(DISTINCT r.user_id) AS unique_users, ROUND(SUM(r.revenue_rub), 0) AS total_revenue, ROUND(AVG(r.revenue_rub), 0) AS avg_revenue_per_ride FROM fact_rides r JOIN dim_city c",
+zai:glm-5.3,v1,sql_046,cross_source,True,aggregation,Какова общая сумма заказов клиентов из Москвы?,"SELECT SUM(o.""amount"") AS total_orders_amount, COUNT(o.""order_id"") AS orders_count FROM ""src_csv_2222807a9d"" o JOIN ""src_csv_c5a823e66b"" c ON o.""client_id"" = c.""client_id"" WHERE c.""city"" = 'Москва'",
+zai:glm-5.3,v1,sql_047,cross_source,True,wrong_table,Какой клиент потратил больше всех?,"SELECT c.name AS client_name, c.city, SUM(o.amount) AS total_spent FROM src_csv_c5a823e66b c JOIN src_csv_2222807a9d o ON o.client_id = c.client_id GROUP BY c.client_id, c.name, c.city ORDER BY total_spent DESC LIMIT 1",
+zai:glm-5.3,v1,sql_048,cross_source,True,wrong_table,Сколько заказов у каждого клиента?,"SELECT c.name AS client_name, c.city, COUNT(o.order_id) AS orders_count FROM src_csv_c5a823e66b c LEFT JOIN src_csv_2222807a9d o ON o.client_id = c.client_id GROUP BY c.client_id, c.name, c.city ORDER BY orders_count DES",
+zai:glm-5.3,v1,sql_049,cross_source,True,wrong_join,Есть ли клиенты без заказов?,"WITH clients AS (
+  SELECT client_id, name, city FROM ""src_csv_c5a823e66b""
+  UNION
+  SELECT client_id, name, city FROM ""src_csv_5de56214bb""
+),
+orders AS (
+  SELECT DISTINCT client_id FROM ""src_csv_2222807a9d""
+  UNION
+  S",
+zai:glm-5.3,v1,sql_050,cross_source,True,wrong_join,Средний чек заказа по городам клиентов,"WITH clients AS (
+  SELECT client_id, name, city FROM ""src_csv_c5a823e66b""
+  UNION
+  SELECT client_id, name, city FROM ""src_csv_5de56214bb""
+),
+orders AS (
+  SELECT order_id, client_id, amount FROM ""src_csv_2222807a9d""
+  ",
+zai:glm-5.3-flash,v1,sql_001,simple,True,filter,Сколько всего поездок в базе?,SELECT COUNT(*) AS total_rides FROM fact_rides WHERE is_partner = 0;,
+zai:glm-5.3-flash,v1,sql_004,simple,True,aggregation,Какова общая выручка за весь период?,SELECT SUM(revenue_rub) AS total_revenue_rub FROM fact_rides WHERE is_partner = 0,
+zai:glm-5.3-flash,v1,sql_007,simple,True,filter,Сколько поездок на велосипеде?,SELECT COUNT(*) AS bike_rides FROM fact_rides WHERE vehicle_type = 'bike' AND is_partner = 0,
+zai:glm-5.3-flash,v1,sql_008,simple,True,filter,Какова средняя длительность поездки в минутах?,"SELECT ROUND(AVG(duration_min), 1) AS avg_duration_min FROM fact_rides WHERE is_partner = 0",
+zai:glm-5.3-flash,v1,sql_011,join,True,filter,Топ-5 городов по числу поездок,"SELECT c.city_name AS city, COUNT(r.ride_id) AS rides FROM fact_rides r JOIN dim_city c ON c.city_id = r.city_id WHERE r.is_partner = 0 GROUP BY c.city_name ORDER BY rides DESC LIMIT 5",
+zai:glm-5.3-flash,v1,sql_012,join,True,filter,Выручка по регионам за всё время,"SELECT c.region AS region, ROUND(SUM(r.revenue_rub), 0) AS revenue_rub FROM fact_rides r JOIN dim_city c ON c.city_id = r.city_id WHERE r.is_partner = 0 GROUP BY c.region ORDER BY revenue_rub DESC",
+zai:glm-5.3-flash,v1,sql_013,join,True,aggregation,Топ-5 пользователей по количеству поездок,"SELECT user_id, COUNT(ride_id) AS rides_cnt, ROUND(SUM(revenue_rub), 2) AS total_revenue_rub FROM fact_rides WHERE is_partner = 0 GROUP BY user_id ORDER BY rides_cnt DESC LIMIT 5",
+zai:glm-5.3-flash,v1,sql_014,join,True,aggregation,Выручка по типам транспорта,"SELECT vehicle_type AS 'Тип транспорта', ROUND(SUM(revenue_rub), 2) AS 'Выручка, ₽' FROM fact_rides WHERE is_partner = 0 GROUP BY vehicle_type ORDER BY SUM(revenue_rub) DESC;",
+zai:glm-5.3-flash,v1,sql_016,join,True,aggregation,В каких городах есть активные подписки?,"SELECT c.city_name AS city, COUNT(*) AS active_subs FROM fact_subscriptions fs JOIN dim_city c ON c.city_id = fs.city_id WHERE fs.status = 'active' GROUP BY c.city_name ORDER BY active_subs DESC",
+zai:glm-5.3-flash,v1,sql_017,agg,True,aggregation,Средняя выручка на поездку по городам,"SELECT c.city_name AS city, ROUND(AVG(r.revenue_rub), 2) AS avg_revenue_per_ride, COUNT(*) AS rides FROM fact_rides r JOIN dim_city c ON c.city_id = r.city_id WHERE r.is_partner = 0 GROUP BY c.city_name ORDER BY avg_reve",
+zai:glm-5.3-flash,v1,sql_018,temporal,True,temporal,Сколько поездок было в апреле 2026 года?,"SELECT COUNT(*) AS total_rides FROM fact_rides WHERE is_partner = 0 AND strftime('%Y-%m', ride_date) = '2026-04'",
+zai:glm-5.3-flash,v1,sql_019,temporal,True,aggregation,Выручка по месяцам,"SELECT strftime('%Y-%m', ride_date) AS month, ROUND(SUM(revenue_rub), 2) AS revenue_rub, COUNT(*) AS rides_count FROM fact_rides WHERE is_partner = 0 GROUP BY month ORDER BY month",
+zai:glm-5.3-flash,v1,sql_020,temporal,True,temporal,Сколько поездок за первую неделю апреля?,"SELECT COUNT(*) AS rides FROM fact_rides WHERE is_partner = 0 AND strftime('%m', ride_date) = '04' AND CAST(strftime('%d', ride_date) AS INTEGER) BETWEEN 1 AND 7",
+zai:glm-5.3-flash,v1,sql_022,temporal,True,wrong_table,Какова средняя выручка на поездку в июне?,"WITH last_june AS (SELECT MAX(strftime('%Y', ride_date)) AS y FROM fact_rides WHERE strftime('%m', ride_date) = '06') SELECT ROUND(AVG(r.revenue_rub), 2) AS avg_revenue_per_ride, COUNT(*) AS rides_count FROM fact_rides r",
+zai:glm-5.3-flash,v1,sql_023,edge,True,filter,Сколько поездок в городе Лондон?,"SELECT c.city_name, COUNT(r.ride_id) AS rides_count FROM fact_rides r JOIN dim_city c ON c.city_id = r.city_id WHERE c.city_name = 'Лондон' AND r.is_partner = 0 GROUP BY c.city_name",
+zai:glm-5.3-flash,v1,sql_028,simple,True,aggregation,Сколько разных типов транспорта в данных?,"SELECT COUNT(DISTINCT vehicle_type) AS vehicle_types_count, GROUP_CONCAT(DISTINCT vehicle_type) AS types_list FROM fact_rides WHERE is_partner = 0",
+zai:glm-5.3-flash,v1,sql_031,join_complex,True,wrong_table,Сколько поездок у пользователей из Казани?,SELECT COUNT(*) AS rides_count FROM fact_rides f JOIN dim_city c ON f.city_id = c.city_id WHERE c.city_name = 'Казань' AND f.is_partner = 0,
+zai:glm-5.3-flash,v1,sql_032,join_complex,True,filter,Какие города имеют более 3000 поездок?,"SELECT c.city_name, COUNT(r.ride_id) AS rides_count FROM fact_rides r JOIN dim_city c ON c.city_id = r.city_id WHERE r.is_partner = 0 GROUP BY c.city_name HAVING COUNT(r.ride_id) > 3000 ORDER BY rides_count DESC",
+zai:glm-5.3-flash,v1,sql_033,join_complex,True,aggregation,Распределение партнёрских и непартнёрских поездок по типам транспорта,"SELECT vehicle_type AS transport, CASE WHEN is_partner = 1 THEN 'Партнёрские' ELSE 'Непартнёрские' END AS ride_type, COUNT(*) AS rides FROM fact_rides GROUP BY vehicle_type, is_partner ORDER BY transport, ride_type",
+zai:glm-5.3-flash,v1,sql_034,join_complex,True,filter,Какой месяц был самым прибыльным?,"SELECT strftime('%Y-%m', ride_date) AS month, ROUND(SUM(revenue_rub), 2) AS revenue_rub FROM fact_rides WHERE is_partner = 0 GROUP BY month ORDER BY revenue_rub DESC LIMIT 1",
+zai:glm-5.3-flash,v1,sql_035,join_complex,True,wrong_table,"Пользователи, совершившие более 30 поездок","SELECT r.user_id, c.city_name, COUNT(r.ride_id) AS rides_cnt, MIN(r.ride_date) AS first_ride_date, MAX(r.ride_date) AS last_ride_date FROM fact_rides r JOIN dim_user u ON u.user_id = r.user_id JOIN dim_city c ON c.city_i",
+zai:glm-5.3-flash,v1,sql_036,join_complex,True,aggregation,Доля отменённых подписок по каждому бренду,"SELECT brand, ROUND(100.0 * SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) / COUNT(*), 2) AS cancel_rate_pct, COUNT(*) AS total_subs FROM fact_subscriptions GROUP BY brand ORDER BY cancel_rate_pct DESC",
+zai:glm-5.3-flash,v1,sql_037,join_complex,True,aggregation,Соотношение самокатов и велосипедов по городам,"SELECT c.city_name AS city, SUM(CASE WHEN r.vehicle_type = 'scooter' THEN 1 ELSE 0 END) AS scooter_rides, SUM(CASE WHEN r.vehicle_type = 'bike' THEN 1 ELSE 0 END) AS bike_rides, ROUND(1.0 * SUM(CASE WHEN r.vehicle_type =",
+zai:glm-5.3-flash,v1,sql_038,join_complex,True,aggregation,"Города, где средняя длительность поездки выше общей средней","WITH overall AS (SELECT AVG(duration_min) AS avg_total FROM fact_rides WHERE is_partner = 0), city_avg AS (SELECT c.city_id, c.city_name, c.region, c.is_inhouse, AVG(f.duration_min) AS avg_duration, COUNT(f.ride_id) AS r",
+zai:glm-5.3-flash,v1,sql_039,join_complex,True,filter,Число поездок по версиям приложения,"SELECT u.app_version, COUNT(r.ride_id) AS rides_count FROM fact_rides r JOIN dim_user u ON r.user_id = u.user_id WHERE r.is_partner = 0 GROUP BY u.app_version ORDER BY rides_count DESC",
+zai:glm-5.3-flash,v1,sql_040,join_complex,True,filter,Топ-3 месяца по количеству уникальных пользователей,"SELECT strftime('%Y-%m', ride_date) AS month, COUNT(DISTINCT user_id) AS unique_users FROM fact_rides WHERE is_partner = 0 GROUP BY month ORDER BY unique_users DESC LIMIT 3",
+zai:glm-5.3-flash,v1,sql_041,ambiguous,True,aggregation,Самые популярные города,"SELECT c.city_name, COUNT(r.ride_id) AS rides, COUNT(DISTINCT r.user_id) AS unique_users FROM fact_rides r JOIN dim_city c ON c.city_id = r.city_id WHERE r.is_partner = 0 GROUP BY c.city_id, c.city_name ORDER BY rides DE",
+zai:glm-5.3-flash,v1,sql_042,ambiguous,True,aggregation,Как обстоят дела с подписками?,"SELECT brand, COUNT(*) AS total_subs, SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active_subs, SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_subs, ROUND(100.0 * SUM(CASE WHEN status = 'acti",
+zai:glm-5.3-flash,v1,sql_043,ambiguous,True,aggregation,Что с активностью пользователей?,"SELECT strftime('%Y-%m', ride_date) AS month, COUNT(DISTINCT user_id) AS active_users, COUNT(*) AS rides, ROUND(COUNT(*) * 1.0 / COUNT(DISTINCT user_id), 2) AS rides_per_user FROM fact_rides WHERE is_partner = 0 GROUP BY",
+zai:glm-5.3-flash,v1,sql_044,ambiguous,True,aggregation,Общая картина по транспорту,"SELECT vehicle_type AS transport, COUNT(*) AS total_rides, COUNT(DISTINCT user_id) AS unique_users, ROUND(SUM(revenue_rub), 0) AS revenue_rub, ROUND(AVG(distance_km), 2) AS avg_distance_km, ROUND(AVG(duration_min), 1) AS",
+zai:glm-5.3-flash,v1,sql_045,ambiguous,True,wrong_table,Какие регионы лучше?,"WITH region_pop AS (SELECT region, SUM(population) AS population FROM dim_city GROUP BY region) SELECT c.region, COUNT(r.ride_id) AS rides, COUNT(DISTINCT r.user_id) AS unique_users, ROUND(SUM(r.revenue_rub), 0) AS reven",
+zai:glm-5.3-flash,v1,sql_046,cross_source,True,wrong_table,Какова общая сумма заказов клиентов из Москвы?,SELECT SUM(o.amount) AS total_amount FROM src_csv_c5a823e66b c JOIN src_csv_2222807a9d o ON o.client_id = c.client_id WHERE c.city = 'Москва';,
+zai:glm-5.3-flash,v1,sql_048,cross_source,True,interpretation,Сколько заказов у каждого клиента?,"SELECT c.name AS client, COUNT(o.order_id) AS orders_count FROM ""src_csv_c5a823e66b"" c LEFT JOIN ""src_csv_2222807a9d"" o ON o.client_id = c.client_id GROUP BY c.client_id, c.name ORDER BY orders_count DESC, c.name",
+zai:glm-5.3-flash,v1,sql_049,cross_source,True,wrong_table,Есть ли клиенты без заказов?,"SELECT c.client_id, c.name, c.city FROM src_csv_c5a823e66b c LEFT JOIN src_csv_2222807a9d o ON o.client_id = c.client_id WHERE o.order_id IS NULL ORDER BY c.name",

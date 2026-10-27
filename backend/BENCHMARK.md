@@ -70,7 +70,27 @@ python scripts/llm_bench.py prefix --model zai:glm-4.5-flash
 
 # Retrieval-метрики (без LLM, детерминированно)
 python scripts/llm_bench.py retrieval
+
+# RAG retrieval v2: chunk-level Recall/Precision/MRR/nDCG + ablation (без ключей)
+python scripts/eval_rag.py
+
+# RAG генеративные свойства (LLM-judge с калибровкой; нужен ключ)
+python scripts/rag_judge.py
+
+# Таксономия ошибок SQL по существующим артефактам (без ключей)
+python scripts/error_analysis.py
+
+# Единый прогон suites с run-id и manifest (deterministic — без ключей)
+python scripts/run_eval.py --suite deterministic
+python scripts/run_eval.py --suite all --model zai:glm-4.5-flash --with-judge
+
+# Regression-гейт против baseline (Wilson-методика, код возврата для CI)
+python scripts/check_regression.py --baseline <baseline.json> --candidate <new.json>
 ```
+
+Полный список метрик и их определений — [docs/EVALUATION.md](../docs/EVALUATION.md);
+сводные результаты — [docs/BENCHMARK_RESULTS.md](../docs/BENCHMARK_RESULTS.md);
+анализ ошибок — [docs/ERROR_ANALYSIS.md](../docs/ERROR_ANALYSIS.md).
 
 ## Уровни измерений — строгое разделение
 

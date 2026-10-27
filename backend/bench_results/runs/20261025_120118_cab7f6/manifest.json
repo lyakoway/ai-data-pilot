@@ -1,0 +1,28 @@
+{
+  "run_id": "20261025_120118_cab7f6",
+  "generated_at": "2026-10-25 12:01:18",
+  "git_rev": "6dee1da",
+  "env": {
+    "python": "3.13.5",
+    "os": "macOS-10.16-x86_64-i386-64bit-Mach-O",
+    "openai": "1.59.6",
+    "httpx": "0.28.1"
+  },
+  "eval_code": [
+    "scripts/run_eval.py",
+    "scripts/eval_sql_full.py",
+    "scripts/eval_rag.py",
+    "scripts/rag_judge.py",
+    "scripts/e2e_bench.py",
+    "scripts/evaluate.py"
+  ],
+  "suite_requested": "deterministic",
+  "model": "zai:glm-4.5-flash",
+  "datasets": {
+    "sql_golden_v1": "f3c860500846b1c6",
+    "sql_golden_v2": "42142cd8e6b97d00",
+    "rag_retrieval_v2": "39d6dbe3949b19c5",
+    "routing_golden": "d462e7c9a4b4ba90"
+  },
+  "note": "raw per-suite artifacts are copied under this run dir; aggregates in report.json"
+}

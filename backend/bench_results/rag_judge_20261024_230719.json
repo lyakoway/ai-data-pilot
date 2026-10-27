@@ -1,0 +1,204 @@
+{
+  "manifest": {
+    "tool": "rag_judge.py",
+    "rubric_version": "rag-judge-rubric-v1",
+    "judge_model": "zai:glm-4.5-flash",
+    "answer_model": "zai:glm-4.5-flash",
+    "generated_at": "2026-10-24 23:07:19",
+    "git_rev": "6dee1da",
+    "env": {
+      "python": "3.13.5",
+      "os": "macOS-10.16-x86_64-i386-64bit-Mach-O",
+      "openai": "1.59.6",
+      "httpx": "0.28.1"
+    },
+    "golden_sha256": "39d6dbe3949b19c5",
+    "limitations": [
+      "judge and answer model are the SAME provider family (only Z.ai key available) — self-judging bias",
+      "binary judge scores, single judge, no inter-annotator statistics",
+      "citation_validity is deterministic (indices exist); citation_correctness_judged is the LLM judgment of support"
+    ]
+  },
+  "calibration": {
+    "agreement": "2/3",
+    "details": [
+      {
+        "expected": [
+          1,
+          1,
+          1
+        ],
+        "got": [
+          1,
+          1,
+          1
+        ],
+        "match": true
+      },
+      {
+        "expected": [
+          0,
+          1,
+          0
+        ],
+        "got": [
+          0,
+          1,
+          0
+        ],
+        "match": true
+      },
+      {
+        "expected": [
+          1,
+          0,
+          1
+        ],
+        "got": [
+          1,
+          1,
+          0
+        ],
+        "match": false
+      }
+    ]
+  },
+  "summary": {
+    "n_positive": 6,
+    "n_negative": 3,
+    "faithfulness": 0.167,
+    "answer_relevancy": 1.0,
+    "citation_correctness_judged": 0.167,
+    "citation_validity_deterministic": 1.0,
+    "abstention_ok_share": 0.0,
+    "judge_calibration_agreement": "2/3"
+  },
+  "details": [
+    {
+      "id": "rag2_01",
+      "kind": "positive",
+      "question": "Что возвращает API если SIM disabled при сбросе ошибок?",
+      "answer": "Согласно контексту, при попытке сброса ошибок через админку ТС (backend_logic.md#1) **если SIM-карта отключена (SIM disabled), API возвращает HTTP-код `409 Conflict`**.\n\n**Детали:**\n\n1.  **Условие сброса:** Кнопка «Сбросить ошибки» вызывает сервис `TransportCardService.ResetCriticalErrors` [1].\n2.  ",
+      "n_sources": 4,
+      "citations_valid": true,
+      "faithfulness": 0,
+      "relevancy": 1,
+      "citations_judged": 0,
+      "judge_reason": "Claims not supported by context",
+      "latency_s": 69.88
+    },
+    {
+      "id": "rag2_02",
+      "kind": "positive",
+      "question": "В каком файле живёт сервис антифрода серийников АКБ?",
+      "answer": "Сервис антифрода для серийников аккумуляторов (АКБ) находится в следующем файле:\n\n**Файл:** `AntifraudBatterySerialNumberService.cs`  \n**Сервис:** `opsactions.api`  \n\n### Ключевые детали из контекста:\n1. **Назначение сервиса**  \n   Предотвращает накрутку счётчиков замен АКБ одним и тем же серийным н",
+      "n_sources": 4,
+      "citations_valid": true,
+      "faithfulness": 0,
+      "relevancy": 1,
+      "citations_judged": 0,
+      "judge_reason": "Answer contains details not in context",
+      "latency_s": 51.66
+    },
+    {
+      "id": "rag2_16",
+      "kind": "confusable",
+      "question": "TTL 15 минут — где это настроено?",
+      "answer": "В предоставленном контексте **нет информации о месте настройки TTL 15 минут** для Redis кэша тарифов. Вот детальный разбор:\n\n### Что известно из контекста:\n1.  **Факт существования TTL:**  \n    Указано, что кэш тарифов в Redis имеет **TTL (Time To Live) 15 минут** [1]. Это означает, что данные автом",
+      "n_sources": 4,
+      "citations_valid": true,
+      "faithfulness": 1,
+      "relevancy": 1,
+      "citations_judged": 1,
+      "judge_reason": "Нет данных о месте настройки TTL в контексте",
+      "latency_s": 36.23
+    },
+    {
+      "id": "rag2_17",
+      "kind": "confusable",
+      "question": "Как не дают накручивать счётчик замен АКБ?",
+      "answer": "Механизм предотвращения накрутки счётчика замен АКБ реализован через **Redis TTL whitelist** и описан в сервисе `opsactions.api` [1]. Вот как это работает:\n\n### 1. **Суть проблемы**\n   - Один и тот же серийный номер аккумулятора (serial) может использоваться многократно для фиктивных замен, искусств",
+      "n_sources": 4,
+      "citations_valid": true,
+      "faithfulness": 0,
+      "relevancy": 1,
+      "citations_judged": 0,
+      "judge_reason": "Детали в ответе отсутствуют в CONTEXT",
+      "latency_s": 44.64
+    },
+    {
+      "id": "rag2_18",
+      "kind": "positive_en",
+      "question": "How is utilization calculated and what is the production source of truth?",
+      "answer": "Based on the provided context, here's a detailed breakdown of utilization calculation and its production source of truth:\n\n### 1. **Utilization Calculation**\n   - **Definition**: Utilization represents the proportion of the active fleet relative to the total available fleet [1].\n   - **Formula**:  \n",
+      "n_sources": 4,
+      "citations_valid": true,
+      "faithfulness": 0,
+      "relevancy": 1,
+      "citations_judged": 0,
+      "judge_reason": "Answer contains details not in context",
+      "latency_s": 28.4
+    },
+    {
+      "id": "rag2_19",
+      "kind": "positive_en",
+      "question": "What happens to a city's location field when the city becomes inactive?",
+      "answer": "Based on the provided context, here's what happens to a city's location field when it becomes inactive:\n\n1.  **The location field itself is NOT cleared or modified:** When a city is set to `inactive`, the actual data stored in its `location` field remains unchanged. The geographical coordinates or l",
+      "n_sources": 4,
+      "citations_valid": true,
+      "faithfulness": 0,
+      "relevancy": 1,
+      "citations_judged": 0,
+      "judge_reason": "Claims not supported by context; citation doesn't match content.",
+      "latency_s": 31.42
+    },
+    {
+      "id": "rag2_n1",
+      "kind": "negative",
+      "question": "Какой SLA поддержки у тарифа premium?",
+      "answer": "В предоставленном контексте **отсутствует информация о SLA (Service Level Agreement) поддержки для тарифа premium**. Ни в одном из фрагментов ([1], [2], [3], [4]) не упоминаются:\n\n1.  **Сроки реакции на инциденты** (например, время ответа на запрос).\n2.  **Гарантированные часы работы поддержки** (на",
+      "n_sources": 4,
+      "citations_valid": true,
+      "abstention_ok": false,
+      "judge": {
+        "faithfulness": 1,
+        "relevancy": 1,
+        "citations": 0,
+        "reason": "Нет данных о SLA в контексте"
+      },
+      "latency_s": 27.14
+    },
+    {
+      "id": "rag2_n2",
+      "kind": "negative",
+      "question": "Какая зарплата у CEO компании?",
+      "answer": "В предоставленном контексте **отсутствует информация о зарплате CEO компании**. Ни в одном из фрагментов ([1], [2], [3], [4]) не упоминаются данные о заработной плате, компенсациях или финансовых показателях руководства.\n\n**Почему данных нет:**\n1.  **Тематика контекста:** Фрагменты описывают техниче",
+      "n_sources": 4,
+      "citations_valid": true,
+      "abstention_ok": false,
+      "judge": {
+        "faithfulness": 1,
+        "relevancy": 1,
+        "citations": 1,
+        "reason": "Контекст не содержит данных о зарплате CEO"
+      },
+      "latency_s": 20.2
+    },
+    {
+      "id": "rag2_n4",
+      "kind": "negative_en",
+      "question": "What GPU model is used for ML training?",
+      "answer": "Based on the provided **CONTEXT**, there is **no information** about the GPU model used for ML training. The fragments focus on:\n\n1.  **Data Pipelines & Warehousing**:\n    *   `fact_rides` - An incremental rides data mart from `rides.api` via Kafka to DWH [1].\n    *   `customer_subscription` (MongoD",
+      "n_sources": 4,
+      "citations_valid": true,
+      "abstention_ok": false,
+      "judge": {
+        "faithfulness": 1,
+        "relevancy": 1,
+        "citations": 1,
+        "reason": "No GPU info in context, only data pipelines and metrics."
+      },
+      "latency_s": 22.72
+    }
+  ]
+}
