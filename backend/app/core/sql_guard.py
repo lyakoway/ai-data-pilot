@@ -12,7 +12,10 @@ from app.config import get_settings
 
 FORBIDDEN = re.compile(
     r"\b(INSERT|UPDATE|DELETE|DROP|ALTER|ATTACH|DETACH|PRAGMA|CREATE|REPLACE|"
-    r"TRUNCATE|GRANT|REVOKE|COPY|VACUUM|INTO\s+OUTFILE)\b",
+    r"TRUNCATE|GRANT|REVOKE|COPY|VACUUM|INTO\s+OUTFILE|"
+    # dangerous SQL functions / schema probing (defense in depth: even where a
+    # driver disables them by default, the guard must not rely on that)
+    r"LOAD_EXTENSION|READFILE|WRITEFILE|SQLITE_MASTER|SQLITE_TEMP_MASTER)\b",
     re.IGNORECASE,
 )
 

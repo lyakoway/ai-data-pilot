@@ -219,20 +219,27 @@ TOOLS_DESCRIPTION = """У тебя есть следующие инструме�
 
 
 def dispatch_tool(
-    name: str, args: dict[str, Any], *, engine: Engine = None, lang: str = "ru",
+    name: str, args: Any, *, engine: Engine = None, lang: str = "ru",
     timeout: float | None = None,
 ) -> dict[str, Any]:
-    """Execute a tool by name. Unknown tools return an error result (never raise)."""
+    """Execute a tool by name. Unknown tools and malformed arguments (e.g. a
+    non-dict ``args`` from a broken model decision) return an error result —
+    nothing raises into the agent loop."""
     fn = TOOLS.get(name)
     if fn is None:
         return _err(f"Неизвестный инструмент: {name}" if lang != "en" else f"Unknown tool: {name}")
-    enriched = {**args, "_lang": lang}
-    kwargs: dict[str, Any] = {"lang": lang}
-    if engine is not None:
-        kwargs["engine"] = engine
-    if timeout is not None:
-        kwargs["timeout"] = timeout
+    if not isinstance(args, dict):
+        return _err(
+            f"Аргументы инструмента должны быть объектом, получено {type(args).__name__}"
+            if lang != "en" else f"Tool args must be an object, got {type(args).__name__}"
+        )
     try:
+        enriched = {**args, "_lang": lang}
+        kwargs: dict[str, Any] = {"lang": lang}
+        if engine is not None:
+            kwargs["engine"] = engine
+        if timeout is not None:
+            kwargs["timeout"] = timeout
         return fn(enriched, **kwargs)
     except Exception as e:  # noqa: BLE001 — tools must never crash the loop
         return _err(f"Ошибка инструмента {name}: {str(e)[:200]}")

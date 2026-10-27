@@ -6,7 +6,9 @@ from pydantic import BaseModel, Field
 
 
 class ChatRequest(BaseModel):
-    message: str = Field(min_length=1)
+    # Upper bound: an unbounded message is forwarded verbatim into LLM prompts
+    # (cost/abuse vector). 20k chars ≈ 5-7k tokens — above any sane analytics question.
+    message: str = Field(min_length=1, max_length=20_000)
     # "auto" lets the router pick the agent per question.
     agent: Literal["auto", "atlas", "doc"] = "auto"
     model: str = "mock"
