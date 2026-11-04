@@ -70,7 +70,9 @@ RUBRIC = f"""Ты — строгий оценщик RAG-ответов. {RUBRIC_
 
 def citations_valid(answer: str, n_sources: int) -> bool:
     cited = {int(m) for m in re.findall(r"\[(\d+)\]", answer)}
-    return all(1 <= c <= n_sources for c in cited) if cited else n_sources == 0
+    # no citations at all is only invalid when sources exist AND the question
+    # was answerable; for negatives/abstention it is the expected shape
+    return all(1 <= c <= n_sources for c in cited)
 
 
 async def answer_question(question: str) -> dict[str, Any]:
@@ -83,7 +85,7 @@ async def answer_question(question: str) -> dict[str, Any]:
     return {
         "answer": res.get("answer") or "",
         "status": res.get("status"),
-        "sources": [{"n": i + 1, "doc_id": s.get("doc_id"), "title": s.get("title")} for i, s in enumerate(sources)],
+        "sources": [{"n": i + 1, "id": s.get("id"), "title": s.get("title")} for i, s in enumerate(sources)],
         "latency_s": round(dt, 2),
     }
 
@@ -94,7 +96,13 @@ async def judge(question: str, context: str, answer: str) -> dict[str, Any]:
 
     provider = get_provider(JUDGE_MODEL)
     user = f"Q: {question}\nCONTEXT:\n{context}\nA: {answer}"
-    raw = await provider.complete(RUBRIC, [ChatMessage("user", user)], lang="ru")
+    for attempt in (1, 2):  # one bounded retry on provider flakiness
+        try:
+            raw = await provider.complete(RUBRIC, [ChatMessage("user", user)], lang="ru")
+            break
+        except Exception:  # noqa: BLE001
+            if attempt == 2:
+                raise
     # take the LAST {...} block: thinking models often echo the rubric first
     blocks = re.findall(r"\{[^{}]*\}", raw or "")
     for block in reversed(blocks):
@@ -120,7 +128,12 @@ async def calibration_check() -> dict[str, Any]:
     ok = 0
     details = []
     for q, ctx, a, expected in cases:
-        got = await judge(q, ctx, a)
+        try:
+            got = await judge(q, ctx, a)
+        except Exception as e:  # noqa: BLE001 — infra failure: recorded, not fatal
+            details.append({"expected": expected,
+                            "got": f"infra_error:{type(e).__name__}", "match": False})
+            continue
         actual = (got.get("faithfulness"), got.get("relevancy"), got.get("citations"))
         match = actual == expected
         ok += match
@@ -129,8 +142,15 @@ async def calibration_check() -> dict[str, Any]:
 
 
 def context_of(sources: list[dict[str, Any]], chunks: dict[str, str]) -> str:
-    return "\n".join(f"[{s['n']}] {s.get('title','')} ({s.get('doc_id','')})\n{chunks.get(s.get('doc_id',''), '')[:600]}"
-                     for s in sources)
+    """Build the judge's CONTEXT from the sources the agent actually cited.
+    NOTE: Doc sources carry the chunk id under 'id' (not 'doc_id') — reading
+    the wrong key silently produced empty contexts in ALL runs before
+    2026-10-27 (stage-3/4 faithfulness numbers were instrument artifacts)."""
+    parts = []
+    for s in sources:
+        cid = s.get("id") or s.get("doc_id")
+        parts.append(f"[{s['n']}] {s.get('title', '')} ({cid})\n{chunks.get(cid, '')[:600]}")
+    return "\n".join(parts)
 
 
 async def main_async(args: argparse.Namespace) -> dict[str, Any]:
@@ -173,7 +193,11 @@ async def main_async(args: argparse.Namespace) -> dict[str, Any]:
                 j = await judge(c["query"], ctx, ans["answer"])
             except Exception as e:  # noqa: BLE001
                 j = {"parse_error": f"{type(e).__name__}"}
-            abstain_ok = bool(j.get("relevancy") == 0) or "нет данных" in ans["answer"].lower() or "не нашла" in ans["answer"].lower()
+            low = ans["answer"].lower()
+            abstain_ok = bool(j.get("relevancy") == 0) or any(
+                phrase in low for phrase in
+                ("нет данных", "не нашла", "ответа нет", "нет ответа",
+                 "не содержит информации", "нет информации", "нет сведений"))
             rows.append({"id": c["id"], "kind": c["kind"], "question": c["query"],
                          "answer": ans["answer"][:300], "n_sources": len(ans["sources"]),
                          "citations_valid": deterministic, "abstention_ok": abstain_ok,

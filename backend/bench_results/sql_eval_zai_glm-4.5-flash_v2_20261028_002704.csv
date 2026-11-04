@@ -1,0 +1,9 @@
+id,category,question,executed,result_match,exact_match,llm_calls,attempts,repaired,err_kind,latency_ms,error,generated_sql
+sql2_002,temporal,На сколько процентов выросла выручка в мае по сравнению с апрелем? Учти только собственные поездки,True,False,False,1,1,False,,58116,,"SELECT 
+  SUM(CASE WHEN strftime('%Y-%m', ride_date) = '2023-04' THEN revenue_rub ELSE 0 END) AS april_revenue,
+  SUM(CASE WHEN strftime('%Y-%m', ride_date) = '2023-05' THEN revenue_rub ELSE 0 END) AS may_revenue,
+  CASE 
+    WHEN SUM(CASE WHEN strftime('%Y-%m', ride_date) = '2023-04' THEN revenue_rub ELSE 0 END) = 0 THEN NULL
+    ELSE (SUM(CASE WHEN strftime('%Y-%m', ride_date) = '2023-05' THEN revenue_rub ELSE 0 END) - 
+          SUM(CASE WHEN strftime('%Y-%m', ride_date) = '2023-04' THEN reve"
+sql2_020,pct_change,"На сколько процентов выручка в июле меньше июньской, если считать только собственные поездки?",True,False,False,1,1,False,,50957,,"WITH june_revenue AS (SELECT SUM(revenue_rub) AS total FROM fact_rides JOIN dim_city ON fact_rides.city_id = dim_city.city_id WHERE dim_city.is_inhouse = 1 AND fact_rides.is_partner = 0 AND ride_date BETWEEN '2023-06-01' AND '2023-06-30'), july_revenue AS (SELECT SUM(revenue_rub) AS total FROM fact_rides JOIN dim_city ON fact_rides.city_id = dim_city.city_id WHERE dim_city.is_inhouse = 1 AND fact_rides.is_partner = 0 AND ride_date BETWEEN '2023-07-01' AND '2023-07-31') SELECT ROUND((june.total -"

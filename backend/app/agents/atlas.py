@@ -30,6 +30,7 @@ from app.db.datasources import RIDEGO_SOURCE_ID, get_engine_for, get_schema_cata
 from app.db.schema_catalog import SCHEMA_CATALOG
 from app.llm.base import ChatMessage
 from app.llm.registry import get_provider
+from app.observability import obs_span, redact
 
 # Total planner attempts: 1 initial + this many repair rounds.
 MAX_SQL_REPAIR_ROUNDS = 2
@@ -48,6 +49,20 @@ PLAN_SYSTEM = """Ты — аналитик Атлас. Строишь SQL для
 Правила:
 - Только SELECT / WITH. Никаких мутаций.
 - Используй только таблицы и поля из SCHEMA.
+- Выводи МИНИМАЛЬНЫЙ набор СЛУЖЕБНЫХ колонок: не добавляй registered_at,
+  phone_country, app_version, id, если вопрос их не требует. Но ключ
+  группировки и названные в вопросе метрики выводи всегда.
+- Используй МИНИМАЛЬНЫЙ набор таблиц: не присоединяй таблицу, если её полей
+  в запросе нет.
+- «Всего / все / общая» в вопросе = ВСЕ строки БЕЗ дополнительных фильтров
+  (включая партнёрские поездки). Фильтр is_partner = 0 применяй ТОЛЬКО когда
+  вопрос явно про собственные/стандартные финансовые метрики или отчёты.
+- Денежные суммы (revenue_rub и прочие *_rub): всегда ROUND(SUM(...), 2).
+  AVG для денег — тоже ROUND(..., 2).
+- COUNT(*) для подсчёта строк; COUNT(DISTINCT col) только когда вопрос
+  про уникальные значения.
+- Даты и периоды: смотри фактический диапазон дат в SCHEMA и используй только
+  реальные года из данных. Относительные периоды считай от MAX(даты_фактов).
 {dialect_note}
 - LIMIT внутри запроса можно, но не обязателен.
 
@@ -361,11 +376,16 @@ async def _generate_plan(
             return _mock_plan(question)
         return None  # force the caller down the honest "needs a real model" path
     prompt = PLAN_SYSTEM.format(dialect_note=_dialect_note(datasource_id)) + schema_catalog
-    raw = await provider.complete(
-        prompt,
-        [ChatMessage("user", question)],
-        lang=lang,
-    )
+    with obs_span("atlas.planner", as_type="generation", model=provider.model,
+                  metadata={"question": redact(question, capture=True),
+                            "prompt": redact(prompt, capture=False), "datasource": datasource_id}) as sp:
+        raw = await provider.complete(
+            prompt,
+            [ChatMessage("user", question)],
+            lang=lang,
+        )
+        sp.set_metadata({"plan_ok": bool(_extract_json(raw))})
+        sp.set_output({"raw_len": len(raw or "")})
     return _extract_json(raw)
 
 
@@ -374,7 +394,11 @@ async def _repair_plan(
 ) -> dict[str, Any] | None:
     """Feed a runtime error back to the LLM and ask for a corrected plan."""
     system = REPAIR_SYSTEM.format(error=error[:500], sql=broken_sql) + schema_catalog
-    raw = await provider.complete(system, [ChatMessage("user", question)], lang=lang)
+    with obs_span("atlas.sql_repair", as_type="generation", model=provider.model,
+                  metadata={"broken_sql": redact(broken_sql, capture=True),
+                            "db_error": error[:200]}) as sp:
+        raw = await provider.complete(system, [ChatMessage("user", question)], lang=lang)
+        sp.set_metadata({"repair_ok": bool(_extract_json(raw))})
     return _extract_json(raw)
 
 
@@ -493,15 +517,19 @@ async def _run_loop(
     last_insights: dict[str, Any] = {}
     step_index = len(steps)
 
-    for _ in range(MAX_LOOP_STEPS):
+    for loop_i in range(MAX_LOOP_STEPS):
         step_index += 1
         think_step = _new_step(step_index, "agent", "Агент размышляет" if lang != "en" else "Agent reasoning")
         await emit(think_step)
         t0 = time.perf_counter()
-        raw = await provider.complete(
-            LOOP_SYSTEM + schema_catalog, list(messages), lang=lang
-        )
-        decision = _extract_json(raw)
+        with obs_span("atlas.loop.think", as_type="generation", model=provider.model,
+                      metadata={"iteration": loop_i + 1}) as sp:
+            raw = await provider.complete(
+                LOOP_SYSTEM + schema_catalog, list(messages), lang=lang
+            )
+            decision = _extract_json(raw)
+            sp.set_metadata({"decision_ok": bool(decision and "tool" in decision),
+                             "tool": (decision or {}).get("tool")})
         if not decision or "tool" not in decision:
             # One bounded retry: hosted thinking models occasionally return a
             # response truncated mid-JSON (reasoning eats the output budget).
@@ -539,7 +567,10 @@ async def _run_loop(
         tool_step = _new_step(step_index, tool_name, f"Вызываю: {tool_name}")
         await emit(tool_step)
         t0 = time.perf_counter()
-        result = dispatch_tool(tool_name, tool_args, engine=engine, lang=lang, timeout=loop_timeout)
+        with obs_span(f"atlas.tool.{tool_name}", metadata={"tool": tool_name}) as tsp:
+            result = dispatch_tool(tool_name, tool_args, engine=engine, lang=lang, timeout=loop_timeout)
+            tsp.set_metadata({"ok": result.get("ok"),
+                              "row_count": result.get("data", {}).get("row_count")})
         tool_step["duration_ms"] = int((time.perf_counter() - t0) * 1000)
         tool_step["status"] = "done" if result.get("ok") else "error"
         tool_step["summary"] = result.get("summary", "")[:140]
@@ -867,7 +898,16 @@ async def run_atlas_streaming(
         await emit(step)
         t0 = time.perf_counter()
         try:
-            result = run_sql(engine, plan["sql"], timeout=q_timeout)
+            with obs_span("atlas.sql_execute", metadata={"attempt": attempt + 1}) as sp:
+                sp.set_metadata({"sql": redact(plan["sql"], capture=True)})
+                try:
+                    result = run_sql(engine, plan["sql"], timeout=q_timeout)
+                    sp.set_metadata({"guard": "ok", "row_count": result["row_count"]})
+                except (SqlGuardError, SqlTimeoutError, SqlExecutionError) as e:
+                    kind = ("guard" if isinstance(e, SqlGuardError)
+                            else "timeout" if isinstance(e, SqlTimeoutError) else "execution")
+                    sp.set_metadata({"guard": kind, "error": str(e)[:200]})
+                    raise
             step["duration_ms"] = int((time.perf_counter() - t0) * 1000)
             step["status"] = "done"
             rc = result["row_count"]
@@ -963,18 +1003,20 @@ async def run_atlas_streaming(
             "highlights": insights["highlights"],
         }
         try:
-            answer = await provider.complete(
-                ANSWER_SYSTEM,
-                [
-                    ChatMessage(
-                        "user",
-                        f"Вопрос: {question}\n\nHIGHLIGHTS:\n- "
-                        + "\n- ".join(insights["highlights"])
-                        + f"\n\nРезультат JSON:\n{json.dumps(table_preview, ensure_ascii=False)}",
-                    )
-                ],
-                lang=lang,
-            )
+            with obs_span("atlas.answer", as_type="generation", model=provider.model) as sp:
+                answer = await provider.complete(
+                    ANSWER_SYSTEM,
+                    [
+                        ChatMessage(
+                            "user",
+                            f"Вопрос: {question}\n\nHIGHLIGHTS:\n- "
+                            + "\n- ".join(insights["highlights"])
+                            + f"\n\nРезультат JSON:\n{json.dumps(table_preview, ensure_ascii=False)}",
+                        )
+                    ],
+                    lang=lang,
+                )
+                sp.set_output({"answer": redact(answer, capture=True)})
         except Exception:  # noqa: BLE001 — provider failed (e.g. 429); fall back to mock text
             answer = ""
     if not answer.strip():

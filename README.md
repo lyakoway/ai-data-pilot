@@ -22,7 +22,7 @@ docs and uploads) — plus a dual auto-router.
 [![Demo](https://img.shields.io/badge/demo-lyakoway--ai--data--pilot.hf.space-ff9d00)](https://lyakoway-ai-data-pilot.hf.space/)
 ![backend](https://img.shields.io/badge/backend-FastAPI-009688)
 ![frontend](https://img.shields.io/badge/frontend-React%2019%20%2B%20Vite-61dafb)
-![tests](https://img.shields.io/badge/tests-215%20passed-brightgreen)
+![tests](https://img.shields.io/badge/tests-249%20passed-brightgreen)
 ![sources](https://img.shields.io/badge/sources-PostgreSQL%20·%20ClickHouse%20·%20CSV%20·%20Excel-6366f1)
 
 <sub>On the free tier the demo Space may fall asleep — the first visit after
@@ -55,7 +55,7 @@ ran. **2h → 2min** report prep is from production experience, not this demo.
 | **~80**       | scenarios / week                    |
 | **40–66%**    | normalized SQL · measured, CI in [BENCHMARK.md](backend/BENCHMARK.md) |
 | **2h → 2min** | report prep · production experience |
-| **215**       | pytest tests                        |
+| **249**       | pytest tests                        |
 | **Python**    | counts · LLM writes prose           |
 
 <sub>Scale figures are from internal production experience. The demo and SQL
@@ -79,6 +79,7 @@ eval in this repo run on a public test dataset (RideGo ~21k rides).</sub>
 - ⚡ **Parameterized scenarios** — templates with `{period}`, `{group_by}`.
 - 👍 **Feedback** — 👍/👎 analytics by agent.
 - 🚦 **Status transparency** — every response carries an explicit `ok / demo / partial / error` status. No silent fallback.
+- 🔭 **LLM observability (Langfuse, optional)** — per-request traces of the full Atlas/Doc path (routing → SQL plan → guard → execution → answer) with latency per span, chunk IDs/scores, citation validity. Off by default; hash-only redaction; never breaks a request. [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md).
 - 🤖 **13 model configs** — OpenAI, Anthropic, Z.ai, Ollama + offline Demo. **GLM-4.6 is the default** (see the measured quality/latency trade-off below).
 
 ## Use cases
@@ -216,14 +217,14 @@ Figures below match
 [the case page](https://lyakoway.vercel.app/portfolio/ai-data-pilot).
 SQL eval is on the **public RideGo test pack**, not production databases.
 
-**215 pytest tests:** Agent Loop, SQL guard, self-correction, retrieval
+**249 pytest tests:** Agent Loop, SQL guard, self-correction, retrieval
 (Recall@1/5 · MRR for BM25 / Vector / Hybrid), numeric analytics contracts,
 routing, sources, plus regression tests for the ReAct rows-preview, thinking
 model streaming, provider retry policy, and a security suite (guard bypass
 vectors, prompt-injection confinement, malformed tool args, honest statuses).
 Isolated temp SQLite, no API keys required.
 
-**Test coverage — 215 pytest tests:**
+**Test coverage — 249 pytest tests:**
 
 | Component                               | Tests | Covers                                                         |
 | --------------------------------------- | ----- | -------------------------------------------------------------- |
@@ -238,7 +239,8 @@ Isolated temp SQLite, no API keys required.
 | Retrieval quality + analytics contracts | 13    | Recall@1/5, MRR (BM25/Vector/Hybrid), numeric golden contracts |
 | Tool rows-preview contract              | 7     | bounded preview, empty/oversized results, error results        |
 | Provider streaming + retry policy       | 4     | thinking-model deltas, no reasoning leak, bounded retries      |
-| Security & robustness                   | 29    | 13 SQL-guard bypass vectors (incl. `load_extension`/`readfile`/`sqlite_master` — found & fixed), prompt-injection confinement, oversized inputs, malformed tool args, provider-failure statuses |
+| Security & robustness                   | 29    | 13 guard bypass vectors, injection, malformed args, statuses |
+| Observability (Langfuse layer)          | 16    | enabled/disabled/down paths, redaction, span nesting, SSE contract, shutdown | 13 SQL-guard bypass vectors (incl. `load_extension`/`readfile`/`sqlite_master` — found & fixed), prompt-injection confinement, oversized inputs, malformed tool args, provider-failure statuses |
 
 <sub>Tests run on isolated temp SQLite databases with fake providers — no API
 keys required, full run ~2 min. CI: fast pytest on every push; the

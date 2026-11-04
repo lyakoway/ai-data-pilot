@@ -30,6 +30,11 @@ async def lifespan(_: FastAPI):
     # ClickHouse Playground (public demo) — register on startup.
     register_clickhouse_playground()
     yield
+    # Flush any pending observability traces before shutdown (no-op when
+    # Langfuse is disabled — see app/observability/adapter.py).
+    from app.observability import observability_shutdown
+
+    observability_shutdown()
 
 
 def create_app() -> FastAPI:

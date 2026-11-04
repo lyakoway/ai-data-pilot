@@ -1,0 +1,2 @@
+id,category,question,executed,result_match,exact_match,llm_calls,attempts,repaired,err_kind,latency_ms,error,generated_sql
+sql_050,cross_source,Средний чек заказа по городам клиентов,True,True,False,1,1,False,,49107,,"SELECT c.city, ROUND(AVG(o.amount), 2) as avg_check FROM src_csv_c5a823e66b c JOIN src_csv_2222807a9d o ON c.client_id = o.client_id GROUP BY c.city"

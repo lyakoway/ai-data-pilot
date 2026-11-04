@@ -11,6 +11,7 @@ from fastapi.responses import StreamingResponse
 from app.agents.doc import run_doc_streaming
 from app.agents.atlas import run_atlas_streaming
 from app.agents.router import route_agent
+from app.observability import mark_status, obs_span, obs_trace, redact, timing_ms
 from app.schemas.dto import ChatRequest, ChatResponse
 
 router = APIRouter(prefix="/api", tags=["chat"])
@@ -108,13 +109,33 @@ async def chat(body: ChatRequest) -> ChatResponse:
     if not msg:
         raise HTTPException(400, "Empty message")
 
-    agent, router_step = await _resolve_agent(body, msg)
-    ds_id, ds_step = await _resolve_datasource(body, agent, msg)
-    data = await _run_agent(body, msg, agent, datasource_id=ds_id)
-    if ds_step is not None:
-        data.setdefault("steps", []).insert(0, ds_step)
-    if router_step is not None:
-        data.setdefault("steps", []).insert(0, router_step)
+    t_start = time.perf_counter()
+    with obs_trace("chat", metadata={"agent_requested": body.agent, "model": body.model}) as trace:
+        with obs_span("agent_router", metadata={"question": redact(msg, capture=True)}) as sp:
+            agent, router_step = await _resolve_agent(body, msg)
+            sp.set_metadata("decision", agent)
+        ds_id = None
+        with obs_span("source_router") as sp:
+            ds_id, ds_step = await _resolve_datasource(body, agent, msg)
+            sp.set_metadata("decision", ds_id)
+        data = await _run_agent(body, msg, agent, datasource_id=ds_id)
+        if ds_step is not None:
+            data.setdefault("steps", []).insert(0, ds_step)
+        if router_step is not None:
+            data.setdefault("steps", []).insert(0, router_step)
+        trace.set_output({
+            "status": data.get("status"),
+            "agent": data.get("agent"),
+            "answer": redact(data.get("answer") or "", capture=True),
+        })
+        trace.set_metadata({
+            "duration_ms": timing_ms(t_start),
+            "final_status": data.get("status"),
+            "iterations": len(data.get("steps") or []),
+            "sql_repairs": sum(1 for s in (data.get("steps") or [])
+                               if s.get("tool") == "database_query") - 1 if agent == "atlas" else 0,
+        })
+        mark_status(trace, data.get("status") != "error", str(data.get("status")))
     return ChatResponse(**data)
 
 
@@ -138,21 +159,36 @@ async def chat_stream(body: ChatRequest) -> StreamingResponse:
         await queue.put(("step", dict(step)))
 
     async def runner() -> None:
-        try:
-            agent, router_step = await _resolve_agent(body, msg)
-            if router_step is not None:
-                await queue.put(("step", dict(router_step)))
-            ds_id, ds_step = await _resolve_datasource(body, agent, msg)
-            if ds_step is not None:
-                await queue.put(("step", dict(ds_step)))
-            data = await _run_agent(body, msg, agent, on_step=on_step, datasource_id=ds_id)
-            if ds_step is not None:
-                data.setdefault("steps", []).insert(0, ds_step)
-            if router_step is not None:
-                data.setdefault("steps", []).insert(0, router_step)
-            await queue.put(("done", data))
-        except Exception as e:  # noqa: BLE001 — surface any failure to the client
-            await queue.put(("error", {"message": str(e)}))
+        t_start = time.perf_counter()
+        with obs_trace("chat_stream", metadata={"agent_requested": body.agent, "model": body.model}) as trace:
+            try:
+                with obs_span("agent_router", metadata={"question": redact(msg, capture=True)}) as sp:
+                    agent, router_step = await _resolve_agent(body, msg)
+                    sp.set_metadata("decision", agent)
+                    if router_step is not None:
+                        await queue.put(("step", dict(router_step)))
+                with obs_span("source_router") as sp:
+                    ds_id, ds_step = await _resolve_datasource(body, agent, msg)
+                    sp.set_metadata("decision", ds_id)
+                    if ds_step is not None:
+                        await queue.put(("step", dict(ds_step)))
+                data = await _run_agent(body, msg, agent, on_step=on_step, datasource_id=ds_id)
+                if ds_step is not None:
+                    data.setdefault("steps", []).insert(0, ds_step)
+                if router_step is not None:
+                    data.setdefault("steps", []).insert(0, router_step)
+                trace.set_output({"status": data.get("status"), "agent": data.get("agent")})
+                trace.set_metadata({
+                    "duration_ms": timing_ms(t_start),
+                    "final_status": data.get("status"),
+                    "iterations": len(data.get("steps") or []),
+                })
+                mark_status(trace, data.get("status") != "error", str(data.get("status")))
+                await queue.put(("done", data))
+            except Exception as e:  # noqa: BLE001 — surface any failure to the client
+                trace.set_metadata({"final_status": "exception", "duration_ms": timing_ms(t_start)})
+                mark_status(trace, False, "exception")
+                await queue.put(("error", {"message": str(e)}))
 
     async def event_stream():
         task = asyncio.create_task(runner())

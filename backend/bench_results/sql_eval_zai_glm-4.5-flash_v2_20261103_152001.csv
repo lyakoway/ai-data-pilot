@@ -1,0 +1,49 @@
+id,category,question,executed,result_match,exact_match,llm_calls,attempts,repaired,err_kind,latency_ms,error,generated_sql
+sql2_001,temporal,"Покажи выручку по каждому месяцу, исключая партнёрские поездки",True,True,False,1,1,False,,14485,,"SELECT strftime('%Y-%m', ride_date) AS month, ROUND(SUM(revenue_rub), 2) AS revenue_rub FROM fact_rides WHERE is_partner = 0 GROUP BY month ORDER BY month"
+sql2_002,temporal,На сколько процентов выросла выручка в мае по сравнению с апрелем? Учти только собственные поездки,True,True,False,1,1,False,,24690,,"WITH april_revenue AS (
+  SELECT ROUND(SUM(revenue_rub), 2) as april_rev
+  FROM fact_rides
+  WHERE ride_date BETWEEN '2026-04-01' AND '2026-04-30'
+    AND is_partner = 0
+),
+may_revenue AS (
+  SELECT ROUND(SUM(revenue_rub), 2) as may_rev
+  FROM fact_rides
+  WHERE ride_date BETWEEN '2026-05-01' AND '2026-05-31'
+    AND is_partner = 0
+)
+SELECT 
+  ROUND((may_rev - april_rev) / april_rev * 100, 2) AS revenue_growth_percent
+FROM april_revenue, may_revenue;"
+sql2_003,temporal,Сколько поездок было в последние 7 дней от самой поздней даты в данных?,True,True,False,1,1,False,,15582,,SELECT COUNT(*) AS total_rides FROM fact_rides WHERE ride_date >= '2026-07-09' AND ride_date <= '2026-07-15'
+sql2_004,temporal,Сравни количество поездок в выходные и будние дни за июнь 2026,True,False,False,1,1,False,,42217,,"SELECT CASE WHEN strftime('%w', ride_date) IN ('0','6') THEN 'Выходной' ELSE 'Будний' END AS day_type, COUNT(*) AS ride_count FROM fact_rides WHERE ride_date BETWEEN '2026-06-01' AND '2026-06-30' AND is_partner = 0 GROUP BY day_type"
+sql2_005,temporal,Как менялось среднее расстояние поездки от месяца к месяцу?,True,False,False,1,1,False,,19066,,"SELECT strftime('%Y-%m', ride_date) AS month, ROUND(AVG(distance_km), 2) AS avg_distance_km FROM fact_rides WHERE is_partner = 0 GROUP BY month ORDER BY month"
+sql2_006,join_complex,"Выведи топ-5 городов по числу поездок самокатами вместе с их регионом, только собственные города",True,True,False,1,1,False,,38216,,"SELECT dc.city_name, dc.region, COUNT(*) as ride_count FROM fact_rides fr JOIN dim_city dc ON fr.city_id = dc.city_id WHERE fr.vehicle_type = 'scooter' AND dc.is_inhouse = 1 GROUP BY dc.city_name, dc.region ORDER BY ride_count DESC LIMIT 5"
+sql2_007,join_complex,Сколько активных подписок boost в собственных городах России? Покажи по городам,True,True,False,1,1,False,,58701,,"SELECT dc.city_name, COUNT(*) as active_boost_subscriptions FROM fact_subscriptions fs JOIN dim_city dc ON fs.city_id = dc.city_id WHERE fs.brand = 'boost' AND fs.status = 'active' AND dc.is_inhouse = 1 AND dc.country = 'Россия' GROUP BY dc.city_name"
+sql2_008,join_complex,"Найди пользователей из России с телефоном RU, у которых было больше 30 поездок, и покажи их город и число поездок",True,False,False,1,1,False,,62383,,"SELECT c.city_name, COUNT(r.ride_id) as ride_count FROM dim_user u JOIN dim_city c ON u.city_id = c.city_id JOIN fact_rides r ON u.user_id = r.user_id WHERE u.phone_country = 'RU' AND c.country = 'Россия' GROUP BY u.user_id, c.city_name HAVING COUNT(r.ride_id) > 30"
+sql2_009,join_complex,Какая доля отменённых подписок у каждого бренда в процентах от всех подписок этого бренда?,True,True,False,1,1,False,,94454,,"SELECT brand, ROUND((SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) * 100.0 / COUNT(*)), 2) AS cancellation_rate_percent FROM fact_subscriptions GROUP BY brand"
+sql2_010,join_complex,"Покажи среднюю выручку на поездку по регионам только для собственных городов, отсортируй по убыванию",True,True,False,1,1,False,,19512,,"SELECT dc.region, ROUND(AVG(fr.revenue_rub), 2) as avg_revenue_rub FROM fact_rides fr JOIN dim_city dc ON fr.city_id = dc.city_id WHERE dc.is_inhouse = 1 GROUP BY dc.region ORDER BY avg_revenue_rub DESC"
+sql2_011,group_sort,Топ-3 города по выручке без партнёрских поездок,True,True,False,1,1,False,,85095,,"SELECT dc.city_name, ROUND(SUM(fr.revenue_rub), 2) AS total_revenue FROM fact_rides fr JOIN dim_city dc ON fr.city_id = dc.city_id WHERE fr.is_partner = 0 GROUP BY dc.city_name ORDER BY total_revenue DESC LIMIT 3"
+sql2_012,group_sort,Пять городов с наименьшим количеством поездок,True,True,False,1,1,False,,34843,,"SELECT dc.city_name, COUNT(*) AS ride_count FROM fact_rides fr JOIN dim_city dc ON fr.city_id = dc.city_id GROUP BY dc.city_name ORDER BY ride_count ASC LIMIT 5"
+sql2_013,group_sort,Кто из пользователей проехал больше всех по суммарному расстоянию? Покажи топ-10 с городом,True,False,False,1,1,False,,60166,,"SELECT u.user_id, c.city_name, SUM(f.distance_km) AS total_distance FROM fact_rides f JOIN dim_user u ON f.user_id = u.user_id JOIN dim_city c ON u.city_id = c.city_id WHERE f.is_partner = 0 GROUP BY u.user_id, c.city_name ORDER BY total_distance DESC LIMIT 10"
+sql2_014,group_sort,Распределение поездок по типам транспорта,True,False,False,1,1,False,,33450,,"SELECT vehicle_type, COUNT(*) AS ride_count FROM fact_rides WHERE is_partner = 0 GROUP BY vehicle_type"
+sql2_015,group_sort,Сколько пользователей зарегистрировалось в каждом месяце? Отсортируй по месяцу,True,True,False,1,1,False,,25153,,"SELECT strftime('%Y-%m', registered_at) AS month, COUNT(DISTINCT user_id) AS registered_users FROM dim_user GROUP BY strftime('%Y-%m', registered_at) ORDER BY month;"
+sql2_016,pct_change,На сколько процентов изменилось число поездок в июне по сравнению с маем?,True,False,False,1,1,False,,38118,,"SELECT ((june.rides - may.rides) * 100.0 / may.rides) AS percentage_change FROM (SELECT COUNT(ride_id) AS rides FROM fact_rides WHERE ride_date BETWEEN '2026-05-01' AND '2026-05-31' AND is_partner = 0) AS may, (SELECT COUNT(ride_id) AS rides FROM fact_rides WHERE ride_date BETWEEN '2026-06-01' AND '2026-06-30' AND is_partner = 0) AS june"
+sql2_017,pct_change,Какой процент всех поездок составляют партнёрские?,True,True,False,1,1,False,,19864,,"SELECT ROUND(SUM(is_partner) * 100.0 / COUNT(*), 2) AS partner_percentage FROM fact_rides"
+sql2_018,pct_change,Какую долю в процентах от общей выручки даёт самый прибыльный город?,False,,,0,0,False,rate_limit,0,"harness: Error code: 429 - {'error': {'code': '1302', 'message': 'Rate limit reached for requests'}}",
+sql2_019,pct_change,"Какая доля зарегистрированных пользователей совершила хотя бы одну поездку, в процентах?",False,,,0,0,False,rate_limit,0,"harness: Error code: 429 - {'error': {'code': '1302', 'message': 'Rate limit reached for requests'}}",
+sql2_020,pct_change,"На сколько процентов выручка в июле меньше июньской, если считать только собственные поездки?",True,True,False,1,1,False,,87298,,"WITH june_revenue AS (
+  SELECT SUM(revenue_rub) AS june_rev
+  FROM fact_rides
+  WHERE is_partner = 0
+    AND ride_date BETWEEN '2026-06-01' AND '2026-06-30'
+),
+july_revenue AS (
+  SELECT SUM(revenue_rub) AS july_rev
+  FROM fact_rides
+  WHERE is_partner = 0
+    AND ride_date BETWEEN '2026-07-01' AND '2026-07-15'
+)
+SELECT 
+  ROUND((june_rev - july_rev) * 100.0 / june_rev, 2) AS percentage_decrease
+FROM june_revenue, july_revenue"

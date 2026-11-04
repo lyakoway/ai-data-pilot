@@ -47,6 +47,10 @@ Daily ride facts.
 - "InHouse города" = is_inhouse = 1
 - "Россия" = country = 'Россия'
 - Exclude partner trips unless asked: is_partner = 0
+
+## Data range (fact)
+- fact_rides: ride_date с 2026-04-01 по 2026-07-15 (2026 год; других годов в данных НЕТ)
+- dim_user.registered_at: 2026-04-01 .. 2026-07-15
 """
 
 

@@ -58,6 +58,11 @@ def load_chunks() -> list[DocChunk]:
             part = part.strip()
             if len(part) < 40:
                 continue
+            # Skip H1-title-only stubs: they carry no content but pollute
+            # vector rankings (measured: vector mode ranked the title stub
+            # above the actual anti-fraud section on the rag2 golden set).
+            if not part.startswith("## ") and i == 0 and len(part) < 120:
+                continue
             heading = part.splitlines()[0].lstrip("# ").strip() if part.startswith("#") else title
             chunks.append(
                 DocChunk(

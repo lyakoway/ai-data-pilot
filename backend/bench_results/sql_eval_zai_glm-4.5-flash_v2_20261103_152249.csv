@@ -1,0 +1,23 @@
+id,category,question,executed,result_match,exact_match,llm_calls,attempts,repaired,err_kind,latency_ms,error,generated_sql
+sql2_018,pct_change,Какую долю в процентах от общей выручки даёт самый прибыльный город?,True,False,False,1,1,False,,90351,,"WITH city_revenues AS (
+    SELECT 
+        dc.city_name,
+        SUM(fr.revenue_rub) as city_revenue
+    FROM fact_rides fr
+    JOIN dim_city dc ON fr.city_id = dc.city_id
+    WHERE fr.is_partner = 0
+    GROUP BY dc.city_name
+),
+total_revenue AS (
+    SELECT SUM(fr.revenue_rub) as total
+    FROM fact_rides fr
+    WHERE fr.is_partner = 0
+)
+SELECT 
+    cr.city_name,
+    cr.city_revenue,
+    tr.total,
+    ROUND((cr.city_revenue * 100.0 / tr.total), 2) as percentage
+FROM city_revenues cr
+CROSS JOIN"
+sql2_019,pct_change,"Какая доля зарегистрированных пользователей совершила хотя бы одну поездку, в процентах?",True,False,False,1,1,False,,21642,,"SELECT ROUND(COUNT(DISTINCT fr.user_id) * 100.0 / COUNT(*), 2) AS conversion_rate FROM dim_user LEFT JOIN fact_rides fr ON dim_user.user_id = fr.user_id WHERE fr.ride_date BETWEEN '2026-04-01' AND '2026-07-15'"

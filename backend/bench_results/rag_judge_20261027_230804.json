@@ -1,0 +1,404 @@
+{
+  "manifest": {
+    "tool": "rag_judge.py",
+    "rubric_version": "rag-judge-rubric-v2",
+    "judge_model": "zai:glm-4.5-flash",
+    "answer_model": "zai:glm-4.5-flash",
+    "generated_at": "2026-10-27 23:08:04",
+    "git_rev": "427b3f5",
+    "env": {
+      "python": "3.13.5",
+      "os": "macOS-10.16-x86_64-i386-64bit-Mach-O",
+      "openai": "1.59.6",
+      "httpx": "0.28.1"
+    },
+    "golden_sha256": "39d6dbe3949b19c5",
+    "limitations": [
+      "judge and answer model are the SAME provider family (only Z.ai key available) — self-judging bias",
+      "binary judge scores, single judge, no inter-annotator statistics",
+      "citation_validity is deterministic (indices exist); citation_correctness_judged is the LLM judgment of support"
+    ]
+  },
+  "calibration": {
+    "agreement": "3/3",
+    "details": [
+      {
+        "expected": [
+          1,
+          1,
+          1
+        ],
+        "got": [
+          1,
+          1,
+          1
+        ],
+        "match": true
+      },
+      {
+        "expected": [
+          0,
+          1,
+          0
+        ],
+        "got": [
+          0,
+          1,
+          0
+        ],
+        "match": true
+      },
+      {
+        "expected": [
+          1,
+          0,
+          1
+        ],
+        "got": [
+          1,
+          0,
+          1
+        ],
+        "match": true
+      }
+    ]
+  },
+  "summary": {
+    "n_cases": 24,
+    "n_infra_failed": 0,
+    "n_positive": 20,
+    "n_negative": 4,
+    "faithfulness": 1.0,
+    "answer_relevancy": 0.95,
+    "citation_correctness_judged": 1.0,
+    "citation_validity_deterministic": 1.0,
+    "abstention_ok_share": 1.0,
+    "judge_calibration_agreement": "3/3"
+  },
+  "details": [
+    {
+      "id": "rag2_01",
+      "kind": "positive",
+      "question": "Что возвращает API если SIM disabled при сбросе ошибок?",
+      "answer": "При SIM disabled API возвращает **409 Conflict** [1].",
+      "n_sources": 4,
+      "citations_valid": true,
+      "faithfulness": 1,
+      "relevancy": 1,
+      "citations_judged": 1,
+      "judge_reason": "Точное соответствие контексту",
+      "latency_s": 14.13
+    },
+    {
+      "id": "rag2_02",
+      "kind": "positive",
+      "question": "В каком файле живёт сервис антифрода серийников АКБ?",
+      "answer": "Сервис антифрода серийников АКБ находится в файле `AntifraudBatterySerialNumberService.cs` сервиса `opsactions.api` [1].",
+      "n_sources": 4,
+      "citations_valid": true,
+      "faithfulness": 1,
+      "relevancy": 1,
+      "citations_judged": 1,
+      "judge_reason": "Точное соответствие контексту",
+      "latency_s": 16.89
+    },
+    {
+      "id": "rag2_03",
+      "kind": "positive",
+      "question": "Что происходит с полем location при переводе города в inactive?",
+      "answer": "При переводе города в inactive поле location не очищается, но перестаёт попадать в публичный geo-feed [1].",
+      "n_sources": 4,
+      "citations_valid": true,
+      "faithfulness": 1,
+      "relevancy": 1,
+      "citations_judged": 1,
+      "judge_reason": "Точное соответствие контексту с ссылкой",
+      "latency_s": 10.15
+    },
+    {
+      "id": "rag2_04",
+      "kind": "positive",
+      "question": "Какие коды позиций ТС считаются сервисными?",
+      "answer": "Коды позиций ТС 11 и выше считаются сервисными/ремонтными [1].",
+      "n_sources": 4,
+      "citations_valid": true,
+      "faithfulness": 1,
+      "relevancy": 1,
+      "citations_judged": 1,
+      "judge_reason": "Точное соответствие контексту с правильной ссылкой",
+      "latency_s": 9.64
+    },
+    {
+      "id": "rag2_05",
+      "kind": "positive",
+      "question": "Откуда берутся поля distance_km и revenue_rub в витрине поездок?",
+      "answer": "Поля `distance_km` и `revenue_rub` в витрине `fact_rides` считаются на этапе ETL [1].  \nИсточник данных: `rides.api` → Kafka → DWH [1].",
+      "n_sources": 4,
+      "citations_valid": true,
+      "faithfulness": 1,
+      "relevancy": 1,
+      "citations_judged": 1,
+      "judge_reason": "Все утверждения подтверждены контекстом [1].",
+      "latency_s": 11.57
+    },
+    {
+      "id": "rag2_06",
+      "kind": "positive",
+      "question": "Почему франшизные города исключают из unit-экономики HQ?",
+      "answer": "По разделу «dim_city» [1]:\n\n## dim_city\nСправочник городов. `is_inhouse = 1` — собственные города RideGo,\n`0` — франшиза. Франшизные города обычно исключают из unit-экономики HQ.\n\nПодробности — в источниках ниже. (Демо-режим: подключите модель для более развёрнутого ответа.)",
+      "n_sources": 4,
+      "citations_valid": true,
+      "faithfulness": 1,
+      "relevancy": 0,
+      "citations_judged": 1,
+      "judge_reason": "Не объясняет причину",
+      "latency_s": 34.31
+    },
+    {
+      "id": "rag2_07",
+      "kind": "positive",
+      "question": "Почему аналитика не читает MongoDB напрямую для подписок?",
+      "answer": "По разделу «MongoDB customer_subscription» [1]:\n\n## MongoDB customer_subscription\nОперационный документ подписки (не аналитическая витрина).\nПоля: `brand`, `status`, `startedAt`, `cancelledAt`, `cancelReason`.\nАналитика читает уже нормализованную `fact_subscriptions`.\n\nПодробности — в источниках ниж",
+      "n_sources": 4,
+      "citations_valid": true,
+      "faithfulness": 1,
+      "relevancy": 1,
+      "citations_judged": 1,
+      "judge_reason": "Точно соответствует контексту с ссылкой",
+      "latency_s": 13.25
+    },
+    {
+      "id": "rag2_08",
+      "kind": "positive",
+      "question": "Какой TTL у кэша тарифов и по какому ключу он хранится?",
+      "answer": "TTL кэша тарифов составляет 15 минут.  \nКлюч хранения: `pricing:{cityId}:{vehicleType}`.  \nИсточник: [1]",
+      "n_sources": 4,
+      "citations_valid": true,
+      "faithfulness": 1,
+      "relevancy": 1,
+      "citations_judged": 1,
+      "judge_reason": "All facts directly from context with proper citation.",
+      "latency_s": 68.55
+    },
+    {
+      "id": "rag2_09",
+      "kind": "positive",
+      "question": "Может ли отдаваться устаревшая цена после изменения в админке?",
+      "answer": "Да, может. Согласно документации:  \n> \"При изменении цены в админке ключ инвалидируется; до инвалидации могут отдаваться старые диапазоны\" [1].  \n\nЭто означает, что после обновления цены в админке Redis-кэш (`pricing:{cityId}:{vehicleType}`) с TTL 15 минут может временно возвращать старые значения д",
+      "n_sources": 4,
+      "citations_valid": true,
+      "faithfulness": 1,
+      "relevancy": 1,
+      "citations_judged": 1,
+      "judge_reason": "Ответ точно соответствует контексту [1]",
+      "latency_s": 17.09
+    },
+    {
+      "id": "rag2_10",
+      "kind": "positive",
+      "question": "По какой формуле считается utilization и что делать если сырых полей нет?",
+      "answer": "Согласно документации:\n\n1.  **Формула utilization:**  \n    `sh_active / sh_available` [1].  \n    Utilization (утилизация) определяется как доля активного флота.\n\n2.  **Если сырых полей нет:**  \n    В витринах аналитики сырые поля для utilization не хранятся. Для демо-дашборда можно аппроксимировать ",
+      "n_sources": 4,
+      "citations_valid": true,
+      "faithfulness": 1,
+      "relevancy": 1,
+      "citations_judged": 1,
+      "judge_reason": "Все утверждения подтверждены контекстом [1]",
+      "latency_s": 10.72
+    },
+    {
+      "id": "rag2_11",
+      "kind": "positive",
+      "question": "Кто считается активным подписчиком на дату отчёта?",
+      "answer": "Активным подписчиком на дату отчёта считается пользователь с `fact_subscriptions.status = 'active'` на эту дату [1].",
+      "n_sources": 4,
+      "citations_valid": true,
+      "faithfulness": 1,
+      "relevancy": 1,
+      "citations_judged": 1,
+      "judge_reason": "Точное соответствие контексту [1]",
+      "latency_s": 27.29
+    },
+    {
+      "id": "rag2_12",
+      "kind": "positive",
+      "question": "Почему партнёрские поездки не попадают в стандартные отчёты?",
+      "answer": "В доступной документации указано, что партнёрские поездки (с `fact_rides.is_partner = 1`) исключаются из стандартных отчётов [1]. Причины такого исключения не объясняются в предоставленном контексте.",
+      "n_sources": 4,
+      "citations_valid": true,
+      "faithfulness": 1,
+      "relevancy": 1,
+      "citations_judged": 1,
+      "judge_reason": "Соответствует контексту, есть ссылка [1]",
+      "latency_s": 9.97
+    },
+    {
+      "id": "rag2_13",
+      "kind": "positive",
+      "question": "Что за whitelist SkippableSerialNumber и зачем он?",
+      "answer": "Whitelist `SkippableSerialNumber` — это Redis TTL whitelist, используемая сервисом `opsactions.api` (файл `AntifraudBatterySerialNumberService.cs`). Его назначение — предотвращение накрутки счётчика замен АКБ одним и тем же серийным номером [1].",
+      "n_sources": 4,
+      "citations_valid": true,
+      "faithfulness": 1,
+      "relevancy": 1,
+      "citations_judged": 1,
+      "judge_reason": "Все утверждения соответствуют контексту [1]",
+      "latency_s": 8.74
+    },
+    {
+      "id": "rag2_14",
+      "kind": "positive",
+      "question": "Где источник истины по utilization в проде?",
+      "answer": "Источник истины по utilization в проде — `iceberg.bi.ss_wide_rlp_total` [1].",
+      "n_sources": 4,
+      "citations_valid": true,
+      "faithfulness": 1,
+      "relevancy": 1,
+      "citations_judged": 1,
+      "judge_reason": "Точное соответствие контексту",
+      "latency_s": 10.43
+    },
+    {
+      "id": "rag2_15",
+      "kind": "positive",
+      "question": "Витрина fact_rides — инкрементальная или полная?",
+      "answer": "Инкрементальная [1].",
+      "n_sources": 4,
+      "citations_valid": true,
+      "faithfulness": 1,
+      "relevancy": 1,
+      "citations_judged": 1,
+      "judge_reason": "Точно соответствует контексту [1]",
+      "latency_s": 8.58
+    },
+    {
+      "id": "rag2_16",
+      "kind": "confusable",
+      "question": "TTL 15 минут — где это настроено?",
+      "answer": "В доступной документации ответа нет. В контексте [1] указано, что TTL кэша тарифов составляет 15 минут, но не указано место или способ настройки этого значения.",
+      "n_sources": 4,
+      "citations_valid": true,
+      "faithfulness": 1,
+      "relevancy": 1,
+      "citations_judged": 1,
+      "judge_reason": "Точное отражение контекста, но нет информации о месте настройки",
+      "latency_s": 8.55
+    },
+    {
+      "id": "rag2_17",
+      "kind": "confusable",
+      "question": "Как не дают накручивать счётчик замен АКБ?",
+      "answer": "По разделу «Anti-fraud battery serial» [1]:\n\n## Anti-fraud battery serial\nСервис `opsactions.api`, файл `AntifraudBatterySerialNumberService.cs`.\nСуть: не даём накручивать счётчик замен АКБ одним и тем же serial.\nИспользуется Redis TTL whitelist `SkippableSerialNumber`.\n\nПодробности — в источниках н",
+      "n_sources": 4,
+      "citations_valid": true,
+      "faithfulness": 1,
+      "relevancy": 1,
+      "citations_judged": 1,
+      "judge_reason": "Полное соответствие контексту [1]",
+      "latency_s": 59.87
+    },
+    {
+      "id": "rag2_18",
+      "kind": "positive_en",
+      "question": "How is utilization calculated and what is the production source of truth?",
+      "answer": "Utilization is calculated as `sh_active / sh_available` [1]. For demo dashboards, demand can be approximated as `rides_count / population * 1000` [1].\n\nThe production source of truth for utilization is `iceberg.bi.ss_wide_rlp_total` [1].",
+      "n_sources": 4,
+      "citations_valid": true,
+      "faithfulness": 1,
+      "relevancy": 1,
+      "citations_judged": 1,
+      "judge_reason": "All facts directly from context with proper citations.",
+      "latency_s": 13.71
+    },
+    {
+      "id": "rag2_19",
+      "kind": "positive_en",
+      "question": "What happens to a city's location field when the city becomes inactive?",
+      "answer": "When a city becomes inactive, the location field is not cleared, but it stops appearing in the public geo-feed [1].",
+      "n_sources": 4,
+      "citations_valid": true,
+      "faithfulness": 1,
+      "relevancy": 1,
+      "citations_judged": 1,
+      "judge_reason": "Directly matches context [1] about inactive cities.",
+      "latency_s": 8.96
+    },
+    {
+      "id": "rag2_20",
+      "kind": "positive_en",
+      "question": "Why does analytics read fact_subscriptions instead of MongoDB?",
+      "answer": "According to the documentation, analytics reads `fact_subscriptions` instead of MongoDB because the MongoDB `customer_subscription` is an operational document, not an analytical data mart [1]. The documentation explicitly states that \"Аналитика читает уже нормализованную `fact_subscriptions`\" (Analy",
+      "n_sources": 4,
+      "citations_valid": true,
+      "faithfulness": 1,
+      "relevancy": 1,
+      "citations_judged": 1,
+      "judge_reason": "Context confirms operational vs analytical distinction",
+      "latency_s": 9.28
+    },
+    {
+      "id": "rag2_n1",
+      "kind": "negative",
+      "question": "Какой SLA поддержки у тарифа premium?",
+      "answer": "В доступной документации ответа нет. Контекст не содержит информации о SLA поддержки для тарифа premium.",
+      "n_sources": 4,
+      "citations_valid": true,
+      "abstention_ok": true,
+      "judge": {
+        "faithfulness": 1,
+        "relevancy": 0,
+        "citations": 0,
+        "reason": "Честный отказ: данных нет в контексте"
+      },
+      "latency_s": 9.81
+    },
+    {
+      "id": "rag2_n2",
+      "kind": "negative",
+      "question": "Какая зарплата у CEO компании?",
+      "answer": "В доступной документации ответа нет. В контексте отсутствуют данные о зарплатах или руководстве компании.",
+      "n_sources": 4,
+      "citations_valid": true,
+      "abstention_ok": true,
+      "judge": {
+        "faithfulness": 1,
+        "relevancy": 1,
+        "citations": 0,
+        "reason": "Нет данных в контексте"
+      },
+      "latency_s": 30.1
+    },
+    {
+      "id": "rag2_n3",
+      "kind": "negative",
+      "question": "Как настроить API-ключи для биллинга?",
+      "answer": "В доступной документации ответа нет. В контексте отсутствует информация о настройке API-ключей для биллинга.",
+      "n_sources": 4,
+      "citations_valid": true,
+      "abstention_ok": true,
+      "judge": {
+        "faithfulness": 1,
+        "relevancy": 0,
+        "citations": 0,
+        "reason": "Честный отказ от ответа"
+      },
+      "latency_s": 8.38
+    },
+    {
+      "id": "rag2_n4",
+      "kind": "negative_en",
+      "question": "What GPU model is used for ML training?",
+      "answer": "In the provided context, there is no information about GPU models used for ML training. The documentation covers data lineage for rides and subscriptions, utilization metrics, and backend logic for transport cards, but does not mention ML infrastructure or hardware specifications.  \n\n**Answer:**  \nВ",
+      "n_sources": 4,
+      "citations_valid": true,
+      "abstention_ok": true,
+      "judge": {
+        "faithfulness": 1,
+        "relevancy": 1,
+        "citations": 0,
+        "reason": "Correctly states absence of GPU info."
+      },
+      "latency_s": 38.2
+    }
+  ]
+}

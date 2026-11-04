@@ -1,0 +1,94 @@
+{
+  "summary": {
+    "model": "zai:glm-4.5-flash",
+    "n": 1,
+    "n_infra_failures": 0,
+    "infra_failure_share": 0.0,
+    "infra_kinds": {},
+    "sql_execution_accuracy": 100.0,
+    "sql_execution_accuracy_excl_infra": 100.0,
+    "result_accuracy": 100.0,
+    "result_accuracy_n_checked": 1,
+    "result_accuracy_wilson95": [
+      20.7,
+      100.0
+    ],
+    "exact_match_sql": 0.0,
+    "exact_match_n_with_sql": 1,
+    "self_correction_rate": null,
+    "repaired_cases": 0,
+    "avg_llm_calls_per_attempted_task": 1,
+    "timeout_share": 0.0,
+    "guard_reject_share": 0.0,
+    "no_sql_share": 0.0,
+    "task_completion_rate": 100.0,
+    "latency_ms": {
+      "p50": 49107,
+      "p95": 49107,
+      "p99": null,
+      "mean": 49107,
+      "n_attempted": 1
+    },
+    "by_category": {
+      "cross_source": {
+        "n": 1,
+        "n_executed": 1,
+        "n_result_checked": 1,
+        "n_result_match": 1,
+        "result_accuracy": 100.0,
+        "n_infra": 0
+      }
+    },
+    "suite_wall_s": 49.1,
+    "notes": [
+      "p50/p95/p99 — nearest-rank (lower); n<20 → p99 omitted",
+      "completion latency includes thinking phase (app path does not disable it)"
+    ]
+  },
+  "manifest": {
+    "generated_at": "2026-11-03 16:56:12",
+    "git_rev": "427b3f5",
+    "env": {
+      "python": "3.13.5",
+      "openai_lib": "1.59.6",
+      "httpx_lib": "0.28.1"
+    },
+    "golden_set_path": "/Users/aamazurenk/Desktop/AI-Engineer/ai-data-pilot/backend/tests/golden/sql_golden.jsonl",
+    "model": {
+      "model_id": "zai:glm-4.5-flash",
+      "reported": "glm-4.5-flash"
+    },
+    "generation_params": {
+      "temperature_complete": 0.1,
+      "max_tokens": "provider default (not set by app)",
+      "thinking_mode": "provider default (GLM-5.x think by default; the app does not disable thinking)",
+      "note": "params are hardcoded in app/llm/providers.py — unchanged for this eval"
+    },
+    "prompt": {
+      "plan_system_sha256": "2004d0a502ec0882",
+      "schema_catalog_sha256": "7a10ec83f4214538"
+    },
+    "golden_set": {
+      "path": "tests/golden/sql_golden.jsonl",
+      "n_cases": 1,
+      "sha256": "f3c860500846b1c6"
+    }
+  },
+  "details": [
+    {
+      "id": "sql_050",
+      "category": "cross_source",
+      "question": "Средний чек заказа по городам клиентов",
+      "executed": true,
+      "result_match": true,
+      "exact_match": false,
+      "llm_calls": 1,
+      "attempts": 1,
+      "repaired": false,
+      "err_kind": null,
+      "latency_ms": 49107,
+      "error": null,
+      "generated_sql": "SELECT c.city, ROUND(AVG(o.amount), 2) as avg_check FROM src_csv_c5a823e66b c JOIN src_csv_2222807a9d o ON c.client_id = o.client_id GROUP BY c.city"
+    }
+  ]
+}

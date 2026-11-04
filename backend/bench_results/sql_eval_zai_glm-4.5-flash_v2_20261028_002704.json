@@ -1,0 +1,117 @@
+{
+  "summary": {
+    "model": "zai:glm-4.5-flash",
+    "n": 2,
+    "n_infra_failures": 0,
+    "infra_failure_share": 0.0,
+    "infra_kinds": {},
+    "sql_execution_accuracy": 100.0,
+    "sql_execution_accuracy_excl_infra": 100.0,
+    "result_accuracy": 0.0,
+    "result_accuracy_n_checked": 2,
+    "result_accuracy_wilson95": [
+      0.0,
+      65.8
+    ],
+    "exact_match_sql": 0.0,
+    "exact_match_n_with_sql": 2,
+    "self_correction_rate": null,
+    "repaired_cases": 0,
+    "avg_llm_calls_per_attempted_task": 1,
+    "timeout_share": 0.0,
+    "guard_reject_share": 0.0,
+    "no_sql_share": 0.0,
+    "task_completion_rate": 100.0,
+    "latency_ms": {
+      "p50": 58116,
+      "p95": 58116,
+      "p99": null,
+      "mean": 54536,
+      "n_attempted": 2
+    },
+    "by_category": {
+      "pct_change": {
+        "n": 1,
+        "n_executed": 1,
+        "n_result_checked": 1,
+        "n_result_match": 0,
+        "result_accuracy": 0.0,
+        "n_infra": 0
+      },
+      "temporal": {
+        "n": 1,
+        "n_executed": 1,
+        "n_result_checked": 1,
+        "n_result_match": 0,
+        "result_accuracy": 0.0,
+        "n_infra": 0
+      }
+    },
+    "suite_wall_s": 109.1,
+    "notes": [
+      "p50/p95/p99 — nearest-rank (lower); n<20 → p99 omitted",
+      "completion latency includes thinking phase (app path does not disable it)"
+    ]
+  },
+  "manifest": {
+    "generated_at": "2026-10-28 00:27:04",
+    "git_rev": "427b3f5",
+    "env": {
+      "python": "3.13.5",
+      "openai_lib": "1.59.6",
+      "httpx_lib": "0.28.1"
+    },
+    "golden_set_path": "tests/golden/sql_golden_v2.jsonl",
+    "model": {
+      "model_id": "zai:glm-4.5-flash",
+      "reported": "glm-4.5-flash"
+    },
+    "generation_params": {
+      "temperature_complete": 0.1,
+      "max_tokens": "provider default (not set by app)",
+      "thinking_mode": "provider default (GLM-5.x think by default; the app does not disable thinking)",
+      "note": "params are hardcoded in app/llm/providers.py — unchanged for this eval"
+    },
+    "prompt": {
+      "plan_system_sha256": "d8d2818d035ef8cf",
+      "schema_catalog_sha256": "6ea533bc25765ad8"
+    },
+    "golden_set": {
+      "path": "tests/golden/sql_golden_v2.jsonl",
+      "n_cases": 2,
+      "sha256": "42142cd8e6b97d00"
+    }
+  },
+  "details": [
+    {
+      "id": "sql2_002",
+      "category": "temporal",
+      "question": "На сколько процентов выросла выручка в мае по сравнению с апрелем? Учти только собственные поездки",
+      "executed": true,
+      "result_match": false,
+      "exact_match": false,
+      "llm_calls": 1,
+      "attempts": 1,
+      "repaired": false,
+      "err_kind": null,
+      "latency_ms": 58116,
+      "error": null,
+      "generated_sql": "SELECT \n  SUM(CASE WHEN strftime('%Y-%m', ride_date) = '2023-04' THEN revenue_rub ELSE 0 END) AS april_revenue,\n  SUM(CASE WHEN strftime('%Y-%m', ride_date) = '2023-05' THEN revenue_rub ELSE 0 END) AS may_revenue,\n  CASE \n    WHEN SUM(CASE WHEN strftime('%Y-%m', ride_date) = '2023-04' THEN revenue_rub ELSE 0 END) = 0 THEN NULL\n    ELSE (SUM(CASE WHEN strftime('%Y-%m', ride_date) = '2023-05' THEN revenue_rub ELSE 0 END) - \n          SUM(CASE WHEN strftime('%Y-%m', ride_date) = '2023-04' THEN reve"
+    },
+    {
+      "id": "sql2_020",
+      "category": "pct_change",
+      "question": "На сколько процентов выручка в июле меньше июньской, если считать только собственные поездки?",
+      "executed": true,
+      "result_match": false,
+      "exact_match": false,
+      "llm_calls": 1,
+      "attempts": 1,
+      "repaired": false,
+      "err_kind": null,
+      "latency_ms": 50957,
+      "error": null,
+      "generated_sql": "WITH june_revenue AS (SELECT SUM(revenue_rub) AS total FROM fact_rides JOIN dim_city ON fact_rides.city_id = dim_city.city_id WHERE dim_city.is_inhouse = 1 AND fact_rides.is_partner = 0 AND ride_date BETWEEN '2023-06-01' AND '2023-06-30'), july_revenue AS (SELECT SUM(revenue_rub) AS total FROM fact_rides JOIN dim_city ON fact_rides.city_id = dim_city.city_id WHERE dim_city.is_inhouse = 1 AND fact_rides.is_partner = 0 AND ride_date BETWEEN '2023-07-01' AND '2023-07-31') SELECT ROUND((june.total -"
+    }
+  ]
+}

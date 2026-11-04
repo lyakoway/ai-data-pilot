@@ -134,9 +134,20 @@ class OpenAIProvider:
     async def complete(
         self, system: str, messages: list[ChatMessage], lang: str = "ru"
     ) -> str:
-        resp = await self._get_client().chat.completions.create(
-            model=self.model, messages=self._payload(system, messages), temperature=0.1
-        )
+        from app.observability import obs_span, redact
+
+        with obs_span(
+            "llm.complete", as_type="generation", model=self.model,
+            metadata={
+                "provider": self.provider,
+                "system_sha": redact(system, capture=False),
+                "user_msg": redact(messages[-1].content if messages else "", capture=True),
+                "n_messages": len(messages),
+            },
+        ):
+            resp = await self._get_client().chat.completions.create(
+                model=self.model, messages=self._payload(system, messages), temperature=0.1
+            )
         return resp.choices[0].message.content or ""
 
 

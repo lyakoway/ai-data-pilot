@@ -44,6 +44,17 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     ollama_num_gpu: int | None = None
 
+    # LLM observability (Langfuse). Enabled by default but inert without
+    # credentials — the app runs identically when unconfigured.
+    langfuse_enabled: bool = True
+    langfuse_public_key: str | None = None
+    langfuse_secret_key: str | None = None
+    langfuse_host: str = "https://cloud.langfuse.com"
+    langfuse_sample_rate: float = 1.0
+    # REDACTION DEFAULT: prompts/SQL/answers are sent as hash+length only.
+    # True sends truncated (2k chars) raw content for debugging — never secrets.
+    langfuse_capture_content: bool = False
+
     # Optional pre-configured PostgreSQL analytics source.
     postgres_url: str | None = None
 

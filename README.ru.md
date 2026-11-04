@@ -13,7 +13,7 @@ Excel) и **Док** (Knowledge Agent: RAG по документам и загр
 [![Demo](https://img.shields.io/badge/demo-lyakoway--ai--data--pilot.hf.space-ff9d00)](https://lyakoway-ai-data-pilot.hf.space/)
 ![backend](https://img.shields.io/badge/backend-FastAPI-009688)
 ![frontend](https://img.shields.io/badge/frontend-React%2019%20%2B%20Vite-61dafb)
-![tests](https://img.shields.io/badge/tests-215%20passed-brightgreen)
+![tests](https://img.shields.io/badge/tests-249%20passed-brightgreen)
 ![sources](https://img.shields.io/badge/sources-PostgreSQL%20·%20ClickHouse%20·%20CSV%20·%20Excel-6366f1)
 
 <sub>Демо-Space на бесплатном тарифе может «засыпать» — первый заход после
@@ -46,7 +46,7 @@ Headline SQL-качества на публичном тестовом паке 
 | **~80**       | сценариев / неделю             |
 | **40–66%**    | нормализованный SQL · измерено, CI в [BENCHMARK.md](backend/BENCHMARK.md) |
 | **2ч → 2мин** | отчётность · продовый опыт     |
-| **215**       | pytest-теста                   |
+| **249**       | pytest-теста                   |
 | **Python**    | считает · LLM пишет текст      |
 
 <sub>Цифры масштаба — из внутреннего продового опыта. Демо и SQL-оценка
@@ -208,14 +208,14 @@ LLM не считает бизнес-метрики. Численная рабо
 [страницей кейса](https://lyakoway.vercel.app/portfolio/ai-data-pilot).
 SQL-оценка — на **публичном паке RideGo**, не продовых базах.
 
-**215 pytest-тестов:** Agent Loop, SQL guard, self-correction, качество поиска
+**249 pytest-тестов:** Agent Loop, SQL guard, self-correction, качество поиска
 (Recall@1/5 · MRR для BM25 / Vector / Hybrid), контракты численной аналитики,
 роутинг, источники + регрессионные тесты на rows-превью в ReAct-цикле,
 стриминг thinking-моделей, retry-политику провайдеров и security-набор
 (обходы guard, prompt-injection, некорректные аргументы инструментов, честные
 статусы). Изолированные temp-SQLite, ключи API не нужны.
 
-**Покрытие тестами — 215 pytest-тестов:**
+**Покрытие тестами — 249 pytest-тестов:**
 
 | Компонент                               | Тестов | Проверяет                                                       |
 | --------------------------------------- | ------ | --------------------------------------------------------------- |
@@ -231,6 +231,7 @@ SQL-оценка — на **публичном паке RideGo**, не прод�
 | Контракт rows-превью инструментов       | 7      | ограниченное превью, пустые/большие результаты, ошибки          |
 | Стриминг провайдеров + retry            | 4      | thinking-дельты, без утечки reasoning, ограниченные ретраи      |
 | Security & robustness                   | 29     | 13 векторов обхода guard (вкл. `load_extension`/`readfile`/`sqlite_master` — найдено и закрыто), prompt-injection, oversized-входы, некорректные tool-args, статусы при сбоях |
+| Observability (Langfuse-слой)           | 16     | вкл/выкл/недоступен, redaction, вложенность спанов, трейсы Atlas/Doc, SSE-контракт, shutdown |
 
 <sub>Тесты выполняются на изолированных temp-SQLite базах и fake-провайдерах —
 не требуют API-ключей. Полный прогон ~2 мин. CI: быстрый pytest на каждый
