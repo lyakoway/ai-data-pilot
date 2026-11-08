@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -18,6 +19,11 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "AI Data Pilot"
+    # Deployment mode. "production" enables strict configuration validation
+    # (e.g. CORS allowlist must be explicit — no wildcard, no localhost).
+    app_env: Literal["dev", "production"] = "dev"
+    # CORS allowlist (P0.1 / ADR-006). Dev defaults cover the vite proxy
+    # scenario; production MUST set CORS_ORIGINS explicitly (JSON list).
     cors_origins: list[str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
