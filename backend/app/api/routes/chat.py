@@ -5,7 +5,7 @@ import json
 import time
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
 from app.agents.doc import run_doc_streaming
@@ -13,6 +13,7 @@ from app.agents.atlas import run_atlas_streaming
 from app.agents.router import route_agent
 from app.observability import mark_status, obs_span, obs_trace, redact, timing_ms
 from app.schemas.dto import ChatRequest, ChatResponse
+from app.tenancy import TenantContext, require_tenant
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
@@ -45,7 +46,7 @@ async def _resolve_agent(body: ChatRequest, msg: str) -> tuple[str, dict[str, An
 
 
 async def _resolve_datasource(
-    body: ChatRequest, agent: str, msg: str
+    body: ChatRequest, agent: str, msg: str, ctx: TenantContext | None = None
 ) -> tuple[str, dict[str, Any] | None]:
     """Auto-route the data source for Atlas when the user hasn't pinned one.
 
@@ -56,6 +57,22 @@ async def _resolve_datasource(
         return body.datasource_id or "ridego", None
     ds = body.datasource_id
     if ds and ds not in {"", "auto"}:
+        # P0.2 ownership: a user-pinned source must belong to the caller's
+        # workspace (built-in demo sources are global). Foreign id → honest
+        # 404-style refusal, never silent cross-tenant access.
+        if ctx is not None:
+            from app.db.datasources import get_source_meta as _meta
+
+            if _meta(ds, ctx.workspace_id) is None and ds != "all_uploads":
+                return ds, {
+                    "id": "step_0_source",
+                    "title": "Источник данных",
+                    "tool": "source_router",
+                    "status": "error",
+                    "summary": f"Источник {ds!r} недоступен в этом workspace",
+                    "detail": {"decision": ds, "denied": True},
+                    "duration_ms": 0,
+                }
         return ds, None  # user pinned a source manually
 
     from app.agents.source_router import route_source
@@ -83,7 +100,8 @@ async def _resolve_datasource(
     return source_id, step
 
 
-async def _run_agent(body: ChatRequest, msg: str, agent: str, on_step=None, datasource_id=None) -> dict[str, Any]:
+async def _run_agent(body: ChatRequest, msg: str, agent: str, on_step=None, datasource_id=None,
+                     workspace_id: str | None = None) -> dict[str, Any]:
     """Run the resolved agent with the request's parameters."""
     from app.agents.doc import _noop_step as _ks_noop
     from app.agents.atlas import _noop_step as _ol_noop
@@ -92,6 +110,7 @@ async def _run_agent(body: ChatRequest, msg: str, agent: str, on_step=None, data
         return await run_doc_streaming(
             msg, model_id=body.model, lang=body.lang,
             on_step=on_step if on_step is not None else _ks_noop,
+            workspace_id=workspace_id,
         )
     return await run_atlas_streaming(
         msg,
@@ -104,7 +123,7 @@ async def _run_agent(body: ChatRequest, msg: str, agent: str, on_step=None, data
 
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat(body: ChatRequest) -> ChatResponse:
+async def chat(body: ChatRequest, ctx: TenantContext = Depends(require_tenant)) -> ChatResponse:
     msg = body.message.strip()
     if not msg:
         raise HTTPException(400, "Empty message")
@@ -116,9 +135,20 @@ async def chat(body: ChatRequest) -> ChatResponse:
             sp.set_metadata("decision", agent)
         ds_id = None
         with obs_span("source_router") as sp:
-            ds_id, ds_step = await _resolve_datasource(body, agent, msg)
+            ds_id, ds_step = await _resolve_datasource(body, agent, msg, ctx)
             sp.set_metadata("decision", ds_id)
-        data = await _run_agent(body, msg, agent, datasource_id=ds_id)
+        if ds_step is not None and ds_step.get("detail", {}).get("denied"):
+            # P0.2: the requested datasource does not belong to this
+            # workspace — honest refusal, no fallback, no agent run.
+            data = {
+                "agent": agent, "status": "error", "warnings": [],
+                "steps": [ds_step], "answer": ds_step["summary"],
+                "sql": None, "explanation": None, "columns": [], "rows": [],
+                "row_count": 0, "chart": None, "excel_url": None,
+                "tables_used": [], "insights": {}, "suggestions": [],
+            }
+        else:
+            data = await _run_agent(body, msg, agent, datasource_id=ds_id, workspace_id=ctx.workspace_id)
         if ds_step is not None:
             data.setdefault("steps", []).insert(0, ds_step)
         if router_step is not None:
@@ -146,7 +176,7 @@ def _sse(event: str, payload: dict[str, Any]) -> str:
 
 
 @router.post("/chat/stream")
-async def chat_stream(body: ChatRequest) -> StreamingResponse:
+async def chat_stream(body: ChatRequest, ctx: TenantContext = Depends(require_tenant)) -> StreamingResponse:
     """Streaming variant of /chat. Both agents stream execution-trace steps and
     finish with a ``done`` event carrying the full ChatResponse."""
     msg = body.message.strip()
@@ -168,11 +198,20 @@ async def chat_stream(body: ChatRequest) -> StreamingResponse:
                     if router_step is not None:
                         await queue.put(("step", dict(router_step)))
                 with obs_span("source_router") as sp:
-                    ds_id, ds_step = await _resolve_datasource(body, agent, msg)
+                    ds_id, ds_step = await _resolve_datasource(body, agent, msg, ctx)
                     sp.set_metadata("decision", ds_id)
                     if ds_step is not None:
                         await queue.put(("step", dict(ds_step)))
-                data = await _run_agent(body, msg, agent, on_step=on_step, datasource_id=ds_id)
+                if ds_step is not None and ds_step.get("detail", {}).get("denied"):
+                    data = {
+                        "agent": agent, "status": "error", "warnings": [],
+                        "steps": [ds_step], "answer": ds_step["summary"],
+                        "sql": None, "explanation": None, "columns": [], "rows": [],
+                        "row_count": 0, "chart": None, "excel_url": None,
+                        "tables_used": [], "insights": {}, "suggestions": [],
+                    }
+                else:
+                    data = await _run_agent(body, msg, agent, on_step=on_step, datasource_id=ds_id, workspace_id=ctx.workspace_id)
                 if ds_step is not None:
                     data.setdefault("steps", []).insert(0, ds_step)
                 if router_step is not None:

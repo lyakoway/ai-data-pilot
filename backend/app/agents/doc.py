@@ -88,8 +88,13 @@ async def run_doc_streaming(
     model_id: str = "mock",
     lang: str = "ru",
     on_step: StepCallback = _noop_step,
+    workspace_id: str | None = None,
 ) -> dict[str, Any]:
-    """Run Doc and emit execution-trace steps (retrieval → answer)."""
+    """Run Doc and emit execution-trace steps (retrieval → answer).
+
+    ``workspace_id`` scopes uploaded-document search (P0.2). Built-in product
+    docs (data/docs) remain global by design. Default: the dev workspace —
+    keeps direct library calls (tests, eval scripts) working unchanged."""
     provider = get_provider(model_id)
     is_mock = provider.provider == "mock"
     steps: list[dict[str, Any]] = []
@@ -105,8 +110,10 @@ async def run_doc_streaming(
     t0 = time.perf_counter()
     with obs_span("doc.retrieval", as_type="retriever",
                   metadata={"question": redact(question, capture=True), "top_k": 4}) as rsp:
+        from app.tenancy import DEFAULT_WORKSPACE_ID
+
         ensure_docs()
-        chunks = retrieve(question, top_k=4)
+        chunks = retrieve(question, top_k=4, workspace_id=workspace_id or DEFAULT_WORKSPACE_ID)
         rsp.set_metadata({
             "chunk_ids": [c.doc_id for c in chunks],
             "scores": [round(c.score, 4) for c in chunks],

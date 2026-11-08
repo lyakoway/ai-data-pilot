@@ -9,6 +9,7 @@ from sqlalchemy import text
 from app.agents import atlas as atlas_module
 from app.agents.atlas import run_atlas
 from app.db import datasources as ds
+from app.tenancy import DEFAULT_WORKSPACE_ID
 
 CSV_TEXT = """region,revenue,rides,date
 Центр,150000,1200,2026-04-01
@@ -21,11 +22,11 @@ CSV_TEXT = """region,revenue,rides,date
 
 @pytest.fixture()
 def csv_source(tmp_db):
-    meta = ds.ingest_csv("sales.csv", CSV_TEXT)
+    meta = ds.ingest_csv("sales.csv", CSV_TEXT, workspace_id=DEFAULT_WORKSPACE_ID)
     yield meta
     # cleanup: remove if still present
     try:
-        ds.delete_source(meta["id"])
+        ds.delete_source(meta["id"], workspace_id=DEFAULT_WORKSPACE_ID)
     except KeyError:
         pass
 
@@ -34,21 +35,21 @@ def csv_source(tmp_db):
 
 
 def test_ridego_is_always_listed(tmp_db):
-    sources = ds.list_sources()
+    sources = ds.list_sources(DEFAULT_WORKSPACE_ID)
     ids = [s["id"] for s in sources]
     assert ds.RIDEGO_SOURCE_ID in ids
 
 
 def test_ridego_cannot_be_deleted(tmp_db):
     with pytest.raises(ValueError):
-        ds.delete_source(ds.RIDEGO_SOURCE_ID)
+        ds.delete_source(ds.RIDEGO_SOURCE_ID, workspace_id=DEFAULT_WORKSPACE_ID)
 
 
 def test_unknown_source_raises_keyerror(tmp_db):
     with pytest.raises(KeyError):
-        ds.get_engine_for("does_not_exist")
+        ds.get_engine_for("does_not_exist", workspace_id=DEFAULT_WORKSPACE_ID)
     with pytest.raises(KeyError):
-        ds.get_schema_catalog("does_not_exist")
+        ds.get_schema_catalog("does_not_exist", workspace_id=DEFAULT_WORKSPACE_ID)
 
 
 # --- CSV ingestion ---
@@ -66,7 +67,7 @@ def test_ingest_creates_source_with_inferred_types(csv_source):
 
 
 def test_ingest_table_is_queryable(csv_source):
-    eng = ds.get_engine_for(csv_source["id"])
+    eng = ds.get_engine_for(csv_source["id"], workspace_id=DEFAULT_WORKSPACE_ID)
     with eng.connect() as c:
         row = c.execute(
             text(f'SELECT COUNT(*) FROM "{csv_source["table_name"]}"')
@@ -75,7 +76,7 @@ def test_ingest_table_is_queryable(csv_source):
 
 
 def test_csv_schema_catalog_describes_columns(csv_source):
-    catalog = ds.get_schema_catalog(csv_source["id"])
+    catalog = ds.get_schema_catalog(csv_source["id"], workspace_id=DEFAULT_WORKSPACE_ID)
     assert csv_source["table_name"] in catalog
     assert "revenue" in catalog
     assert "INTEGER" in catalog
@@ -84,9 +85,9 @@ def test_csv_schema_catalog_describes_columns(csv_source):
 def test_delete_source_removes_table_and_meta(csv_source):
     sid = csv_source["id"]
     table = csv_source["table_name"]
-    ds.delete_source(sid)
+    ds.delete_source(sid, workspace_id=DEFAULT_WORKSPACE_ID)
     # meta gone
-    assert all(s["id"] != sid for s in ds.list_sources())
+    assert all(s["id"] != sid for s in ds.list_sources(DEFAULT_WORKSPACE_ID))
     # table gone
     from app.db.datasources import _uploaded_engine
 
@@ -99,17 +100,17 @@ def test_delete_source_removes_table_and_meta(csv_source):
 
 def test_empty_csv_rejected(tmp_db):
     with pytest.raises(ValueError):
-        ds.ingest_csv("empty.csv", "")
+        ds.ingest_csv("empty.csv", "", workspace_id=DEFAULT_WORKSPACE_ID)
 
 
 def test_header_only_csv_rejected(tmp_db):
     with pytest.raises(ValueError):
-        ds.ingest_csv("header_only.csv", "a,b,c\n")
+        ds.ingest_csv("header_only.csv", "a,b,c\n", workspace_id=DEFAULT_WORKSPACE_ID)
 
 
 def test_invalid_filename_rejected(tmp_db):
     with pytest.raises(ValueError):
-        ds.ingest_csv("", "a,b\n1,2\n")
+        ds.ingest_csv("", "a,b\n1,2\n", workspace_id=DEFAULT_WORKSPACE_ID)
 
 
 # --- Atlas multi-source behaviour ---
@@ -216,11 +217,11 @@ def xlsx_sources(tmp_db):
             ["Иван", 28, 3.9],
         ],
     }
-    metas = ds.ingest_xlsx("report_q3.xlsx", _make_xlsx_bytes(payload))
+    metas = ds.ingest_xlsx("report_q3.xlsx", _make_xlsx_bytes(payload), workspace_id=DEFAULT_WORKSPACE_ID)
     yield metas
     for m in metas:
         try:
-            ds.delete_source(m["id"])
+            ds.delete_source(m["id"], workspace_id=DEFAULT_WORKSPACE_ID)
         except KeyError:
             pass
 
@@ -251,7 +252,7 @@ def test_xlsx_types_are_inferred_from_native_types(xlsx_sources):
 
 def test_xlsx_each_source_is_queryable(xlsx_sources):
     for m in xlsx_sources:
-        eng = ds.get_engine_for(m["id"])
+        eng = ds.get_engine_for(m["id"], workspace_id=DEFAULT_WORKSPACE_ID)
         with eng.connect() as c:
             n = c.execute(text(f'SELECT COUNT(*) FROM "{m["table_name"]}"')).scalar()
         assert n == m["row_count"]
@@ -259,7 +260,7 @@ def test_xlsx_each_source_is_queryable(xlsx_sources):
 
 def test_xlsx_dates_stored_as_iso(xlsx_sources):
     sales = next(m for m in xlsx_sources if "Sales" in m["name"])
-    eng = ds.get_engine_for(sales["id"])
+    eng = ds.get_engine_for(sales["id"], workspace_id=DEFAULT_WORKSPACE_ID)
     with eng.connect() as c:
         d = c.execute(text(f'SELECT "date" FROM "{sales["table_name"]}" LIMIT 1')).scalar()
     assert d == "2026-07-01"  # ISO, not an Excel serial number
@@ -270,26 +271,26 @@ def test_xlsx_empty_sheets_are_skipped(tmp_db):
         "Data": [["x", "y"], [1, 2]],
         "Empty": [],  # no rows at all
     }
-    metas = ds.ingest_xlsx("mixed.xlsx", _make_xlsx_bytes(payload))
+    metas = ds.ingest_xlsx("mixed.xlsx", _make_xlsx_bytes(payload), workspace_id=DEFAULT_WORKSPACE_ID)
     assert len(metas) == 1
     assert "Data" in metas[0]["name"]
-    ds.delete_source(metas[0]["id"])
+    ds.delete_source(metas[0]["id"], workspace_id=DEFAULT_WORKSPACE_ID)
 
 
 def test_xlsx_all_empty_raises(tmp_db):
     payload = {"Empty1": [], "Empty2": [[]]}  # all sheets empty
     with pytest.raises(ValueError, match="no data"):
-        ds.ingest_xlsx("empty.xlsx", _make_xlsx_bytes(payload))
+        ds.ingest_xlsx("empty.xlsx", _make_xlsx_bytes(payload), workspace_id=DEFAULT_WORKSPACE_ID)
 
 
 def test_xlsx_garbage_bytes_raises(tmp_db):
     with pytest.raises(ValueError):
-        ds.ingest_xlsx("bad.xlsx", b"this is not a valid xlsx file")
+        ds.ingest_xlsx("bad.xlsx", b"this is not a valid xlsx file", workspace_id=DEFAULT_WORKSPACE_ID)
 
 
 def test_xlsx_schema_catalog_describes_each_sheet(xlsx_sources):
     for m in xlsx_sources:
-        catalog = ds.get_schema_catalog(m["id"])
+        catalog = ds.get_schema_catalog(m["id"], workspace_id=DEFAULT_WORKSPACE_ID)
         assert m["table_name"] in catalog
         # a column name should appear with its type
         first_col = m["columns"][0]["name"]
@@ -298,8 +299,8 @@ def test_xlsx_schema_catalog_describes_each_sheet(xlsx_sources):
 
 def test_xlsx_source_deletable(xlsx_sources):
     target = xlsx_sources[0]
-    ds.delete_source(target["id"])
-    assert ds.get_source_meta(target["id"]) is None
+    ds.delete_source(target["id"], workspace_id=DEFAULT_WORKSPACE_ID)
+    assert ds.get_source_meta(target["id"], workspace_id=DEFAULT_WORKSPACE_ID) is None
     # mutate the list so the fixture cleanup doesn't double-delete
     xlsx_sources[:] = xlsx_sources[1:]
 
@@ -326,7 +327,7 @@ def test_xlsx_title_row_skipped_and_duplicate_columns_deduped(tmp_db):
     buf = io.BytesIO()
     wb.save(buf)
 
-    metas = ds.ingest_xlsx("Покупка_авто_ТО.xlsx", buf.getvalue())
+    metas = ds.ingest_xlsx("Покупка_авто_ТО.xlsx", buf.getvalue(), workspace_id=DEFAULT_WORKSPACE_ID)
     assert len(metas) == 1
     m = metas[0]
     names = [c["name"] for c in m["columns"]]
@@ -336,23 +337,23 @@ def test_xlsx_title_row_skipped_and_duplicate_columns_deduped(tmp_db):
     assert names.count("to_1") == 1
     assert "to_1_2" in names
     assert m["row_count"] == 2
-    ds.delete_source(m["id"])
+    ds.delete_source(m["id"], workspace_id=DEFAULT_WORKSPACE_ID)
 
 
 def test_csv_blank_header_cell_gets_synthetic_name(tmp_db):
-    meta = ds.ingest_csv("weird.csv", ",x,\n1,2,3\n")
+    meta = ds.ingest_csv("weird.csv", ",x,\n1,2,3\n", workspace_id=DEFAULT_WORKSPACE_ID)
     names = [c["name"] for c in meta["columns"]]
     # First blank header cell → col_0, not an error.
     assert names[1] == "x"
     assert names[0].startswith("col_")
-    ds.delete_source(meta["id"])
+    ds.delete_source(meta["id"], workspace_id=DEFAULT_WORKSPACE_ID)
 
 
 def test_duplicate_csv_headers_deduped(tmp_db):
-    meta = ds.ingest_csv("dup.csv", "a,a\n1,2\n")
+    meta = ds.ingest_csv("dup.csv", "a,a\n1,2\n", workspace_id=DEFAULT_WORKSPACE_ID)
     names = [c["name"] for c in meta["columns"]]
     assert names == ["a", "a_2"]
-    ds.delete_source(meta["id"])
+    ds.delete_source(meta["id"], workspace_id=DEFAULT_WORKSPACE_ID)
 
 
 def test_title_row_value_names_blank_header_cell(tmp_db):
@@ -369,11 +370,11 @@ def test_title_row_value_names_blank_header_cell(tmp_db):
     ws.append(["Замена масла", 15000, 5000])
     buf = io.BytesIO()
     wb.save(buf)
-    metas = ds.ingest_xlsx("t.xlsx", buf.getvalue())
+    metas = ds.ingest_xlsx("t.xlsx", buf.getvalue(), workspace_id=DEFAULT_WORKSPACE_ID)
     names = [c["name"] for c in metas[0]["columns"]]
     assert names[0].startswith("покупка_авто")
     assert "регламент" in names
-    ds.delete_source(metas[0]["id"])
+    ds.delete_source(metas[0]["id"], workspace_id=DEFAULT_WORKSPACE_ID)
 
 
 def test_heuristic_skips_synthetic_dim_names():

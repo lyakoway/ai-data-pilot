@@ -6,7 +6,9 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
+
+from app.tenancy import TenantContext, require_tenant
 from fastapi.responses import FileResponse
 
 from app.config import get_settings
@@ -51,7 +53,7 @@ DATA_EXT = {".csv", ".xlsx", ".xls"}  # Files that also become SQL sources for A
 
 
 @router.post("")
-async def upload_document(file: UploadFile = File(...)) -> dict:
+async def upload_document(file: UploadFile = File(...), ctx: TenantContext = Depends(require_tenant)) -> dict:
     ext = Path(file.filename or "").suffix.lower()
     if ext not in ALLOWED_EXT:
         raise HTTPException(400, f"Формат {ext or '?'} не поддерживается. Разрешены: PDF, Word, Excel, TXT, MD.")
@@ -112,18 +114,18 @@ async def upload_document(file: UploadFile = File(...)) -> dict:
         doc["error"] = f"Ошибка обработки: {e}"
         dest.unlink(missing_ok=True)
 
-    app_db.save_document(doc)
+    app_db.save_document(doc, ctx.workspace_id)
     return doc
 
 
 @router.get("")
-def list_documents() -> list[dict]:
-    return app_db.list_documents()
+def list_documents(ctx: TenantContext = Depends(require_tenant)) -> list[dict]:
+    return app_db.list_documents(ctx.workspace_id)
 
 
 @router.get("/{document_id}/file")
-def get_document_file(document_id: str):
-    doc = app_db.get_document(document_id)
+def get_document_file(document_id: str, ctx: TenantContext = Depends(require_tenant)):
+    doc = app_db.get_document(document_id, ctx.workspace_id)
     if not doc:
         raise HTTPException(404, "Документ не найден")
     ext = Path(doc["filename"]).suffix.lower()
@@ -135,8 +137,8 @@ def get_document_file(document_id: str):
 
 
 @router.delete("/{document_id}")
-def delete_document(document_id: str) -> dict:
-    doc = app_db.get_document(document_id)
+def delete_document(document_id: str, ctx: TenantContext = Depends(require_tenant)) -> dict:
+    doc = app_db.get_document(document_id, ctx.workspace_id)
     if not doc:
         raise HTTPException(404, "Документ не найден")
     ext = Path(doc["filename"]).suffix.lower()
@@ -147,8 +149,8 @@ def delete_document(document_id: str) -> dict:
     if ds_id:
         try:
             from app.db.datasources import delete_source
-            delete_source(ds_id)
+            delete_source(ds_id, ctx.workspace_id)
         except Exception:  # noqa: BLE001
             pass
-    app_db.delete_document_row(document_id)
+    app_db.delete_document_row(document_id, ctx.workspace_id)
     return {"ok": True}

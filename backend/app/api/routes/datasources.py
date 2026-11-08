@@ -1,8 +1,10 @@
 """Data sources API: list, upload (CSV / Excel), PostgreSQL, delete."""
 from __future__ import annotations
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
+
+from app.tenancy import TenantContext, require_tenant
 
 from app.db import datasources
 
@@ -13,22 +15,22 @@ _MAX_BYTES = 25 * 1024 * 1024  # 25 MB cap on uploaded files
 
 
 @router.get("")
-def list_datasources() -> list[dict]:
-    return datasources.list_sources()
+def list_datasources(ctx: TenantContext = Depends(require_tenant)) -> list[dict]:
+    return datasources.list_sources(ctx.workspace_id)
 
 
 @router.get("/{source_id}/suggestions")
-async def get_suggestions(source_id: str, model: str = "mock", lang: str = "ru") -> dict:
+async def get_suggestions(source_id: str, model: str = "mock", lang: str = "ru", ctx: TenantContext = Depends(require_tenant)) -> dict:
     """Schema-based example questions; LLM-crafted for real models (cached), heuristic otherwise."""
-    meta = datasources.get_source_meta(source_id)
+    meta = datasources.get_source_meta(source_id, ctx.workspace_id)
     if meta is None:
         raise HTTPException(404, "Data source not found")
-    questions = await datasources.suggest_questions_smart(source_id, model_id=model, lang=lang)
+    questions = await datasources.suggest_questions_smart(source_id, model_id=model, lang=lang, workspace_id=ctx.workspace_id)
     return {"suggestions": questions}
 
 
 @router.post("/upload")
-async def upload_file(file: UploadFile = File(...)) -> dict:
+async def upload_file(file: UploadFile = File(...), ctx: TenantContext = Depends(require_tenant)) -> dict:
     """Upload a ``.csv`` or ``.xlsx`` file and register it as one or more data
     sources. CSV yields exactly one source; an Excel workbook yields one source
     per non-empty sheet. Always returns ``{"sources": [...], "count": N}``.
@@ -54,7 +56,7 @@ async def upload_file(file: UploadFile = File(...)) -> dict:
                     text = raw.decode("cp1251")  # common for RU Excel CSV exports
                 except UnicodeDecodeError as e:
                     raise HTTPException(400, "CSV must be UTF-8 or CP1251 encoded.") from e
-            meta = datasources.ingest_csv(original_name, text)
+            meta = datasources.ingest_csv(original_name, text, workspace_id=ctx.workspace_id)
             metas = [meta]
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
@@ -78,9 +80,9 @@ def _source_summary(meta: dict) -> dict:
 
 
 @router.delete("/{source_id}")
-def delete_datasource(source_id: str) -> dict:
+def delete_datasource(source_id: str, ctx: TenantContext = Depends(require_tenant)) -> dict:
     try:
-        datasources.delete_source(source_id)
+        datasources.delete_source(source_id, ctx.workspace_id)
     except KeyError as e:
         raise HTTPException(404, str(e)) from e
     except ValueError as e:
@@ -103,7 +105,7 @@ class PostgresConnection(BaseModel):
 
 
 @router.post("/postgres")
-def add_postgres(body: PostgresConnection) -> dict:
+def add_postgres(body: PostgresConnection, ctx: TenantContext = Depends(require_tenant)) -> dict:
     """Register a PostgreSQL source: test connection → introspect → save."""
     try:
         meta = datasources.register_postgres(
@@ -113,6 +115,7 @@ def add_postgres(body: PostgresConnection) -> dict:
             database=body.database,
             username=body.username,
             password=body.password,
+            workspace_id=ctx.workspace_id,
         )
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
@@ -136,7 +139,7 @@ class ClickHouseConnection(BaseModel):
 
 
 @router.post("/clickhouse")
-def add_clickhouse(body: ClickHouseConnection) -> dict:
+def add_clickhouse(body: ClickHouseConnection, ctx: TenantContext = Depends(require_tenant)) -> dict:
     """Register a ClickHouse source: test connection → introspect → save."""
     try:
         meta = datasources.register_clickhouse(
@@ -147,6 +150,7 @@ def add_clickhouse(body: ClickHouseConnection) -> dict:
             username=body.username,
             password=body.password,
             secure=body.secure,
+            workspace_id=ctx.workspace_id,
         )
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
@@ -160,10 +164,10 @@ def add_clickhouse(body: ClickHouseConnection) -> dict:
 
 
 @router.post("/{source_id}/refresh")
-def refresh_schema(source_id: str) -> dict:
+def refresh_schema(source_id: str, ctx: TenantContext = Depends(require_tenant)) -> dict:
     """Re-introspect the schema for an existing PostgreSQL source."""
     try:
-        meta = datasources.refresh_postgres_schema(source_id)
+        meta = datasources.refresh_postgres_schema(source_id, ctx.workspace_id)
     except KeyError as e:
         raise HTTPException(404, str(e)) from e
     except ValueError as e:

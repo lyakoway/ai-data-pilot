@@ -8,10 +8,10 @@ from app.db import datasources as ds
 
 @pytest.fixture()
 def csv_meta(tmp_db):
-    meta = ds.ingest_csv("works.csv", "name,price\na,100\nb,200\n")
+    meta = ds.ingest_csv("works.csv", "name,price\na,100\nb,200\n", workspace_id="ws_default")
     yield meta
     try:
-        ds.delete_source(meta["id"])
+        ds.delete_source(meta["id"], workspace_id="ws_default")
     except KeyError:
         pass
 

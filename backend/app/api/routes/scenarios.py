@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+
+from app.tenancy import TenantContext, require_tenant
 from pydantic import BaseModel
 
 from app.agents.doc import run_doc
@@ -43,12 +45,12 @@ def _substitute(prompt: str, params: list[dict] | None, values: dict | None) -> 
 
 
 @router.get("", response_model=list[ScenarioOut])
-def list_scenarios() -> list[ScenarioOut]:
-    return [ScenarioOut(**s) for s in app_db.list_scenarios()]
+def list_scenarios(ctx: TenantContext = Depends(require_tenant)) -> list[ScenarioOut]:
+    return [ScenarioOut(**s) for s in app_db.list_scenarios(ctx.workspace_id)]
 
 
 @router.post("", response_model=ScenarioOut)
-def create_scenario(body: ScenarioCreate) -> ScenarioOut:
+def create_scenario(body: ScenarioCreate, ctx: TenantContext = Depends(require_tenant)) -> ScenarioOut:
     item = {
         "id": uuid.uuid4().hex[:10],
         "name": body.name,
@@ -59,13 +61,13 @@ def create_scenario(body: ScenarioCreate) -> ScenarioOut:
         "datasource_id": body.datasource_id,
         "parameters": body.parameters,
     }
-    app_db.create_scenario(item)
+    app_db.create_scenario(item, ctx.workspace_id)
     return ScenarioOut(**item)
 
 
 @router.delete("/{scenario_id}")
-def delete_scenario(scenario_id: str) -> dict:
-    if not app_db.delete_scenario(scenario_id):
+def delete_scenario(scenario_id: str, ctx: TenantContext = Depends(require_tenant)) -> dict:
+    if not app_db.delete_scenario(scenario_id, ctx.workspace_id):
         raise HTTPException(404, "Scenario not found")
     return {"ok": True}
 
@@ -77,7 +79,7 @@ async def run_scenario(
     lang: str = "ru",
     body: ScenarioRunRequest | None = None,
 ) -> ChatResponse:
-    sc = app_db.get_scenario(scenario_id)
+    sc = app_db.get_scenario(scenario_id, ctx.workspace_id)
     if not sc:
         raise HTTPException(404, "Scenario not found")
     prompt = _substitute(sc["prompt"], sc.get("parameters"), body.values if body else None)

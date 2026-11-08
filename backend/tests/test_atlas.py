@@ -306,7 +306,7 @@ async def test_steps_absent_for_error_response(tmp_db, monkeypatch):
     # CSV source + mock → honest error (steps still present up to the failure point).
     from app.db import datasources as ds
 
-    meta = ds.ingest_csv("x.csv", "a,b\n1,2\n")
+    meta = ds.ingest_csv("x.csv", "a,b\n1,2\n", workspace_id="ws_default")
     try:
         _patch_provider(monkeypatch, MockProvider())
         r = await run_atlas("test", model_id="mock", lang="ru", datasource_id=meta["id"])
@@ -314,4 +314,4 @@ async def test_steps_absent_for_error_response(tmp_db, monkeypatch):
         # The planner step ran and errored.
         assert any(s["tool"] == "planner" and s["status"] == "error" for s in r["steps"])
     finally:
-        ds.delete_source(meta["id"])
+        ds.delete_source(meta["id"], workspace_id="ws_default")

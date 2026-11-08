@@ -34,6 +34,7 @@ from app.core.sql_guard import SqlExecutionError, SqlGuardError, SqlTimeoutError
 from app.db.datasources import get_engine_for, get_schema_catalog  # noqa: E402
 from app.llm.base import ChatMessage  # noqa: E402
 from app.llm.registry import get_provider  # noqa: E402
+from app.tenancy import DEFAULT_WORKSPACE_ID
 
 GOLDEN_DIR = Path(__file__).resolve().parent.parent / "tests" / "golden"
 RESULTS_PATH = Path(__file__).resolve().parent.parent / "evaluation_results.json"
@@ -144,7 +145,7 @@ async def eval_sql_suite(
         for c in cases:
             for prep in c.get("prepare", []):
                 if prep["name"] not in preps:
-                    meta = ingest_csv(prep["name"] + ".csv", prep["csv"])
+                    meta = ingest_csv(prep["name"] + ".csv", prep["csv"], workspace_id=DEFAULT_WORKSPACE_ID)
                     preps[prep["name"]] = meta["table_name"]
                     created_sources.append(meta["id"])
         markers = {f"{{{{{name}}}}}": table for name, table in preps.items()}

@@ -31,6 +31,7 @@ from app.db.schema_catalog import SCHEMA_CATALOG
 from app.llm.base import ChatMessage
 from app.llm.registry import get_provider
 from app.observability import obs_span, redact
+from app.tenancy import DEFAULT_WORKSPACE_ID
 
 # Total planner attempts: 1 initial + this many repair rounds.
 MAX_SQL_REPAIR_ROUNDS = 2
@@ -70,11 +71,12 @@ SCHEMA:
 """
 
 
-def _dialect_note(datasource_id: str) -> str:
+def _dialect_note(datasource_id: str, workspace_id: str | None = None) -> str:
     """Return a dialect-specific syntax hint for the prompt."""
     from app.db.datasources import get_dialect
+    from app.tenancy import DEFAULT_WORKSPACE_ID
     try:
-        dialect = get_dialect(datasource_id)
+        dialect = get_dialect(datasource_id, workspace_id or DEFAULT_WORKSPACE_ID)
     except Exception:  # noqa: BLE001
         dialect = "sqlite"
     if dialect == "postgresql":
@@ -85,12 +87,12 @@ def _dialect_note(datasource_id: str) -> str:
     return "- SQLite синтаксис (date(), strftime(), julianday и т.п. допустимы)."
 
 
-def _query_timeout(datasource_id: str) -> float:
+def _query_timeout(datasource_id: str, workspace_id: str | None = None) -> float:
     """Per-source SQL timeout (PostgreSQL gets a longer cross-network budget)."""
     from app.db.datasources import get_query_timeout
 
     try:
-        return get_query_timeout(datasource_id)
+        return get_query_timeout(datasource_id, workspace_id)
     except Exception:  # noqa: BLE001
         return get_settings_sql_timeout()
 
@@ -363,7 +365,7 @@ def _legacy_engine():
 
 async def _generate_plan(
     provider, question: str, lang: str, schema_catalog: str, *, allow_mock: bool = True,
-    datasource_id: str = RIDEGO_SOURCE_ID,
+    datasource_id: str = RIDEGO_SOURCE_ID, workspace_id: str | None = None,
 ) -> dict[str, Any] | None:
     """Ask the LLM for a JSON plan. Returns ``None`` if the call yields nothing usable.
 
@@ -375,7 +377,7 @@ async def _generate_plan(
         if allow_mock:
             return _mock_plan(question)
         return None  # force the caller down the honest "needs a real model" path
-    prompt = PLAN_SYSTEM.format(dialect_note=_dialect_note(datasource_id)) + schema_catalog
+    prompt = PLAN_SYSTEM.format(dialect_note=_dialect_note(datasource_id, workspace_id or DEFAULT_WORKSPACE_ID)) + schema_catalog
     with obs_span("atlas.planner", as_type="generation", model=provider.model,
                   metadata={"question": redact(question, capture=True),
                             "prompt": redact(prompt, capture=False), "datasource": datasource_id}) as sp:
@@ -408,6 +410,7 @@ async def run_atlas(
     lang: str = "ru",
     force_excel: bool = False,
     datasource_id: str = RIDEGO_SOURCE_ID,
+    workspace_id: str | None = None,
 ) -> dict[str, Any]:
     """Run Atlas synchronously and return the final result (with ``steps`` list).
 
@@ -420,6 +423,7 @@ async def run_atlas(
         force_excel=force_excel,
         datasource_id=datasource_id,
         on_step=_noop_step,
+        workspace_id=workspace_id,
     )
 
 
@@ -773,7 +777,13 @@ async def run_atlas_streaming(
     force_excel: bool = False,
     datasource_id: str = RIDEGO_SOURCE_ID,
     on_step: StepCallback = _noop_step,
+    workspace_id: str | None = None,
 ) -> dict[str, Any]:
+    # P0.2: workspace scopes source access; the dev default keeps direct
+    # library calls (tests/eval) working — the DB layer stays fail-closed.
+    from app.tenancy import DEFAULT_WORKSPACE_ID
+
+    ws = workspace_id or DEFAULT_WORKSPACE_ID
     """Run Atlas and emit execution-trace steps via ``on_step`` as work proceeds.
 
     This is the canonical implementation; :func:`run_atlas` delegates here with a
@@ -793,9 +803,9 @@ async def run_atlas_streaming(
             steps.append(dict(step))
 
     # Resolve the active data source.
-    schema_catalog = get_schema_catalog(datasource_id) if datasource_id else SCHEMA_CATALOG
+    schema_catalog = get_schema_catalog(datasource_id, ws) if datasource_id else SCHEMA_CATALOG
     try:
-        engine = get_engine_for(datasource_id) if datasource_id else _legacy_engine()
+        engine = get_engine_for(datasource_id, ws) if datasource_id else _legacy_engine()
     except KeyError:
         schema_catalog = SCHEMA_CATALOG
         engine = _legacy_engine()
@@ -805,7 +815,7 @@ async def run_atlas_streaming(
     #     simple questions use the fast linear flow below. CSV sources always
     #     use the linear flow (mock plans are RideGo-specific; the loop's mock
     #     script is RideGo-specific too). ---
-    q_timeout = _query_timeout(datasource_id)
+    q_timeout = _query_timeout(datasource_id, ws)
 
     if is_ridego and _is_complex_question(question):
         if is_mock:
@@ -829,7 +839,7 @@ async def run_atlas_streaming(
     await emit(step)
     t0 = time.perf_counter()
     try:
-        plan = await _generate_plan(provider, question, lang, schema_catalog, allow_mock=is_ridego, datasource_id=datasource_id)
+        plan = await _generate_plan(provider, question, lang, schema_catalog, allow_mock=is_ridego, datasource_id=datasource_id, workspace_id=ws)
     except Exception as e:  # noqa: BLE001 — provider/network errors (e.g. 429 no balance)
         step["duration_ms"] = int((time.perf_counter() - t0) * 1000)
         step["status"] = "error"

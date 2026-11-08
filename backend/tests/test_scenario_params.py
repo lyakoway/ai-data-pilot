@@ -5,6 +5,7 @@ import pytest
 
 from app.db import app_db
 from app.api.routes.scenarios import _substitute
+from app.tenancy import DEFAULT_WORKSPACE_ID
 
 
 # --------------------------------------------------------------------------- #
@@ -13,7 +14,7 @@ from app.api.routes.scenarios import _substitute
 
 
 def test_seed_scenarios_have_parameters(tmp_db):
-    scen = {s["id"]: s for s in app_db.list_scenarios()}
+    scen = {s["id"]: s for s in app_db.list_scenarios(workspace_id=DEFAULT_WORKSPACE_ID)}
     assert scen["sales-by-region"]["parameters"] is not None
     assert len(scen["sales-by-region"]["parameters"]) == 2  # period, group_by
     assert scen["top-cities-rides"]["parameters"] is not None
@@ -32,9 +33,8 @@ def test_create_scenario_with_parameters(tmp_db):
             "chart_type": "bar",
             "datasource_id": "ridego",
             "parameters": [{"name": "period", "type": "number", "default": 30}],
-        }
-    )
-    fetched = app_db.get_scenario("test-param-1")
+        }, workspace_id=DEFAULT_WORKSPACE_ID)
+    fetched = app_db.get_scenario("test-param-1", workspace_id=DEFAULT_WORKSPACE_ID)
     assert fetched is not None
     assert fetched["parameters"] == [{"name": "period", "type": "number", "default": 30}]
 
@@ -50,9 +50,8 @@ def test_create_scenario_without_parameters(tmp_db):
             "chart_type": None,
             "datasource_id": None,
             "parameters": None,
-        }
-    )
-    fetched = app_db.get_scenario("test-noparam")
+        }, workspace_id=DEFAULT_WORKSPACE_ID)
+    fetched = app_db.get_scenario("test-noparam", workspace_id=DEFAULT_WORKSPACE_ID)
     assert fetched is not None
     assert fetched["parameters"] is None
 

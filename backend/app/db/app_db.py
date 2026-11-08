@@ -16,6 +16,7 @@ import json
 from datetime import datetime
 from typing import Any
 
+from app.tenancy import DEFAULT_WORKSPACE_ID, require_workspace
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
@@ -91,6 +92,7 @@ RIDEGO_SOURCE_ROW = {
     "columns": None,
     "row_count": None,
     "created_at": None,
+    "workspace_id": "global",
 }
 
 
@@ -126,6 +128,35 @@ def _init_db(engine: Engine) -> None:
         # Migration: add the connection column to datasources (for postgres sources).
         _ensure_column(conn, "datasources", "connection", "TEXT")
         _ensure_column(conn, "documents", "datasource_id", "TEXT")
+        # P0.2 tenancy (application-level isolation — NOT PostgreSQL RLS):
+        # workspaces table + workspace_id on tenant tables. Chunks stay
+        # unscoped: ownership is derived via JOIN documents (single source).
+        conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS workspaces ("
+            "id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at TEXT NOT NULL)"
+        ))
+        _ensure_column(conn, "datasources", "workspace_id", "TEXT")
+        _ensure_column(conn, "documents", "workspace_id", "TEXT")
+        _ensure_column(conn, "scenarios", "workspace_id", "TEXT")
+        _ensure_column(conn, "feedback", "workspace_id", "TEXT")
+        # EXPLICIT migration rule (P0.2): every pre-existing row belongs to
+        # the seeded default dev workspace — single-tenant legacy data. The
+        # backfill is idempotent, logged, and verified by tests.
+        _ws = "ws_default"
+        conn.execute(text(
+            "INSERT OR IGNORE INTO workspaces (id, name, created_at) "
+            "VALUES (:id, :name, :now)"
+        ), {"id": _ws, "name": "Локальная разработка (dev)",
+            "now": datetime.utcnow().isoformat(timespec="seconds")})
+        for _table in ("datasources", "documents", "scenarios", "feedback"):
+            n = conn.execute(text(
+                f"UPDATE {_table} SET workspace_id = :ws WHERE workspace_id IS NULL OR workspace_id = ''"
+            ), {"ws": _ws}).rowcount
+            if n:
+                import logging
+                logging.getLogger("app.db").info(
+                    "tenancy migration: %s row(s) in %s -> workspace %s", n, _table, _ws
+                )
         # Seed the built-in ridego source if absent.
         exists = conn.execute(
             text("SELECT 1 FROM datasources WHERE id = 'ridego'")
@@ -133,8 +164,8 @@ def _init_db(engine: Engine) -> None:
         if not exists:
             conn.execute(
                 text(
-                    "INSERT INTO datasources (id, name, kind, description, table_name, columns, row_count, created_at) "
-                    "VALUES (:id, :name, :kind, :description, :table_name, :columns, :row_count, :created_at)"
+                    "INSERT INTO datasources (id, name, kind, description, table_name, columns, row_count, created_at, workspace_id) "
+                    "VALUES (:id, :name, :kind, :description, :table_name, :columns, :row_count, :created_at, :workspace_id)"
                 ),
                 RIDEGO_SOURCE_ROW,
             )
@@ -145,8 +176,8 @@ def _init_db(engine: Engine) -> None:
             for sc in SEED_SCENARIOS:
                 conn.execute(
                     text(
-                        "INSERT INTO scenarios (id, name, agent, description, prompt, chart_type, datasource_id, parameters, created_at) "
-                        "VALUES (:id, :name, :agent, :description, :prompt, :chart_type, :datasource_id, :parameters, :created_at)"
+                        "INSERT INTO scenarios (id, name, agent, description, prompt, chart_type, datasource_id, parameters, created_at, workspace_id) "
+                        "VALUES (:id, :name, :agent, :description, :prompt, :chart_type, :datasource_id, :parameters, :created_at, :workspace_id)"
                     ),
                     {
                         "id": sc["id"],
@@ -157,9 +188,28 @@ def _init_db(engine: Engine) -> None:
                         "chart_type": sc.get("chart_type"),
                         "datasource_id": sc.get("datasource_id"),
                         "parameters": json.dumps(sc["parameters"], ensure_ascii=False) if sc.get("parameters") else None,
+                        "workspace_id": "ws_default",
                         "created_at": now,
                     },
                 )
+
+
+def workspace_exists(workspace_id: str) -> bool:
+    eng = get_app_engine()
+    with eng.connect() as conn:
+        row = conn.execute(
+            text("SELECT 1 FROM workspaces WHERE id = :id"), {"id": workspace_id}
+        ).fetchone()
+    return row is not None
+
+
+def list_workspaces() -> list[dict[str, Any]]:
+    eng = get_app_engine()
+    with eng.connect() as conn:
+        rows = conn.execute(
+            text("SELECT id, name, created_at FROM workspaces ORDER BY id")
+        ).fetchall()
+    return [{"id": r[0], "name": r[1], "created_at": r[2]} for r in rows]
 
 
 def reset_app_engine() -> None:
@@ -173,23 +223,26 @@ def reset_app_engine() -> None:
 # --------------------------------------------------------------------------- #
 
 
-def list_scenarios() -> list[dict[str, Any]]:
+def list_scenarios(workspace_id: str | None = None) -> list[dict[str, Any]]:
+    require_workspace(workspace_id)
     eng = get_app_engine()
     with eng.connect() as conn:
         rows = conn.execute(
-            text("SELECT id, name, agent, description, prompt, chart_type, datasource_id, parameters FROM scenarios ORDER BY created_at")
+            text("SELECT id, name, agent, description, prompt, chart_type, datasource_id, parameters FROM scenarios WHERE workspace_id = :ws ORDER BY created_at"),
+            {"ws": workspace_id},
         ).fetchall()
     return [_row_to_scenario(r) for r in rows]
 
 
-def get_scenario(scenario_id: str) -> dict[str, Any] | None:
+def get_scenario(scenario_id: str, workspace_id: str | None = None) -> dict[str, Any] | None:
+    require_workspace(workspace_id)
     eng = get_app_engine()
     with eng.connect() as conn:
         row = conn.execute(
             text(
-                "SELECT id, name, agent, description, prompt, chart_type, datasource_id, parameters FROM scenarios WHERE id = :id"
+                "SELECT id, name, agent, description, prompt, chart_type, datasource_id, parameters FROM scenarios WHERE id = :id AND workspace_id = :ws"
             ),
-            {"id": scenario_id},
+            {"id": scenario_id, "ws": workspace_id},
         ).fetchone()
     return _row_to_scenario(row) if row else None
 
@@ -207,15 +260,16 @@ def _row_to_scenario(r: tuple) -> dict[str, Any]:
     }
 
 
-def create_scenario(sc: dict[str, Any]) -> dict[str, Any]:
+def create_scenario(sc: dict[str, Any], workspace_id: str | None = None) -> dict[str, Any]:
+    require_workspace(workspace_id)
     eng = get_app_engine()
     now = datetime.utcnow().isoformat(timespec="seconds")
     params_json = json.dumps(sc["parameters"], ensure_ascii=False) if sc.get("parameters") else None
     with eng.begin() as conn:
         conn.execute(
             text(
-                "INSERT INTO scenarios (id, name, agent, description, prompt, chart_type, datasource_id, parameters, created_at) "
-                "VALUES (:id, :name, :agent, :description, :prompt, :chart_type, :datasource_id, :parameters, :created_at)"
+                "INSERT INTO scenarios (id, name, agent, description, prompt, chart_type, datasource_id, parameters, created_at, workspace_id) "
+                "VALUES (:id, :name, :agent, :description, :prompt, :chart_type, :datasource_id, :parameters, :created_at, :workspace_id)"
             ),
             {
                 "id": sc["id"],
@@ -227,15 +281,20 @@ def create_scenario(sc: dict[str, Any]) -> dict[str, Any]:
                 "datasource_id": sc.get("datasource_id"),
                 "parameters": params_json,
                 "created_at": now,
+                "workspace_id": workspace_id,
             },
         )
     return sc
 
 
-def delete_scenario(scenario_id: str) -> bool:
+def delete_scenario(scenario_id: str, workspace_id: str | None = None) -> bool:
+    require_workspace(workspace_id)
     eng = get_app_engine()
     with eng.begin() as conn:
-        result = conn.execute(text("DELETE FROM scenarios WHERE id = :id"), {"id": scenario_id})
+        result = conn.execute(
+            text("DELETE FROM scenarios WHERE id = :id AND workspace_id = :ws"),
+            {"id": scenario_id, "ws": workspace_id},
+        )
     return result.rowcount > 0
 
 
@@ -244,28 +303,42 @@ def delete_scenario(scenario_id: str) -> bool:
 # --------------------------------------------------------------------------- #
 
 
-def list_datasources() -> list[dict[str, Any]]:
+def list_datasources(workspace_id: str | None = None, *, include_global: bool = True) -> list[dict[str, Any]]:
+    """Tenant-scoped listing (fail-closed). Built-in demo sources (workspace
+    'global') are included: they are product data, not tenant data."""
+    require_workspace(workspace_id)
     eng = get_app_engine()
     with eng.connect() as conn:
         rows = conn.execute(
-            text("SELECT id, name, kind, description, table_name, columns, row_count, created_at, connection FROM datasources ORDER BY created_at")
+            text("SELECT id, name, kind, description, table_name, columns, row_count, created_at, connection, workspace_id FROM datasources ORDER BY created_at")
         ).fetchall()
     out = []
     for r in rows:
-        out.append(_row_to_datasource(r))
+        ws = r[9]
+        if ws == workspace_id or (include_global and ws == "global"):
+            out.append(_row_to_datasource(r))
     return out
 
 
-def get_datasource(source_id: str) -> dict[str, Any] | None:
+def get_datasource(source_id: str, workspace_id: str | None = None) -> dict[str, Any] | None:
+    """Ownership-aware read: a user source is visible ONLY to its workspace;
+    global built-ins are visible to everyone."""
+    require_workspace(workspace_id)
     eng = get_app_engine()
     with eng.connect() as conn:
         row = conn.execute(
             text(
-                "SELECT id, name, kind, description, table_name, columns, row_count, created_at, connection FROM datasources WHERE id = :id"
+                "SELECT id, name, kind, description, table_name, columns, row_count, created_at, connection, workspace_id FROM datasources WHERE id = :id"
             ),
             {"id": source_id},
         ).fetchone()
-    return _row_to_datasource(row) if row else None
+    if row is None:
+        return None
+    # Ownership: tenant rows visible to their workspace only; built-in demo
+    # sources (workspace 'global') visible to all — documented P0.2 decision.
+    if row[9] not in (workspace_id, "global"):
+        return None
+    return _row_to_datasource(row)
 
 
 def _row_to_datasource(r: tuple) -> dict[str, Any]:
@@ -282,16 +355,17 @@ def _row_to_datasource(r: tuple) -> dict[str, Any]:
     }
 
 
-def save_datasource(meta: dict[str, Any]) -> dict[str, Any]:
-    """Insert or replace a datasource metadata row."""
+def save_datasource(meta: dict[str, Any], workspace_id: str | None = None) -> dict[str, Any]:
+    """Insert or replace a datasource metadata row (workspace-stamped)."""
+    require_workspace(workspace_id)
     eng = get_app_engine()
     columns_json = json.dumps(meta.get("columns"), ensure_ascii=False) if meta.get("columns") else None
     connection_json = json.dumps(meta.get("connection"), ensure_ascii=False) if meta.get("connection") else None
     with eng.begin() as conn:
         conn.execute(
             text(
-                "INSERT OR REPLACE INTO datasources (id, name, kind, description, table_name, columns, row_count, created_at, connection) "
-                "VALUES (:id, :name, :kind, :description, :table_name, :columns, :row_count, :created_at, :connection)"
+                "INSERT OR REPLACE INTO datasources (id, name, kind, description, table_name, columns, row_count, created_at, connection, workspace_id) "
+                "VALUES (:id, :name, :kind, :description, :table_name, :columns, :row_count, :created_at, :connection, :workspace_id)"
             ),
             {
                 "id": meta["id"],
@@ -303,15 +377,21 @@ def save_datasource(meta: dict[str, Any]) -> dict[str, Any]:
                 "row_count": meta.get("row_count"),
                 "created_at": meta.get("created_at"),
                 "connection": connection_json,
+                "workspace_id": meta.get("workspace_id", workspace_id),
             },
         )
     return meta
 
 
-def delete_datasource_row(source_id: str) -> bool:
+def delete_datasource_row(source_id: str, workspace_id: str | None = None) -> bool:
+    """Delete only OWN sources; global built-ins are undeletable here."""
+    require_workspace(workspace_id)
     eng = get_app_engine()
     with eng.begin() as conn:
-        result = conn.execute(text("DELETE FROM datasources WHERE id = :id"), {"id": source_id})
+        result = conn.execute(
+            text("DELETE FROM datasources WHERE id = :id AND workspace_id = :ws"),
+            {"id": source_id, "ws": workspace_id},
+        )
     return result.rowcount > 0
 
 
@@ -320,15 +400,16 @@ def delete_datasource_row(source_id: str) -> bool:
 # --------------------------------------------------------------------------- #
 
 
-def save_feedback(fb: dict[str, Any]) -> dict[str, Any]:
-    """Persist a feedback vote. Returns the input enriched with id/created_at."""
+def save_feedback(fb: dict[str, Any], workspace_id: str | None = None) -> dict[str, Any]:
+    """Persist a feedback vote (workspace-stamped)."""
+    require_workspace(workspace_id)
     eng = get_app_engine()
     now = datetime.utcnow().isoformat(timespec="seconds")
     with eng.begin() as conn:
         result = conn.execute(
             text(
-                "INSERT INTO feedback (vote, agent, message, answer, datasource_id, model, lang, created_at) "
-                "VALUES (:vote, :agent, :message, :answer, :datasource_id, :model, :lang, :created_at)"
+                "INSERT INTO feedback (vote, agent, message, answer, datasource_id, model, lang, created_at, workspace_id) "
+                "VALUES (:vote, :agent, :message, :answer, :datasource_id, :model, :lang, :created_at, :workspace_id)"
             ),
             {
                 "vote": fb["vote"],
@@ -339,6 +420,7 @@ def save_feedback(fb: dict[str, Any]) -> dict[str, Any]:
                 "model": fb.get("model"),
                 "lang": fb.get("lang", "ru"),
                 "created_at": now,
+                "workspace_id": workspace_id,
             },
         )
         fb["id"] = result.lastrowid
@@ -346,18 +428,19 @@ def save_feedback(fb: dict[str, Any]) -> dict[str, Any]:
     return fb
 
 
-def feedback_stats() -> dict[str, Any]:
-    """Aggregate feedback counts: total + per-agent breakdown."""
+def feedback_stats(workspace_id: str | None = None) -> dict[str, Any]:
+    """Aggregate feedback counts (tenant-scoped, fail-closed)."""
+    require_workspace(workspace_id)
     eng = get_app_engine()
     with eng.connect() as conn:
-        up = conn.execute(text("SELECT COUNT(*) FROM feedback WHERE vote = 'up'")).scalar() or 0
-        down = conn.execute(text("SELECT COUNT(*) FROM feedback WHERE vote = 'down'")).scalar() or 0
+        up = conn.execute(text("SELECT COUNT(*) FROM feedback WHERE vote = 'up' AND workspace_id = :ws"), {"ws": workspace_id}).scalar() or 0
+        down = conn.execute(text("SELECT COUNT(*) FROM feedback WHERE vote = 'down' AND workspace_id = :ws"), {"ws": workspace_id}).scalar() or 0
         # Per-agent breakdown
         rows = conn.execute(
             text(
-                "SELECT agent, vote, COUNT(*) as n FROM feedback "
+                "SELECT agent, vote, COUNT(*) as n FROM feedback WHERE workspace_id = :ws "
                 "GROUP BY agent, vote"
-            )
+            ), {"ws": workspace_id},
         ).fetchall()
         per_agent: dict[str, dict[str, int]] = {}
         for agent, vote, n in rows:
@@ -373,16 +456,17 @@ def feedback_stats() -> dict[str, Any]:
     }
 
 
-def feedback_list(limit: int = 20, agent: str | None = None) -> list[dict[str, Any]]:
-    """Recent feedback entries for the analytics panel."""
+def feedback_list(limit: int = 20, agent: str | None = None, workspace_id: str | None = None) -> list[dict[str, Any]]:
+    """Recent feedback entries (tenant-scoped, fail-closed)."""
+    require_workspace(workspace_id)
     eng = get_app_engine()
     query = (
         "SELECT id, vote, agent, message, answer, model, lang, created_at "
-        "FROM feedback"
+        "FROM feedback WHERE workspace_id = :ws"
     )
-    params: dict[str, Any] = {"limit": limit}
+    params: dict[str, Any] = {"limit": limit, "ws": workspace_id}
     if agent:
-        query += " WHERE agent = :agent"
+        query += " AND agent = :agent"
         params["agent"] = agent
     query += " ORDER BY created_at DESC LIMIT :limit"
 
@@ -404,11 +488,13 @@ def feedback_list(limit: int = 20, agent: str | None = None) -> list[dict[str, A
 # --------------------------------------------------------------------------- #
 
 
-def list_documents() -> list[dict[str, Any]]:
+def list_documents(workspace_id: str | None = None) -> list[dict[str, Any]]:
+    require_workspace(workspace_id)
     eng = get_app_engine()
     with eng.connect() as conn:
         rows = conn.execute(
-            text("SELECT id, filename, content_type, size_bytes, page_count, chunk_count, status, error, datasource_id, created_at FROM documents ORDER BY created_at DESC")
+            text("SELECT id, filename, content_type, size_bytes, page_count, chunk_count, status, error, datasource_id, created_at FROM documents WHERE workspace_id = :ws ORDER BY created_at DESC"),
+            {"ws": workspace_id},
         ).fetchall()
     return [
         {
@@ -420,12 +506,13 @@ def list_documents() -> list[dict[str, Any]]:
     ]
 
 
-def get_document(doc_id: str) -> dict[str, Any] | None:
+def get_document(doc_id: str, workspace_id: str | None = None) -> dict[str, Any] | None:
+    require_workspace(workspace_id)
     eng = get_app_engine()
     with eng.connect() as conn:
         row = conn.execute(
-            text("SELECT id, filename, content_type, size_bytes, page_count, chunk_count, status, error, datasource_id, created_at FROM documents WHERE id = :id"),
-            {"id": doc_id},
+            text("SELECT id, filename, content_type, size_bytes, page_count, chunk_count, status, error, datasource_id, created_at FROM documents WHERE id = :id AND workspace_id = :ws"),
+            {"id": doc_id, "ws": workspace_id},
         ).fetchone()
     if not row:
         return None
@@ -436,24 +523,30 @@ def get_document(doc_id: str) -> dict[str, Any] | None:
     }
 
 
-def save_document(doc: dict[str, Any]) -> dict[str, Any]:
+def save_document(doc: dict[str, Any], workspace_id: str | None = None) -> dict[str, Any]:
+    require_workspace(workspace_id)
     eng = get_app_engine()
+    row = {**doc, "workspace_id": workspace_id}
     with eng.begin() as conn:
         conn.execute(
             text(
-                "INSERT OR REPLACE INTO documents (id, filename, content_type, size_bytes, page_count, chunk_count, status, error, datasource_id, created_at) "
-                "VALUES (:id, :filename, :content_type, :size_bytes, :page_count, :chunk_count, :status, :error, :datasource_id, :created_at)"
+                "INSERT OR REPLACE INTO documents (id, filename, content_type, size_bytes, page_count, chunk_count, status, error, datasource_id, created_at, workspace_id) "
+                "VALUES (:id, :filename, :content_type, :size_bytes, :page_count, :chunk_count, :status, :error, :datasource_id, :created_at, :workspace_id)"
             ),
-            doc,
+            row,
         )
     return doc
 
 
-def delete_document_row(doc_id: str) -> bool:
+def delete_document_row(doc_id: str, workspace_id: str | None = None) -> bool:
+    require_workspace(workspace_id)
     eng = get_app_engine()
     with eng.begin() as conn:
         conn.execute(text("DELETE FROM chunks WHERE document_id = :id"), {"id": doc_id})
-        result = conn.execute(text("DELETE FROM documents WHERE id = :id"), {"id": doc_id})
+        result = conn.execute(
+            text("DELETE FROM documents WHERE id = :id AND workspace_id = :ws"),
+            {"id": doc_id, "ws": workspace_id},
+        )
     return result.rowcount > 0
 
 
@@ -472,16 +565,22 @@ def insert_chunks(doc_id: str, chunks: list[dict[str, Any]]) -> int:
     return len(chunks)
 
 
-def get_chunks_for_search() -> list[dict[str, Any]]:
-    """All chunks from ready documents, for BM25 search."""
+def get_chunks_for_search(workspace_id: str | None = None) -> list[dict[str, Any]]:
+    """Chunks of READY documents visible to ``workspace_id`` (fail-closed:
+    no workspace → TenantContextError, never a global fallback). Uploaded
+    documents are tenant data; the built-in product docs (data/docs) are a
+    separate corpus handled by docs_rag.load_chunks(), not by this table."""
+    require_workspace(workspace_id)
     eng = get_app_engine()
     with eng.connect() as conn:
         rows = conn.execute(
             text(
                 "SELECT c.document_id, c.page, c.label, c.chunk_index, c.text, d.filename "
                 "FROM chunks c JOIN documents d ON d.id = c.document_id "
-                "WHERE d.status = 'ready' ORDER BY c.document_id, c.chunk_index"
-            )
+                "WHERE d.status = 'ready' AND d.workspace_id = :ws "
+                "ORDER BY c.document_id, c.chunk_index"
+            ),
+            {"ws": workspace_id},
         ).fetchall()
     return [
         {"document_id": r[0], "page": r[1], "label": r[2], "chunk_index": r[3], "text": r[4], "filename": r[5]}

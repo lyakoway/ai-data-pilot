@@ -68,11 +68,15 @@ _MAX_ROWS = 50_000
 # --------------------------------------------------------------------------- #
 
 
-def list_sources() -> list[dict[str, Any]]:
-    """Return metadata for all known sources (for the UI selector)."""
+def list_sources(workspace_id: str | None = None) -> list[dict[str, Any]]:
+    """Metadata for sources visible to ``workspace_id`` (built-ins + own)."""
+    from app.tenancy import require_workspace
+
+    require_workspace(workspace_id)
     out = []
-    # Virtual "All uploads" source appears when CSV/Excel tables exist.
-    csv_sources = [s for s in app_db.list_datasources() if s["kind"] == "csv"]
+    # Virtual "All uploads" source appears when THIS workspace has CSV tables.
+    csv_sources = [s for s in app_db.list_datasources(workspace_id, include_global=False)
+                   if s["kind"] == "csv"]
     if csv_sources:
         out.append({
             "id": ALL_UPLOADS_ID,
@@ -82,7 +86,7 @@ def list_sources() -> list[dict[str, Any]]:
             "row_count": sum(s.get("row_count") or 0 for s in csv_sources),
             "created_at": None,
         })
-    for s in app_db.list_datasources():
+    for s in app_db.list_datasources(workspace_id):
         out.append(
             {
                 "id": s["id"],
@@ -97,15 +101,42 @@ def list_sources() -> list[dict[str, Any]]:
     return out
 
 
-def get_source_meta(source_id: str) -> dict[str, Any] | None:
-    return app_db.get_datasource(source_id)
+def _row_workspace(source_id: str) -> str | None:
+    """Stored workspace of a source row (for re-saves that must not move it)."""
+    eng = app_db.get_app_engine()
+    from sqlalchemy import text as _t
+    with eng.connect() as conn:
+        row = conn.execute(_t("SELECT workspace_id FROM datasources WHERE id = :id"), {"id": source_id}).fetchone()
+    return row[0] if row else None
 
 
-def get_engine_for(source_id: str) -> Any:
-    """Return the engine backing ``source_id`` (SQLAlchemy or ClickHouse wrapper)."""
+def get_source_meta(source_id: str, workspace_id: str | None = None) -> dict[str, Any] | None:
+    """Ownership-aware metadata read (P0.2): user sources are visible only to
+    their workspace; built-in demo sources (workspace 'global') to everyone.
+    Fail-closed: user-kind sources REQUIRE a workspace."""
+    from app.tenancy import require_workspace
+
+    if workspace_id is None and source_id not in (RIDEGO_SOURCE_ID,):
+        # internal callers that resolve built-ins only may omit the workspace
+        meta = app_db.get_datasource(source_id, workspace_id=workspace_id)
+        if meta is None:
+            return None
+        if meta.get("kind") in ("ridego", "clickhouse"):
+            return meta
+        require_workspace(workspace_id)  # user source without context → refuse
+        return meta
+    return app_db.get_datasource(source_id, workspace_id=workspace_id)
+
+
+def get_engine_for(source_id: str, workspace_id: str | None = None) -> Any:
+    """Return the engine backing ``source_id`` (ownership-checked: user
+    sources require a matching workspace; built-ins are global)."""
     if source_id == ALL_UPLOADS_ID:
+        from app.tenancy import require_workspace
+
+        require_workspace(workspace_id)  # uploads are tenant data
         return _uploaded_engine()
-    meta = get_source_meta(source_id)
+    meta = get_source_meta(source_id, workspace_id)
     if meta is None:
         raise KeyError(f"Unknown data source: {source_id!r}")
     if meta["kind"] == "ridego":
@@ -119,11 +150,11 @@ def get_engine_for(source_id: str) -> Any:
     raise ValueError(f"Unsupported source kind: {meta['kind']!r}")
 
 
-def get_schema_catalog(source_id: str) -> str:
-    """Return the schema text to inject into Atlas's prompt for ``source_id``."""
+def get_schema_catalog(source_id: str, workspace_id: str | None = None) -> str:
+    """Schema text for Atlas's prompt (ownership-checked)."""
     if source_id == ALL_UPLOADS_ID:
-        return _build_all_uploads_catalog()
-    meta = get_source_meta(source_id)
+        return _build_all_uploads_catalog(workspace_id)
+    meta = get_source_meta(source_id, workspace_id)
     if meta is None:
         raise KeyError(f"Unknown data source: {source_id!r}")
     if meta["kind"] == "ridego":
@@ -137,11 +168,11 @@ def get_schema_catalog(source_id: str) -> str:
     raise ValueError(f"Unsupported source kind: {meta['kind']!r}")
 
 
-def get_dialect(source_id: str) -> str:
-    """Return 'sqlite', 'postgresql' or 'clickhouse' for dialect-aware prompts."""
+def get_dialect(source_id: str, workspace_id: str | None = None) -> str:
+    """Dialect for prompts (ownership-checked)."""
     if source_id == ALL_UPLOADS_ID:
         return "sqlite"
-    meta = get_source_meta(source_id)
+    meta = get_source_meta(source_id, workspace_id)
     if meta is None:
         return "sqlite"
     if meta.get("kind") == "postgres":
@@ -151,11 +182,11 @@ def get_dialect(source_id: str) -> str:
     return "sqlite"
 
 
-def delete_source(source_id: str) -> None:
-    """Delete a user source. The built-in ``ridego`` source cannot be removed."""
+def delete_source(source_id: str, workspace_id: str | None = None) -> None:
+    """Delete OWN user source only (ownership-checked; ridego undeletable)."""
     if source_id == RIDEGO_SOURCE_ID:
         raise ValueError("The built-in RideGo source cannot be deleted.")
-    meta = get_source_meta(source_id)
+    meta = get_source_meta(source_id, workspace_id)
     if meta is None:
         raise KeyError(f"Unknown data source: {source_id!r}")
     if meta.get("table_name") and meta.get("kind") == "csv":
@@ -166,6 +197,7 @@ def delete_source(source_id: str) -> None:
                 conn.execute(text(f'DROP TABLE IF EXISTS "{meta["table_name"]}"'))
         except Exception:  # noqa: BLE001
             pass
+    app_db.delete_datasource_row(source_id, workspace_id)
     # Dispose any cached remote engine (postgres).
     eng = _pg_engine_cache.pop(source_id, None)
     if eng is not None:
@@ -173,7 +205,6 @@ def delete_source(source_id: str) -> None:
             eng.dispose()
         except Exception:  # noqa: BLE001
             pass
-    app_db.delete_datasource_row(source_id)
 
 
 # --------------------------------------------------------------------------- #
@@ -200,6 +231,7 @@ def ingest_rows(
     rows: list[list[Any]],
     *,
     description: str | None = None,
+    workspace_id: str | None = None,
 ) -> dict[str, Any]:
     """Create a SQLite table from already-parsed ``header`` and ``rows`` and
     register a data source. This is the shared core used by both CSV and Excel
@@ -267,7 +299,7 @@ def ingest_rows(
         "row_count": len(normalised),
         "created_at": datetime.utcnow().isoformat(timespec="seconds"),
     }
-    app_db.save_datasource(meta_entry)
+    app_db.save_datasource(meta_entry, workspace_id)
     return meta_entry
 
 
@@ -281,6 +313,7 @@ def ingest_csv(
     rows_text: str,
     *,
     delimiter: str = ",",
+    workspace_id: str | None = None,
 ) -> dict[str, Any]:
     """Parse CSV text and ingest it as a single data source."""
     if not raw_name:
@@ -292,7 +325,7 @@ def ingest_csv(
         raise ValueError("CSV file is empty (no header row).") from e
 
     data_rows: list[list[str]] = list(reader)
-    return ingest_rows(_human_name(raw_name), header, data_rows)
+    return ingest_rows(_human_name(raw_name), header, data_rows, workspace_id=workspace_id)
 
 
 # --------------------------------------------------------------------------- #
@@ -300,7 +333,7 @@ def ingest_csv(
 # --------------------------------------------------------------------------- #
 
 
-def ingest_xlsx(raw_name: str, file_bytes: bytes) -> list[dict[str, Any]]:
+def ingest_xlsx(raw_name: str, file_bytes: bytes, workspace_id: str | None = None) -> list[dict[str, Any]]:
     """Parse an ``.xlsx`` workbook and ingest every non-empty sheet as its own
     data source. Returns a list of metadata dicts (one per sheet ingested).
 
@@ -331,6 +364,7 @@ def ingest_xlsx(raw_name: str, file_bytes: bytes) -> list[dict[str, Any]]:
                 header,
                 rows,
                 description=f"Лист «{sheet.title}» из {raw_name}: {len(rows)} строк.",
+                workspace_id=workspace_id,
             )
             created.append(meta)
     finally:
@@ -551,9 +585,9 @@ def _postgres_engine(meta: dict[str, Any]) -> Engine:
 _pg_engine_cache: dict[str, Engine] = {}
 
 
-def get_query_timeout(source_id: str) -> float:
-    """Query timeout budget: external DBs (PostgreSQL, ClickHouse) get longer."""
-    meta = get_source_meta(source_id)
+def get_query_timeout(source_id: str, workspace_id: str | None = None) -> float:
+    """Query timeout budget (ownership-checked read of source meta)."""
+    meta = get_source_meta(source_id, workspace_id)
     if meta and meta.get("kind") in ("postgres", "clickhouse"):
         return get_settings().sql_timeout_pg_sec
     return get_settings().sql_timeout_sec
@@ -675,6 +709,7 @@ def register_postgres(
     password: str,
     source_id: str | None = None,
     schema: str | None = None,
+    workspace_id: str | None = None,
 ) -> dict[str, Any]:
     """Test the connection, introspect the schema, and register a postgres source.
 
@@ -723,16 +758,16 @@ def register_postgres(
         "created_at": datetime.utcnow().isoformat(timespec="seconds"),
         "connection": conn_info,
     }
-    app_db.save_datasource(meta)
+    app_db.save_datasource(meta, workspace_id)
     # Return a copy with masked password for the API response.
     safe = dict(meta)
     safe["connection"] = {**conn_info, "password": "****"}
     return safe
 
 
-def refresh_postgres_schema(source_id: str) -> dict[str, Any]:
-    """Re-introspect the schema for an existing postgres source."""
-    meta = get_source_meta(source_id)
+def refresh_postgres_schema(source_id: str, workspace_id: str | None = None) -> dict[str, Any]:
+    """Re-introspect the schema for an OWN postgres source."""
+    meta = get_source_meta(source_id, workspace_id)
     if meta is None:
         raise KeyError(f"Unknown data source: {source_id!r}")
     if meta["kind"] != "postgres":
@@ -742,7 +777,7 @@ def refresh_postgres_schema(source_id: str) -> dict[str, Any]:
     tables = _introspect_schema(engine, schema=schema)
     meta["columns"] = tables
     meta["description"] = f"PostgreSQL: {meta['connection']['database']}@{meta['connection']['host']}, {len(tables)} таблиц(ы)."
-    app_db.save_datasource(meta)
+    app_db.save_datasource(meta, _row_workspace(source_id))
     safe = dict(meta)
     safe["connection"] = {**meta["connection"], "password": "****"}
     return safe
@@ -924,11 +959,14 @@ def _schema_text_for_llm(meta: dict[str, Any], engine=None) -> str:
 
 
 async def suggest_questions_smart(
-    source_id: str, model_id: str = "mock", lang: str = "ru"
+    source_id: str, model_id: str = "mock", lang: str = "ru",
+    workspace_id: str | None = None,
 ) -> list[str]:
     """Suggestions for a source: LLM-crafted when a real model is available
     (cached on the source metadata), heuristic otherwise."""
-    meta = get_source_meta(source_id)
+    from app.tenancy import DEFAULT_WORKSPACE_ID
+
+    meta = get_source_meta(source_id, workspace_id or DEFAULT_WORKSPACE_ID)
     if meta is None:
         return []
 
@@ -952,7 +990,7 @@ async def suggest_questions_smart(
     try:
         engine = None
         try:
-            engine = get_engine_for(source_id)
+            engine = get_engine_for(source_id, workspace_id or DEFAULT_WORKSPACE_ID)
         except Exception:  # noqa: BLE001 — samples are optional
             pass
         raw = await provider.complete(
@@ -971,13 +1009,11 @@ async def suggest_questions_smart(
     return suggest_questions(meta).get(lang) or suggest_questions(meta)["ru"]
 
 
-def _build_all_uploads_catalog() -> str:
-    """Build a combined schema catalog from ALL uploaded CSV/Excel tables.
-
-    This is what Atlas sees when the virtual 'all_uploads' source is selected —
-    every table from every uploaded file, enabling cross-file JOINs.
-    """
-    csv_sources = [s for s in app_db.list_datasources() if s["kind"] == "csv"]
+def _build_all_uploads_catalog(workspace_id: str | None = None) -> str:
+    """Combined schema catalog from the CSV/Excel tables uploaded to THIS
+    workspace (P0.2: cross-tenant tables are never visible)."""
+    csv_sources = [s for s in app_db.list_datasources(workspace_id, include_global=False)
+                   if s["kind"] == "csv"]
     if not csv_sources:
         return "# No uploaded tables\n\nUpload CSV or Excel files to create tables."
 
@@ -1114,7 +1150,7 @@ def register_clickhouse(
         "created_at": datetime.utcnow().isoformat(timespec="seconds"),
         "connection": conn_info,
     }
-    app_db.save_datasource(meta)
+    app_db.save_datasource(meta, workspace_id)
     safe = dict(meta)
     safe["connection"] = {**conn_info, "password": "****"}
     return safe
@@ -1126,6 +1162,7 @@ def register_clickhouse_playground() -> dict[str, Any] | None:
         return register_clickhouse(
             name="ClickHouse Playground (demo)",
             source_id="clickhouse-playground",
+            workspace_id="global",  # built-in demo source, not tenant data
             **CLICKHOUSE_PLAYGROUND,
         )
     except ValueError:

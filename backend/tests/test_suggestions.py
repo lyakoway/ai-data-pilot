@@ -86,7 +86,7 @@ def test_nothing_useful_falls_back_to_generic():
 def test_list_sources_exposes_suggestions(tmp_db):
     from app.db import datasources as ds
 
-    out = ds.list_sources()
+    out = ds.list_sources("ws_default")
     assert out, "expected at least the ridego source"
     assert all("suggestions" in s for s in out)
     ridego = next(s for s in out if s["id"] == "ridego")

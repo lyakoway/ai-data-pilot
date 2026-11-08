@@ -70,10 +70,10 @@ async def test_doc_injected_document_instruction_is_not_system_command(tmp_db):
     app_db.save_document({"id": doc_id, "filename": "injected_notes.md", "content_type": "text/markdown",
                           "size_bytes": len(injected), "page_count": 1, "chunk_count": 1,
                           "status": "ready", "error": None, "datasource_id": None,
-                          "created_at": _t.strftime("%Y-%m-%d %H:%M:%S")})
+                          "created_at": _t.strftime("%Y-%m-%d %H:%M:%S")}, workspace_id="ws_default")
     app_db.insert_chunks(doc_id, [{"label": "injected_notes", "text": injected}])
     try:
-        chunks = retrieve("TTL кэша тарифов", top_k=5, mode="hybrid")
+        chunks = retrieve("TTL кэша тарифов", top_k=5, mode="hybrid", workspace_id="ws_default")
         # the injected document is retrievable as DATA (its factual part matches);
         # nothing here executes instructions — the anti-injection rule is pinned
         # in the Doc SYSTEM prompt contract (test_prompt_contracts)
@@ -81,7 +81,7 @@ async def test_doc_injected_document_instruction_is_not_system_command(tmp_db):
         found = [c for c in chunks if "injected_notes" in c.doc_id or "Инструкция" in c.text]
         assert found, "factual content of the uploaded doc must be findable"
     finally:
-        app_db.delete_document_row(doc_id)
+        app_db.delete_document_row(doc_id, workspace_id="ws_default")
 
 
 @pytest.mark.asyncio

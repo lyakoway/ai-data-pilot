@@ -14,6 +14,7 @@ from sqlalchemy import create_engine, text
 
 from app.agents.atlas import _dialect_note
 from app.db import datasources as ds
+from app.tenancy import DEFAULT_WORKSPACE_ID
 
 
 @pytest.fixture()
@@ -94,8 +95,8 @@ def _make_pg_meta(sid: str = "pg_test") -> dict:
 
 def test_pg_source_roundtrip_with_connection(tmp_db):
     meta = _make_pg_meta()
-    ds.app_db.save_datasource(meta)
-    fetched = ds.get_source_meta("pg_test")
+    ds.app_db.save_datasource(meta, workspace_id=DEFAULT_WORKSPACE_ID)
+    fetched = ds.get_source_meta("pg_test", workspace_id=DEFAULT_WORKSPACE_ID)
     assert fetched["kind"] == "postgres"
     assert fetched["connection"]["password"] == "SECRET123"  # server-side full access
     assert fetched["connection"]["host"] == "localhost"
@@ -103,23 +104,23 @@ def test_pg_source_roundtrip_with_connection(tmp_db):
 
 def test_list_sources_never_leaks_password(tmp_db):
     meta = _make_pg_meta()
-    ds.app_db.save_datasource(meta)
-    listing = json.dumps(ds.list_sources())
+    ds.app_db.save_datasource(meta, workspace_id=DEFAULT_WORKSPACE_ID)
+    listing = json.dumps(ds.list_sources(DEFAULT_WORKSPACE_ID))
     assert "SECRET123" not in listing
     assert "connection" not in listing
 
 
 def test_get_dialect_postgres_vs_sqlite(tmp_db):
     meta = _make_pg_meta("pg_dialect")
-    ds.app_db.save_datasource(meta)
-    assert ds.get_dialect("pg_dialect") == "postgresql"
-    assert ds.get_dialect("ridego") == "sqlite"
-    assert ds.get_dialect("unknown-source") == "sqlite"
+    ds.app_db.save_datasource(meta, workspace_id=DEFAULT_WORKSPACE_ID)
+    assert ds.get_dialect("pg_dialect", workspace_id=DEFAULT_WORKSPACE_ID) == "postgresql"
+    assert ds.get_dialect("ridego", workspace_id=DEFAULT_WORKSPACE_ID) == "sqlite"
+    assert ds.get_dialect("unknown-source", workspace_id=DEFAULT_WORKSPACE_ID) == "sqlite"
 
 
 def test_dialect_note_switches_by_source(tmp_db):
     meta = _make_pg_meta("pg_note")
-    ds.app_db.save_datasource(meta)
+    ds.app_db.save_datasource(meta, workspace_id=DEFAULT_WORKSPACE_ID)
     pg_note = _dialect_note("pg_note")
     sqlite_note = _dialect_note("ridego")
     assert "PostgreSQL" in pg_note
@@ -129,8 +130,8 @@ def test_dialect_note_switches_by_source(tmp_db):
 
 def test_get_schema_catalog_for_postgres(tmp_db):
     meta = _make_pg_meta("pg_cat")
-    ds.app_db.save_datasource(meta)
-    catalog = ds.get_schema_catalog("pg_cat")
+    ds.app_db.save_datasource(meta, workspace_id=DEFAULT_WORKSPACE_ID)
+    catalog = ds.get_schema_catalog("pg_cat", workspace_id=DEFAULT_WORKSPACE_ID)
     assert "PostgreSQL source" in catalog
     assert "## t1" in catalog
 
@@ -167,8 +168,8 @@ def test_build_postgres_url():
 
 def test_get_engine_for_postgres(tmp_db):
     meta = _make_pg_meta("pg_engine")
-    ds.app_db.save_datasource(meta)
-    eng = ds.get_engine_for("pg_engine")
+    ds.app_db.save_datasource(meta, workspace_id=DEFAULT_WORKSPACE_ID)
+    eng = ds.get_engine_for("pg_engine", workspace_id=DEFAULT_WORKSPACE_ID)
     assert "postgresql" in str(eng.url)
-    ds.delete_source("pg_engine")
-    assert ds.get_source_meta("pg_engine") is None
+    ds.delete_source("pg_engine", workspace_id=DEFAULT_WORKSPACE_ID)
+    assert ds.get_source_meta("pg_engine", workspace_id=DEFAULT_WORKSPACE_ID) is None

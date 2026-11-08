@@ -74,13 +74,17 @@ def load_chunks() -> list[DocChunk]:
     return chunks
 
 
-def retrieve(query: str, top_k: int = 4, mode: str = "hybrid") -> list[DocChunk]:
+def retrieve(query: str, top_k: int = 4, mode: str = "hybrid",
+             workspace_id: str | None = None) -> list[DocChunk]:
     """Hybrid search: BM25-IDF keywords + vector embeddings (cosine similarity).
 
     ``mode``: "hybrid" (default), "bm25" (keywords only) or "vector" (embeddings
     only) — the comparison powers the retrieval-quality evaluation. Falls back
     to keyword-only when fastembed is unavailable or fails.
-    """
+
+    Corpus (P0.2): built-in product docs are GLOBAL; uploaded chunks are
+    filtered to ``workspace_id`` (fail-closed: uploaded search without a
+    workspace raises, never falls back to all-workspaces)."""
     q = _tokenize(query)
     if not q:
         return []
@@ -103,7 +107,10 @@ def retrieve(query: str, top_k: int = 4, mode: str = "hybrid") -> list[DocChunk]
     # --- Uploaded documents: BM25 + Vector ---
     try:
         from app.db import app_db
-        uploaded = app_db.get_chunks_for_search()
+        from app.tenancy import require_workspace
+
+        require_workspace(workspace_id)
+        uploaded = app_db.get_chunks_for_search(workspace_id)
         if uploaded:
             # BM25-IDF scoring
             df: dict[str, int] = {}
@@ -177,7 +184,7 @@ def retrieve(query: str, top_k: int = 4, mode: str = "hybrid") -> list[DocChunk]
     _VAGUE_RE = re.compile(r"(файл|документ|данные|этот|эта|what.*this|about.*file)", re.I)
     need_fallback = not top or _VAGUE_RE.search(query)
     if need_fallback:
-        fallback = _fallback_chunks(top_k)
+        fallback = _fallback_chunks(top_k, workspace_id)
         existing_ids = {c.doc_id for c in top}
         for fc in fallback:
             if fc.doc_id not in existing_ids and len(top) < top_k:
@@ -191,14 +198,17 @@ def retrieve(query: str, top_k: int = 4, mode: str = "hybrid") -> list[DocChunk]
     return top
 
 
-def _fallback_chunks(top_k: int) -> list[DocChunk]:
+def _fallback_chunks(top_k: int, workspace_id: str | None = None) -> list[DocChunk]:
     """When keyword search finds nothing, return representative chunks from
     uploaded documents (first chunk of each) + first built-in doc — so vague
     questions like 'о чём этот файл' still get useful context."""
     results: list[DocChunk] = []
     try:
         from app.db import app_db
-        uploaded = app_db.get_chunks_for_search()
+        from app.tenancy import require_workspace
+
+        require_workspace(workspace_id)
+        uploaded = app_db.get_chunks_for_search(workspace_id)
         seen_docs: set[str] = set()
         for ch in uploaded:
             if ch["document_id"] not in seen_docs:

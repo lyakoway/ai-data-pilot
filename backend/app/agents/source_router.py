@@ -32,13 +32,15 @@ def _source_options() -> list[dict]:
     from app.db.datasources import list_sources
 
     options = []
-    for s in list_sources():
+    from app.tenancy import DEFAULT_WORKSPACE_ID
+
+    for s in list_sources(DEFAULT_WORKSPACE_ID):
         # Build a searchable text from name + description
         meta_text = f"{s['name']} {s.get('description', '')}"
         # For CSV sources, include column names from the catalog
         if s["kind"] == "csv":
             from app.db.datasources import get_source_meta
-            m = get_source_meta(s["id"])
+            m = get_source_meta(s["id"], DEFAULT_WORKSPACE_ID)
             if m and m.get("columns"):
                 cols = m["columns"]
                 if cols and isinstance(cols[0], dict) and "columns" in cols[0]:

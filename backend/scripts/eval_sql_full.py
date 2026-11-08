@@ -47,6 +47,7 @@ from app.agents.atlas import (  # noqa: E402
 )
 from app.core.sql_guard import SqlExecutionError, SqlGuardError, SqlTimeoutError  # noqa: E402
 from app.llm.registry import get_provider  # noqa: E402
+from app.tenancy import DEFAULT_WORKSPACE_ID
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 OUT_DIR = BACKEND_DIR / "bench_results"
@@ -243,7 +244,7 @@ async def main_async(args: argparse.Namespace) -> dict[str, Any]:
         for c in cases:
             for prep in c.get("prepare", []):
                 if prep["name"] not in preps:
-                    meta = ingest_csv(prep["name"] + ".csv", prep["csv"])
+                    meta = ingest_csv(prep["name"] + ".csv", prep["csv"], workspace_id=DEFAULT_WORKSPACE_ID)
                     preps[prep["name"]] = meta["table_name"]
                     created.append(meta["id"])
         markers = {f"{{{{{n}}}}}": t for n, t in preps.items()}
