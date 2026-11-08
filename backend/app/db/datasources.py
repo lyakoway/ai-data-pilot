@@ -7,7 +7,8 @@ A *data source* bundles together everything Atlas needs to answer questions:
 
 The built-in ``ridego`` source is always available and backed by the seeded demo
 DB. User-uploaded files (CSV or Excel) are stored as tables in a separate SQLite
-database (``data/csv_sources.db``) and registered here so Atlas can query them
+database (``data/csv_db/<workspace_id>.db``, per-tenant since P0.4) and registered
+here so Atlas can query them
 with the same machinery.
 
 Excel specifics: each **sheet** of a ``.xlsx`` workbook becomes its own data
@@ -16,7 +17,9 @@ Excel-native types (int/float/datetime) are mapped directly to SQLite affinity
 instead of being guessed from strings.
 
 Persistence: source metadata lives in the app database (``app.db``) alongside
-scenarios and feedback. The uploaded data itself lives in ``csv_sources.db``.
+scenarios and feedback. The uploaded data itself lives in per-workspace files
+(``data/csv_db/<ws>.db``; the pre-P0.4 shared ``csv_sources.db`` is read only by
+``scripts/migrate_csv_sources.py``).
 """
 from __future__ import annotations
 
@@ -135,14 +138,14 @@ def get_engine_for(source_id: str, workspace_id: str | None = None) -> Any:
         from app.tenancy import require_workspace
 
         require_workspace(workspace_id)  # uploads are tenant data
-        return _uploaded_engine()
+        return _uploaded_engine(workspace_id)
     meta = get_source_meta(source_id, workspace_id)
     if meta is None:
         raise KeyError(f"Unknown data source: {source_id!r}")
     if meta["kind"] == "ridego":
         return get_ridego_engine()
     if meta["kind"] == "csv":
-        return _uploaded_engine()
+        return _uploaded_engine(workspace_id)
     if meta["kind"] == "postgres":
         return _postgres_engine(meta)
     if meta["kind"] == "clickhouse":
@@ -192,7 +195,7 @@ def delete_source(source_id: str, workspace_id: str | None = None) -> None:
     if meta.get("table_name") and meta.get("kind") == "csv":
         # Best-effort table drop; ignore failures (table may already be gone).
         try:
-            eng = _uploaded_engine()
+            eng = _uploaded_engine(workspace_id)
             with eng.begin() as conn:
                 conn.execute(text(f'DROP TABLE IF EXISTS "{meta["table_name"]}"'))
         except Exception:  # noqa: BLE001
@@ -212,12 +215,43 @@ def delete_source(source_id: str, workspace_id: str | None = None) -> None:
 # --------------------------------------------------------------------------- #
 
 
-def _uploaded_db_path() -> Path:
-    return get_settings().data_dir / "csv_sources.db"
+_legacy_csv_db_name = "csv_sources.db"  # pre-P0.4 shared file; only migrate_csv_sources.py reads it
+
+_WS_ID_RE = __import__("re").compile(r"^[A-Za-z0-9_-]+$")
+
+_ws_engine_cache: dict[str, Engine] = {}
+_ws_engine_lock = __import__("threading").Lock()
 
 
-def _uploaded_engine() -> Engine:
-    return create_engine(f"sqlite:///{_uploaded_db_path()}")
+def _uploaded_db_path(workspace_id: str | None = None) -> Path:
+    """Per-tenant sqlite file for uploaded CSV/Excel tables (P0.4):
+    ``data/csv_db/<workspace_id>.db`` — physical isolation between workspaces.
+    No zero-arg fallback: a missing workspace NEVER resolves to a shared file."""
+    from app.tenancy import require_workspace
+
+    require_workspace(workspace_id)
+    if not _WS_ID_RE.match(workspace_id):
+        raise ValueError(f"invalid workspace id: {workspace_id!r}")
+    return get_settings().data_dir / "csv_db" / f"{workspace_id}.db"
+
+
+def _uploaded_engine(workspace_id: str | None = None) -> Engine:
+    """Thread-safe cached engine per workspace (SQLite pool)."""
+    path = _uploaded_db_path(workspace_id)
+    key = str(path)
+    with _ws_engine_lock:
+        eng = _ws_engine_cache.get(key)
+        if eng is None:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            eng = create_engine(f"sqlite:///{path}")
+            _ws_engine_cache[key] = eng
+        return eng
+
+
+def reset_ws_engine_cache() -> None:
+    """Test helper: drop cached per-workspace engines."""
+    with _ws_engine_lock:
+        _ws_engine_cache.clear()
 
 
 # --------------------------------------------------------------------------- #
@@ -277,7 +311,10 @@ def ingest_rows(
     source_id = f"csv_{uuid.uuid4().hex[:10]}"
     table_name = f"src_{source_id}"
 
-    eng = _uploaded_engine()
+    from app.tenancy import require_workspace
+
+    require_workspace(workspace_id)
+    eng = _uploaded_engine(workspace_id)
     with eng.begin() as conn:
         cols_sql = ", ".join(f'"{h}" {sql_types[i]}' for i, h in enumerate(header))
         conn.execute(text(f'CREATE TABLE "{table_name}" ({cols_sql})'))

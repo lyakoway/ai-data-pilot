@@ -91,7 +91,7 @@ def test_delete_source_removes_table_and_meta(csv_source):
     # table gone
     from app.db.datasources import _uploaded_engine
 
-    with _uploaded_engine().connect() as c:
+    with _uploaded_engine(DEFAULT_WORKSPACE_ID).connect() as c:
         exists = c.execute(
             text(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table}'")
         ).fetchone()

@@ -45,7 +45,15 @@ def tmp_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     # Point the uploaded-data DB at the temp dir too (CSV + Excel sources).
     from app.db import datasources as ds_module
 
-    monkeypatch.setattr(ds_module, "_uploaded_db_path", lambda: csv_db_path)
+    def _tmp_uploaded_db_path(workspace_id=None):
+        # Faithful to production (fail-closed): no workspace → refusal,
+        # never a shared-file fallback.
+        from app.tenancy import TenantContextError, require_workspace
+
+        require_workspace(workspace_id)
+        return tmp_path / "csv_db" / f"{workspace_id}.db"
+
+    monkeypatch.setattr(ds_module, "_uploaded_db_path", _tmp_uploaded_db_path)
 
     # Reset the cached app engine so it picks up the new app_db_url.
     from app.db import app_db
