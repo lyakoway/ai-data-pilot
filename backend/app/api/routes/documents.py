@@ -12,6 +12,12 @@ from app.tenancy import TenantContext, require_tenant
 from fastapi.responses import FileResponse
 
 from app.config import get_settings
+from app.core.storage import (
+    StoragePathError,
+    delete_upload_file,
+    resolve_upload_path,
+    write_upload,
+)
 from app.db import app_db
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
@@ -63,8 +69,10 @@ async def upload_document(file: UploadFile = File(...), ctx: TenantContext = Dep
         raise HTTPException(413, "File is too large (max 25 MB).")
 
     doc_id = uuid.uuid4().hex[:12]
-    dest = _upload_dir() / f"{doc_id}{ext}"
-    dest.write_bytes(raw)
+    try:
+        dest = write_upload(ctx.workspace_id, doc_id, ext, raw)
+    except StoragePathError as e:  # workspace ids are validated upstream
+        raise HTTPException(400, str(e)) from e
 
     doc = {
         "id": doc_id,
@@ -96,10 +104,10 @@ async def upload_document(file: UploadFile = File(...), ctx: TenantContext = Dep
                 filename = file.filename or "upload"
                 if ext == ".csv":
                     text = raw.decode("utf-8-sig")
-                    meta = ingest_csv(filename, text)
+                    meta = ingest_csv(filename, text, workspace_id=ctx.workspace_id)
                     sources = [meta]
                 else:
-                    sources = ingest_xlsx(filename, raw)
+                    sources = ingest_xlsx(filename, raw, workspace_id=ctx.workspace_id)
                 if sources:
                     doc["datasource_id"] = sources[0]["id"]
             except Exception:  # noqa: BLE001 — SQL ingestion is additive
@@ -125,12 +133,16 @@ def list_documents(ctx: TenantContext = Depends(require_tenant)) -> list[dict]:
 
 @router.get("/{document_id}/file")
 def get_document_file(document_id: str, ctx: TenantContext = Depends(require_tenant)):
+    # Ownership FIRST: a foreign document id never reaches storage at all.
     doc = app_db.get_document(document_id, ctx.workspace_id)
     if not doc:
         raise HTTPException(404, "Документ не найден")
     ext = Path(doc["filename"]).suffix.lower()
-    path = _upload_dir() / f"{document_id}{ext}"
-    if not path.exists():
+    try:
+        path = resolve_upload_path(ctx.workspace_id, document_id, ext)
+    except StoragePathError:
+        raise HTTPException(404, "Документ не найден") from None
+    if path is None:
         raise HTTPException(404, "Файл отсутствует на диске")
     return FileResponse(path, filename=doc["filename"], media_type=doc["content_type"],
                         content_disposition_type="inline")
@@ -138,12 +150,15 @@ def get_document_file(document_id: str, ctx: TenantContext = Depends(require_ten
 
 @router.delete("/{document_id}")
 def delete_document(document_id: str, ctx: TenantContext = Depends(require_tenant)) -> dict:
+    # Ownership FIRST: a foreign document id never deletes anything.
     doc = app_db.get_document(document_id, ctx.workspace_id)
     if not doc:
         raise HTTPException(404, "Документ не найден")
     ext = Path(doc["filename"]).suffix.lower()
-    path = _upload_dir() / f"{document_id}{ext}"
-    path.unlink(missing_ok=True)
+    try:
+        delete_upload_file(ctx.workspace_id, document_id, ext)
+    except StoragePathError:
+        raise HTTPException(404, "Документ не найден") from None
     # Also remove the linked SQL data source (CSV/Excel files).
     ds_id = doc.get("datasource_id")
     if ds_id:
