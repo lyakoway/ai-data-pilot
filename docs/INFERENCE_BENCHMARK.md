@@ -3,7 +3,9 @@
 Статус: **выполнен минимальный CPU-эксперимент llama.cpp; GPU-эксперименты
 (vLLM, квантование, prefix caching, speculative decoding) подготовлены и НЕ
 запускались** — на машине аудита нет NVIDIA GPU и Docker (Apple M1 Pro 16 GB,
-macOS 13.6; vLLM требует CUDA). Результаты внешнего API Z.ai к этому
+macOS 13.6; vLLM требует CUDA). Stage 8-проверка (2026-11-09) подтвердила
+блокер и зафиксировала путь разблокировки:
+[INFERENCE_BENCHMARK_GPU.md](INFERENCE_BENCHMARK_GPU.md). Результаты внешнего API Z.ai к этому
 документу не относятся и не являются метриками собственного инференса.
 
 ## 1. Выполнено: llama.cpp на CPU (2026-10-22)
