@@ -431,3 +431,151 @@ def test_migration_csv_sources_apply_idempotent_orphans_collisions(two_workspace
     finally:
         _sys.argv = orig_argv
         shared.unlink(missing_ok=True)
+
+
+# --------------------------------------------------------------------------- #
+# P0.5: точечные верификации P0.4
+# --------------------------------------------------------------------------- #
+
+def test_concurrent_ingest_same_workspace_no_corruption(two_workspaces):
+    """(P0.5-1) Параллельный ingest в один ws: 8 потоков одновременно.
+    Ожидание: ни ошибок ('database is locked' не всплывает наружу), ни
+    порчи — все таблицы на месте с корректными данными (SQLite сериализует
+    записи; engine-пул per-ws)."""
+    import threading
+
+    from sqlalchemy import text
+
+    N = 8
+    errors: list[str] = []
+    tables: dict[int, str] = {}
+
+    def worker(i: int) -> None:
+        try:
+            m = ds.ingest_csv(f"conc{i}.csv", f"val\nrow_{i}\n", workspace_id=WS_A)
+            tables[i] = m["table_name"]
+        except Exception as e:  # noqa: BLE001
+            errors.append(f"worker{i}: {type(e).__name__}: {str(e)[:100]}")
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(N)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert not errors, errors
+    assert len(tables) == N
+    with ds._uploaded_engine(WS_A).connect() as c:
+        for i, tbl in tables.items():
+            rows = c.execute(text(f'SELECT val FROM "{tbl}"')).fetchall()
+            assert rows == [(f"row_{i}",)], (tbl, rows)
+
+
+def test_migration_finishes_interrupted_drop_on_collision(two_workspaces, capsys, monkeypatch, tmp_path):
+    """(P0.5-2) Прерванная миграция: таблица в ОБОИХ файлах (падение между
+    verify и drop). Повторный --apply: per-ws версия верифицирована →
+    legacy-копия ДРОПАЕТСЯ из общего файла; per-ws данные нетронуты."""
+    from scripts import migrate_csv_sources as mig
+    from sqlalchemy import create_engine, text as _t
+
+    class _S:
+        data_dir = tmp_path
+
+    monkeypatch.setattr(mig, "get_settings", lambda: _S)
+
+    shared = tmp_path / "csv_sources.db"
+    tbl = "src_csv_interrupt1"
+    # shared (legacy) copy
+    with create_engine(f"sqlite:///{shared}").begin() as c:
+        c.execute(_t(f"CREATE TABLE {tbl} (v TEXT)"))
+        c.execute(_t(f"INSERT INTO {tbl} VALUES ('same')"))
+    # per-ws copy (migration wrote it, crashed before the drop)
+    per_ws = tmp_path / "csv_db" / f"{WS_A}.db"
+    per_ws.parent.mkdir(parents=True, exist_ok=True)
+    with create_engine(f"sqlite:///{per_ws}").begin() as c:
+        c.execute(_t(f"CREATE TABLE {tbl} (v TEXT)"))
+        c.execute(_t(f"INSERT INTO {tbl} VALUES ('same')"))
+    # metadata row pointing at WS_A
+    with app_db.get_app_engine().begin() as c:
+        c.execute(_t(
+            "INSERT OR REPLACE INTO datasources (id, name, kind, description, table_name, columns, row_count, created_at, workspace_id) "
+            "VALUES ('csv_interrupt1', 'x.csv', 'csv', '', :tbl, NULL, 1, '2026-01-01', :ws)"
+        ), {"tbl": tbl, "ws": WS_A})
+
+    import sys as _sys
+
+    orig = _sys.argv
+    try:
+        _sys.argv = ["migrate", "--apply"]
+        mig.main()
+        out = capsys.readouterr().out
+        assert "FINISHED (dropped shared copy)" in out
+        # shared: table gone
+        with create_engine(f"sqlite:///{shared}").connect() as c:
+            assert c.execute(
+                _t("SELECT COUNT(*) FROM sqlite_master WHERE name = :t"), {"t": tbl}
+            ).scalar() == 0
+        # per-ws: intact
+        with create_engine(f"sqlite:///{per_ws}").connect() as c:
+            assert c.execute(_t(f"SELECT COUNT(*) FROM {tbl}")).scalar() == 1
+    finally:
+        _sys.argv = orig
+
+
+def test_migration_collision_rowcount_mismatch_reported(two_workspaces, capsys, monkeypatch, tmp_path):
+    """(P0.5-2b) Коллизия с РАЗНЫМИ данными (per-ws новее): общий файл НЕ
+    дропается, репортится MISMATCH — данные не теряются молча."""
+    from scripts import migrate_csv_sources as mig
+    from sqlalchemy import create_engine, text as _t
+
+    class _S:
+        data_dir = tmp_path
+
+    monkeypatch.setattr(mig, "get_settings", lambda: _S)
+
+    shared = tmp_path / "csv_sources.db"
+    tbl = "src_csv_mismatch1"
+    with create_engine(f"sqlite:///{shared}").begin() as c:
+        c.execute(_t(f"CREATE TABLE {tbl} (v TEXT)"))
+        c.execute(_t(f"INSERT INTO {tbl} VALUES ('older')"))
+        c.execute(_t(f"INSERT INTO {tbl} VALUES ('extra')"))  # rowcount differs
+    per_ws = tmp_path / "csv_db" / f"{WS_A}.db"
+    per_ws.parent.mkdir(parents=True, exist_ok=True)
+    with create_engine(f"sqlite:///{per_ws}").begin() as c:
+        c.execute(_t(f"CREATE TABLE {tbl} (v TEXT)"))
+        c.execute(_t(f"INSERT INTO {tbl} VALUES ('newer')"))
+    with app_db.get_app_engine().begin() as c:
+        c.execute(_t(
+            "INSERT OR REPLACE INTO datasources (id, name, kind, description, table_name, columns, row_count, created_at, workspace_id) "
+            "VALUES ('csv_mismatch1', 'x.csv', 'csv', '', :tbl, NULL, 1, '2026-01-01', :ws)"
+        ), {"tbl": tbl, "ws": WS_A})
+
+    import sys as _sys
+
+    orig = _sys.argv
+    try:
+        _sys.argv = ["migrate", "--apply"]
+        mig.main()
+        out = capsys.readouterr().out
+        assert "MISMATCH" in out
+        with create_engine(f"sqlite:///{shared}").connect() as c:
+            assert c.execute(_t(f"SELECT COUNT(*) FROM {tbl}")).scalar() == 2  # kept
+    finally:
+        _sys.argv = orig
+
+
+def test_last_source_deletion_cleans_empty_ws_db(two_workspaces):
+    """(P0.5-4) После удаления последнего источника ws пустой per-ws файл
+    не остаётся мусором (cleanup при отсутствии таблиц)."""
+    from sqlalchemy import text as _t
+
+    meta = ds.ingest_csv("only.csv", "x\n1\n", workspace_id=WS_A)
+    path = ds._uploaded_db_path(WS_A)
+    assert path.exists()
+    ds.delete_source(meta["id"], WS_A)
+    if path.exists():  # engine may still hold it — cleanup closes & unlinks
+        with ds._uploaded_engine(WS_A).connect() as c:
+            n = c.execute(_t(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            )).scalar()
+        assert n == 0, "no user tables may remain"

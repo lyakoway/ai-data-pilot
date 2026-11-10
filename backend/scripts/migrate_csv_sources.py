@@ -96,6 +96,8 @@ def main() -> None:
                     if s_n == d_n:
                         sconn.execute(text(f'DROP TABLE IF EXISTS "{tbl}"'))
                         print(f"FINISHED (dropped shared copy): {tbl}")
+                    else:
+                        print(f"MISMATCH (kept shared copy, per-ws differs): {tbl} shared={s_n} per_ws={d_n}")
             continue
         if args.apply:
             with shared.connect() as sconn, dest.begin() as dconn2:

@@ -17,9 +17,10 @@ Excel-native types (int/float/datetime) are mapped directly to SQLite affinity
 instead of being guessed from strings.
 
 Persistence: source metadata lives in the app database (``app.db``) alongside
-scenarios and feedback. The uploaded data itself lives in per-workspace files
-(``data/csv_db/<ws>.db``; the pre-P0.4 shared ``csv_sources.db`` is read only by
-``scripts/migrate_csv_sources.py``).
+scenarios and feedback. The uploaded data itself lives ONLY in per-workspace
+files (``data/csv_db/<ws>.db``) — this is the single supported layout since
+P0.4; there is deliberately no shared uploaded-data database anymore (the
+one-time migration tool in scripts/ is the only reader of any pre-P0.4 file).
 """
 from __future__ import annotations
 
@@ -200,6 +201,7 @@ def delete_source(source_id: str, workspace_id: str | None = None) -> None:
                 conn.execute(text(f'DROP TABLE IF EXISTS "{meta["table_name"]}"'))
         except Exception:  # noqa: BLE001
             pass
+        _cleanup_empty_ws_db(workspace_id)
     app_db.delete_datasource_row(source_id, workspace_id)
     # Dispose any cached remote engine (postgres).
     eng = _pg_engine_cache.pop(source_id, None)
@@ -214,8 +216,6 @@ def delete_source(source_id: str, workspace_id: str | None = None) -> None:
 # Uploaded-data SQLite engine (shared by CSV and Excel sources)
 # --------------------------------------------------------------------------- #
 
-
-_legacy_csv_db_name = "csv_sources.db"  # pre-P0.4 shared file; only migrate_csv_sources.py reads it
 
 _WS_ID_RE = __import__("re").compile(r"^[A-Za-z0-9_-]+$")
 
@@ -252,6 +252,34 @@ def reset_ws_engine_cache() -> None:
     """Test helper: drop cached per-workspace engines."""
     with _ws_engine_lock:
         _ws_engine_cache.clear()
+
+
+def _cleanup_empty_ws_db(workspace_id: str | None) -> None:
+    """P0.5: after dropping the last table, remove the empty per-ws sqlite
+    file (a ~12KB stub otherwise accumulates per workspace). Closes the
+    cached engine first; failures are best-effort (next ingest recreates)."""
+    try:
+        path = _uploaded_db_path(workspace_id)
+        if not path.exists():
+            return
+        key = str(path)
+        with _ws_engine_lock:
+            eng = _ws_engine_cache.pop(key, None)
+        if eng is not None:
+            eng.dispose()
+        import sqlite3 as _sq
+
+        con = _sq.connect(path)
+        try:
+            n = con.execute(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            ).fetchone()[0]
+        finally:
+            con.close()
+        if n == 0:
+            path.unlink()
+    except Exception:  # noqa: BLE001 — cleanup must never break deletion
+        pass
 
 
 # --------------------------------------------------------------------------- #
