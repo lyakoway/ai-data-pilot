@@ -1,5 +1,15 @@
 # ADR-003: SaaS multi-tenancy model
 
+## EN summary
+
+Tenant→Organization→Workspace hierarchy; shared schema + PostgreSQL
+Row-Level Security as the target model (fail-closed default-deny policies,
+workspace id set per transaction). Schema-per-tenant and "WHERE-clause only"
+rejected (migration/pool explosion; one forgotten clause = leak). SQLite
+application-level filtering is the interim step (P0.2), PG migration is the
+accepted end state.
+
+
 Статус: Accepted (Stage 6, 2026-11)
 
 ## Context

@@ -10,380 +10,126 @@ pinned: false
 
 English | [Русский](README.ru.md)
 
-# 📊 AI Data Pilot — multi-agent analytics
+# AI Data Pilot
 
-> **Live demo:** [lyakoway-ai-data-pilot.hf.space](https://lyakoway-ai-data-pilot.hf.space/)
+> Note: the Russian README is the older HF-demo edition and is intentionally
+> not synchronized with this technical README — this file is the canonical
+> engineering description.
 
-A multi-agent analytics platform that turns a natural-language question into
-SQL, data analysis and a ready analytical result. Two specialized agents —
-**Atlas** (Text-to-SQL, charts, Excel) and **Doc** (RAG over
-docs and uploads) — plus a dual auto-router.
+Multi-agent analytics platform: natural-language questions → governed SQL,
+deterministic Python analytics, grounded RAG answers. FastAPI + React/TS,
+two agents (Atlas — Text-to-SQL, Doc — RAG), per-workspace data isolation,
+a reproducible evaluation loop and LLM observability.
 
-[![Demo](https://img.shields.io/badge/demo-lyakoway--ai--data--pilot.hf.space-ff9d00)](https://lyakoway-ai-data-pilot.hf.space/)
-![backend](https://img.shields.io/badge/backend-FastAPI-009688)
-![frontend](https://img.shields.io/badge/frontend-React%2019%20%2B%20Vite-61dafb)
-![tests](https://img.shields.io/badge/tests-249%20passed-brightgreen)
-![sources](https://img.shields.io/badge/sources-PostgreSQL%20·%20ClickHouse%20·%20CSV%20·%20Excel-6366f1)
+> **Live demo:** [lyakoway-ai-data-pilot.hf.space](https://lyakoway-ai-data-pilot.hf.space)
+> (offline demo mode — no keys; may sleep on the free tier)
 
-<sub>On the free tier the demo Space may fall asleep — the first visit after
-idle takes ~1 min. The vector model (fastembed) loads on Doc's
-first search (~10 s).</sub>
-
-**What shipped — three measured decisions:**
-
-1. **Python counts** — trends, percentages, top-N and z-score run in a Python
-   layer. The LLM writes prose. It never calculates business figures.
-2. **SQL failure is a contract** — SQL Guard (SELECT-only) + two rewrites + an
-   honest error. A failed query is never silently replaced with a fake result.
-3. **Two agents, not one prompt** — Atlas for SQL, Doc for
-   docs. Dual router — the decision is visible in the SSE trace.
-
-Headline SQL quality on the public test pack — **measured, with confidence
-intervals** (50-case golden set, execution match): best model
-**GLM-4.5-flash 65.9%** normalized result correctness (Wilson 95% CI
-51.1–78.1), default **GLM-4.6 40.0%** (27.0–54.5). An earlier "~85%" claim
-could not be reproduced from artifacts and has been replaced by these
-numbers — methodology and raw runs: [backend/BENCHMARK.md](backend/BENCHMARK.md),
-[reports](backend/bench_results/). **~98–100% execution** only means the query
-ran. **2h → 2min** report prep is from production experience, not this demo.
-
-**Scale and validation:**
-
-|               |                                     |
-| ------------- | ----------------------------------- |
-| **~15**       | analysts · internal pilot           |
-| **~80**       | scenarios / week                    |
-| **40–66%**    | normalized SQL · measured, CI in [BENCHMARK.md](backend/BENCHMARK.md) |
-| **2h → 2min** | report prep · production experience |
-| **249**       | pytest tests                        |
-| **Python**    | counts · LLM writes prose           |
-
-<sub>Scale figures are from internal production experience. The demo and SQL
-eval in this repo run on a public test dataset (RideGo ~21k rides).</sub>
-
-## Key capabilities
-
-- 🧭 **Dual auto-routing** — by agent (data → Atlas, docs → Doc)
-  and by source (question → the right DB). Both routers: LLM classification +
-  deterministic heuristic fallback. Manual switches remain available as an override.
-- 👤 **Atlas**
-  - **Agent Loop (ReAct)** — `database_query → calculate → analyze → create_chart → finish`. Prompt-based tool-calling works with every provider, including offline Demo.
-  - **Execution trace (SSE)** — live steps: SQL, row_count, insights.
-  - **Self-correction** — failed SQL comes back with the DB error. The agent rewrites (up to 2 rounds).
-  - **Deterministic analytics** — Python computes the numbers. The LLM only interprets.
-- 👩‍💻 **Doc**
-  - **Hybrid search** — BM25-IDF (Russian stemming) + vector embeddings (fastembed, 50+ languages). Measured on a chunk-level 24-case set (confusable pairs, EN queries, negatives): hybrid Recall@1 **1.0** vs **0.95** for BM25-only and vector-only; LLM-judge on answers: relevancy 0.95, but the verbose answer prompt invites context-unsupported elaboration (directional finding — judge calibration is unstable; details in [docs/ERROR_ANALYSIS.md](docs/ERROR_ANALYSIS.md)).
-  - **Uploads** — PDF, Word, Excel, CSV, TXT, MD. Excel is also a SQL table for Atlas.
-  - **Inline citations `[1]`** and a document viewer (PDF page, DOCX, Excel table).
-- 🗄️ **Sources** — PostgreSQL and ClickHouse (UI or env, schema introspection, dialect prompts), virtual **All uploads** with cross-file JOINs.
-- ⚡ **Parameterized scenarios** — templates with `{period}`, `{group_by}`.
-- 👍 **Feedback** — 👍/👎 analytics by agent.
-- 🚦 **Status transparency** — every response carries an explicit `ok / demo / partial / error` status. No silent fallback.
-- 🔭 **LLM observability (Langfuse, optional)** — per-request traces of the full Atlas/Doc path (routing → SQL plan → guard → execution → answer) with latency per span, chunk IDs/scores, citation validity. Off by default; hash-only redaction; never breaks a request. [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md).
-- 🤖 **13 model configs** — OpenAI, Anthropic, Z.ai, Ollama + offline Demo. **GLM-4.6 is the default** (see the measured quality/latency trade-off below).
-
-## Use cases
-
-Data lives in databases and Excel, and getting a number usually means filing an
-analyst ticket. SQL quality and latency here are measured on a public test
-dataset.
-
-1. **Self-service analytics for business** — a manager asks "revenue by region
-   for 90 days" and gets a table with a chart — no analyst ticket, no queue.
-   End-to-end latency is tens of seconds (LLM plan + answer), not a page-load.
-2. **Root-cause analysis of metric drops** — "Why did revenue drop in July?" —
-   the agent compares periods, computes the change, finds contributing factors
-   via the agent loop and shows the analysis step by step.
-3. **Analyzing uploaded Excel exports** — drag a data file into the window and
-   ask questions about it: Atlas builds SQL over the auto-generated
-   schema, Doc searches the content, cross-file JOINs work out
-   of the box.
-4. **A single entry point to heterogeneous databases** — PostgreSQL for
-   transactions and ClickHouse for billion-row analytics under one interface,
-   with the SQL dialect adapted automatically per source.
-
-## Engineering approach
-
-Probabilistic LLM reasoning is separated from deterministic application logic:
-
-- **LLM** — intent, routing, SQL generation, tool choice, prose
-- **Python** — numbers, trends, top-N, anomalies, result validation
-- **SQL Guard** — validate generated SQL before execution
-- **Self-correction** — failed SQL is returned with the DB error, limited retries
-- **Observability** — every agent step streams over SSE
-
-End-to-end latency is **tens of seconds** (LLM plan + answer), not a page-load.
-Streamed steps make the wait inspectable.
-
-## Architecture
+**[Architecture](ARCHITECTURE.md) · [Demo scenario](docs/DEMO.md) ·
+[Trade-offs](docs/TRADEOFFS.md) · [Methodology](docs/EVALUATION.md) ·
+[Benchmark results](docs/BENCHMARK_RESULTS.md) ·
+[Error analysis](docs/ERROR_ANALYSIS.md) ·
+[Observability](docs/OBSERVABILITY.md) ·
+[GPU inference: blocked, documented](docs/INFERENCE_BENCHMARK_GPU.md)**
 
 ```
-[React dashboard] ──/api──▶ [FastAPI]
-                              ├─ Agent router: data → Atlas, docs → Doc
-                              ├─ Atlas: schema → SQL → guard → analytics → chart/xlsx
-                              │    ↑ Agent Loop (ReAct): multi-step tool-calling
-                              │    ↑ self-correction (2 retry rounds)
-                              │    ↑ deterministic insights (Python, not LLM math)
-                              │    ↑ execution trace streamed via SSE
-                              ├─ Source router: question → the right DB
-                              ├─ DataSources: RideGo | PostgreSQL | ClickHouse
-                              │              | CSV/Excel (SQL + RAG) | All uploads (JOIN)
-                              └─ Doc: hybrid RAG (BM25-IDF + vector fastembed)
-                                        over built-in docs + uploaded files
-
-App DB (SQLite): scenarios · datasource metadata · feedback · documents · chunks
-Analytics DB:    RideGo (seeded) · uploaded CSV/Excel tables
-Files:           data/uploads/ (originals for the document viewer)
+UI ─POST /api/chat/stream─▶ FastAPI ─┬─ Atlas: LLM plan → SQL Guard → per-ws engine
+  (SSE steps, per-step latency)      │           ↳ self-correction ×2, ReAct ≤6 steps
+                                      └─ Doc: hybrid retrieval (BM25+vector) →
+                                              grounded answer, [n] citations, abstention
+Tenant: X-Workspace-Id → TenantContext → workspace_id on every row,
+        uploads/<ws>/, csv_db/<ws>.db (physical SQL isolation), exports/<ws>/
 ```
 
-**Storage:** scenarios, source metadata, feedback, documents and chunks live in
-`app.db` (SQLite). Analytics: `ridego.db` (RideGo demo domain: `dim_city`,
-`dim_user`, `fact_rides`, `fact_subscriptions`) and `csv_sources.db` (uploaded
-tables). CSV/Excel enter **both** pipelines: a SQL table for Atlas and
-text chunks for Doc. Source passwords stay server-side and never
-return to the frontend.
-
-## Engineering decisions
-
-### Deterministic analytics
-
-The LLM does not compute business metrics. Numerical work and anomaly detection
-run in Python (`analytics.py`). Figures in the answer always come from the DB or
-Python — never from generation.
-
-### Bounded agent execution
-
-The ReAct loop has a hard step limit (`MAX_LOOP_STEPS = 6`). SQL self-correction
-is two repair rounds (`MAX_SQL_REPAIR_ROUNDS = 2`). Worst case is an honest
-refusal, not a hung tool loop.
-
-### System limits
-
-| Mechanism                                   | Value                      |
-| ------------------------------------------- | -------------------------- |
-| SQL timeout: local sources                  | 8 s                        |
-| SQL timeout: remote PostgreSQL / ClickHouse | 30 s                       |
-| Row limit per query                         | 500 rows                   |
-| Self-correction rounds                      | 2 (up to 3 attempts total) |
-| Agent Loop: max steps                       | 6                          |
-| Upload limit                                | 25 MB · 50,000 rows        |
-
-<sub>Timeouts use a ThreadPoolExecutor with `future.result(timeout)` — a heavy
-query never blocks the event loop. Remote databases get a larger budget:
-cross-network connect plus handshake takes seconds.</sub>
-
-### Why two agents
-
-Data analysis and document search have different tools, limits and failure modes.
-Routing to a specialized agent keeps each workflow bounded and measurable.
-
-## Engineering findings
-
-- **LLMs are unreliable at arithmetic.** Early versions produced plausible but
-  incorrect percentages. Decision: all numerical computation moved into a
-  deterministic Python layer.
-- **Silent fallbacks destroy trust.** An answer without a mode badge looked
-  like a real one. Decision: explicit `ok / demo / partial / error` statuses
-  on every response.
-- **Dirty Excel files are the norm.** A real upload broke on a merged header
-  row and duplicate columns. Decision: resilient parsers that detect the header
-  row, plus tests on dirty files.
-- **Keyword search without stemming is useless for Russian.** «Затраты» did
-  not match «расходы». Decision: Russian stemming for BM25 + a vector channel
-  for semantics and multilinguality.
-- **A lexical guard is not a security boundary until tested as one.** Writing
-  bypass tests first immediately found real holes: `load_extension`,
-  `readfile`/`writefile` and `sqlite_master` probing all passed the SELECT-only
-  guard; a malformed tool argument could crash the agent loop. Fixed + pinned
-  by 29 security tests ([docs/EVALUATION_AUDIT.md](docs/EVALUATION_AUDIT.md)).
-- **"Answer thoroughly" invites context-unsupported elaboration.** An
-  LLM-judge over the Doc agent showed high relevancy but systematic
-  embellishment beyond the retrieved context and no abstention when the
-  corpus has no answer — retrieval quality ≠ answer quality. Prompt rework
-  is queued (P1).
-- **Routing saves trust, not steps.** A single universal prompt blurred the
-  agent's role. Decision: two specialized agents + two-level routing with a
-  visible decision in the trace.
-- **Model pick is a quality/latency trade-off, not a default from a blog.** On
-  the latency table (3 runs, one question) GLM-5.2 is ~16 s vs GLM-4.6 ~30 s
-  (re-measured E2E: 16.9 vs 33.5 s median). On the SQL golden set the free
-  GLM-4.5-flash actually leads on quality (65.9% vs 40.0% result accuracy,
-  n=45, ±13 p.p. Wilson CI) — GLM-4.6 stays the default as a product choice
-  while the trade-off is re-evaluated.
-
-## Evaluation & Benchmarks
-
-Figures below match
-[the case page](https://lyakoway.vercel.app/portfolio/ai-data-pilot).
-SQL eval is on the **public RideGo test pack**, not production databases.
-
-**249 pytest tests:** Agent Loop, SQL guard, self-correction, retrieval
-(Recall@1/5 · MRR for BM25 / Vector / Hybrid), numeric analytics contracts,
-routing, sources, plus regression tests for the ReAct rows-preview, thinking
-model streaming, provider retry policy, and a security suite (guard bypass
-vectors, prompt-injection confinement, malformed tool args, honest statuses).
-Isolated temp SQLite, no API keys required.
-
-**Test coverage — 249 pytest tests:**
-
-| Component                               | Tests | Covers                                                         |
-| --------------------------------------- | ----- | -------------------------------------------------------------- |
-| Agent Loop (ReAct)                      | 24    | tool calling, self-correction, step limit, truncated-JSON retry, fallback |
-| SQL guard                               | 18    | DML bans, multi-statement, timeouts, row limit                 |
-| Analytics layer                         | 16    | trends, z-score threshold, top-N, RU/EN highlights             |
-| Sources (CSV/Excel/PG/CH)               | 27    | parsers, introspection, name dedup, password masking           |
-| Routers (agent + source)                | 26    | heuristic, LLM fallback, honest errors                         |
-| Doc RAG + app.db            | 20    | steps, sources, citations, feedback stats                      |
-| Parameterized scenarios                 | 10    | substitution, defaults, migration                              |
-| Other (app_db, export)                  | 22    | CRUD, feedback, DB isolation                                   |
-| Retrieval quality + analytics contracts | 13    | Recall@1/5, MRR (BM25/Vector/Hybrid), numeric golden contracts |
-| Tool rows-preview contract              | 7     | bounded preview, empty/oversized results, error results        |
-| Provider streaming + retry policy       | 4     | thinking-model deltas, no reasoning leak, bounded retries      |
-| Security & robustness                   | 29    | 13 guard bypass vectors, injection, malformed args, statuses |
-| Observability (Langfuse layer)          | 16    | enabled/disabled/down paths, redaction, span nesting, SSE contract, shutdown | 13 SQL-guard bypass vectors (incl. `load_extension`/`readfile`/`sqlite_master` — found & fixed), prompt-injection confinement, oversized inputs, malformed tool args, provider-failure statuses |
-
-<sub>Tests run on isolated temp SQLite databases with fake providers — no API
-keys required, full run ~2 min. CI: fast pytest on every push; the
-deterministic evaluation suite (RAG metrics + harness checks) runs on a
-weekly schedule / manual dispatch — no paid LLM calls in CI by design.</sub>
-
-Harness: `backend/scripts/run_eval.py` (one entry point: run id, manifest,
-suites — SQL / RAG / routing / E2E / deterministic) over the tool set
-(`evaluate.py`, `llm_bench.py`, `eval_sql_full.py`, `e2e_bench.py`,
-`eval_rag.py`, `rag_judge.py`, `error_analysis.py`, `compare_sql_evals.py`,
-`check_regression.py`) — methodology in [docs/EVALUATION.md](docs/EVALUATION.md),
-commands in [backend/BENCHMARK.md](backend/BENCHMARK.md), consolidated
-results in [docs/BENCHMARK_RESULTS.md](docs/BENCHMARK_RESULTS.md),
-error analysis in [docs/ERROR_ANALYSIS.md](docs/ERROR_ANALYSIS.md),
-audit with P0–P2 priorities in [docs/EVALUATION_AUDIT.md](docs/EVALUATION_AUDIT.md),
-raw artifacts in [bench_results/](backend/bench_results/).
-
-**SQL quality — 5 GLM models, one 50-case golden set (execution match,
-Wilson 95% CI), live runs 2026-10:**
-
-| Metric per model                                            | Result accuracy (match/checked) |
-| ----------------------------------------------------------- | ------------------------------- |
-| **GLM-4.5-flash (free)** — best                             | **65.9%** (29/44), CI 51.1–78.1 |
-| **GLM-4.6 (default)**                                       | **40.0%** (18/45), CI 27.0–54.5 |
-| GLM-5.2                                                     | 37.8% (17/45), CI 25.1–52.4     |
-| GLM-5.3-flash                                               | 35.6% (16/45), CI 23.2–50.2     |
-| GLM-5.3                                                     | 33.3% (15/45), CI 21.4–47.9     |
-
-Execution Accuracy is 98–100% for all models (the query ran — not the same as
-correct). Exact Match 0–2% (aliases differ — expected for Text-to-SQL). An
-extended harder set v2 (20 cases: temporal, complex joins, group/sort,
-percent changes) drops the leader to 45.0% — temporal is the weakest category.
-Weakest spot overall: multi-join and temporal questions.
-
-**Default model: GLM-4.6** — kept as a product choice; the measured data now
-shows free GLM-4.5-flash leading on quality at similar plan latency, at the
-cost of a long p95 tail (thinking-heavy).
-
-### Latency by model (live run)
-
-| Model                        | Plan (LLM) | Execution (DB) | Answer (LLM) | Total   | SQL ok |
-| ---------------------------- | ---------- | -------------- | ------------ | ------- | ------ |
-| **GLM-4.6 (Z.ai) — default** | 13.5 s     | 12 ms          | 16.3 s       | ~29.8 s | 2/3    |
-| GLM-5.2 (Z.ai)               | 7.0 s      | 6 ms           | 9.4 s        | ~16.4 s | 3/3    |
-| GLM-5.3-flash (Z.ai)         | 7.0 s      | 8 ms           | 4.8 s        | ~11.9 s | 2/3    |
-| GLM-5.3 (Z.ai)               | 13.8 s     | 11 ms          | 5.1 s        | ~19.0 s | 1/3    |
-
-<sub>Medians of 3 runs of **one** question through the full cycle (plan → DB →
-answer). External API latency varies. Independently re-measured E2E via SSE
-(2026-10, `scripts/e2e_bench.py`, 3 questions × 3 runs): GLM-4.6 33.5 s,
-GLM-5.2 16.9 s, GLM-5.3-flash 16.5 s median — reproduces this table. Script:
-`python scripts/latency_benchmark.py` (from `backend/`).</sub>
-
-Full cycle is **~16–30 s** depending on the model — provider floor on plan +
-answer, not a sub-second dashboard. Streamed steps — local sources skip the
-external handshake.
-
-### Model registry (13 configs)
-
-| Provider       | Models                                                                |
-| -------------- | --------------------------------------------------------------------- |
-| Demo (offline) | scripted scenario, no keys                                            |
-| OpenAI         | GPT-4o, GPT-4o mini                                                   |
-| Anthropic      | Claude Sonnet 5, Claude Opus 4.8                                      |
-| Z.ai           | GLM-5.3-flash, GLM-5.3, GLM-5.2, **GLM-4.6 (default)**, GLM-4.5-flash |
-| Ollama (local) | Llama 3.2 3B, Llama 3.1 8B, Mistral                                   |
-
-## Tech Stack
-
-- **Backend:** Python, FastAPI, SQLAlchemy 2 (SQLite / PostgreSQL / ClickHouse), fastembed, openpyxl
-- **Frontend:** React 19, Vite, Recharts, xlsx, docx-preview
-- **LLM:** OpenAI / Anthropic / Z.ai / Ollama — prompt-based tool-calling, Demo soft-fallback
-- **Quality:** pytest + pytest-asyncio, golden-set evaluation harness
-- **Infra:** Docker (multi-stage: frontend build → FastAPI static), docker compose
-
-## Quick Start
+## Quick start
 
 ```bash
-chmod +x dev.sh
-./dev.sh
+./dev.sh                    # UI :5173, API :8001 — offline demo works with no keys
+cd backend && pytest -q     # 317 tests, no API keys, ~2.5 min
 ```
 
-- UI: http://localhost:5173
-- API: http://localhost:8001/docs (port 8001, so it does not clash with RAG Chat on 8000)
-
-**Demo (offline)** works without keys.
-
-## Configuration
-
-`backend/.env` ← from `backend/.env.example`:
-
-```env
-OPENAI_API_KEY=
-ANTHROPIC_API_KEY=
-ZAI_API_KEY=
-OLLAMA_BASE_URL=http://localhost:11434
-DEMO_SCALE=small   # or full for denser data
-```
-
-**Test PostgreSQL** (local): `docker compose -f docker-compose.test.yml up -d`
-→ `demo:demo@localhost:5433/shop` or env `POSTGRES_URL`.
-
-## Testing
+Golden-set evaluation (requires a provider key in `backend/.env`):
 
 ```bash
-cd backend
-pip install -r requirements.txt   # includes pytest, pytest-asyncio
-pytest -v
+python scripts/eval_sql_full.py --model zai:glm-4.6          # SQL quality, Wilson CI
+python scripts/eval_rag.py                                    # retrieval, deterministic
+python scripts/compare_sql_evals.py --merge                   # 5-model table
+python scripts/check_regression.py --baseline B.json --candidate N.json   # CI gate
 ```
 
-Coverage: analytics layer (`analytics.py`), SQL guard (`sql_guard.py`), Data
-Agent self-correction loop, retrieval quality, routing and sources. Isolated
-temp SQLite — no API keys.
+## Measured results (every number traces to a manifest'ed artifact)
 
-Golden-set evaluation (provider key required):
+**SQL quality** — 50-case golden set (execution match; ambiguous cases
+execution-only; n=44–45 checked per model; Wilson 95% CI):
 
-```bash
-cd backend
-python scripts/evaluate.py --suite all --model zai:glm-4.6
-python scripts/latency_benchmark.py --models zai:glm-4.6 --runs 3
-```
+| Model | Result Accuracy | CI | SQL-plan p50/p95 |
+|---|---|---|---|
+| GLM-4.5-flash (free) | **65.9%** / 73.3% after prompt fix (paired A/B) | 51.1–78.1 | 15.3 / 69 s |
+| GLM-4.6 (default) | 40.0% | 27.0–54.5 | 13.7 / 22.9 s |
+| GLM-5.2 | 37.8% | 25.1–52.4 | 5.7 / 12.0 s |
 
-## Deployment
+**RAG** — 24-case chunk-level set: hybrid retrieval Recall@1 **1.0** (bm25-only
+0.95); answer faithfulness **0.75 → 1.0** and abstention 3/4 → 4/4 after the
+grounding/abstention prompt contract (LLM-judge with calibration set; judge
+shares the provider family — treat deltas as directional, absolutes as indicative).
 
-**Hugging Face Spaces:**
+**E2E latency** (full cycle, SSE): 16.5–33.5 s p50 by model; first step event
+40–90 ms. Latency is LLM-bound (thinking phase alone adds 3–26 s to first
+answer token — measured at the token level).
 
-1. Space → **Docker**, port **7860** (see YAML at the top of this README).
-2. Secrets (optional): `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `ZAI_API_KEY`.
-3. Root `Dockerfile` builds the frontend and serves it from FastAPI.
-4. The image ships a built-in demo PostgreSQL (database `shop`, user `demo`,
-   `127.0.0.1:5432`, localhost-only) — the **Connect PostgreSQL** preset works
-   out of the box.
+**Tenant isolation** — 30+ tests across metadata, files, SQL and exports;
+the cross-tenant SQL regression **fails without the fix** (verified on the
+pre-fix commit via git worktree): generated SQL naming a foreign workspace's
+table gets `no such table`, not data. All external LLM metrics are
+client-observed measurements of the Z.ai API — they say nothing about
+self-hosted inference performance.
 
-Local image check:
+## Security & reliability contracts
 
-```bash
-docker build -t ai-data-pilot .
-docker run --rm -p 7860:7860 ai-data-pilot
-# → http://localhost:7860
-```
+- SQL Guard: SELECT/WITH-only, one statement, keyword blacklist
+  (`load_extension`, `readfile`, `sqlite_master`… — found by writing bypass
+  tests first), row cap 500, thread-pool timeouts 8/30 s.
+- Tenant layer: fail-closed — missing workspace ⇒ refusal, never global
+  access; foreign resource ids ⇒ 404 before any filesystem/DB access;
+  path traversal rejected at a validated storage boundary.
+- Observability: Langfuse adapter, redaction by default (sha256+length),
+  `SafeObservation` — instrumentation can never break a request.
 
-**Docker Compose (dev split):**
+## Key decisions (ADRs, Russian originals + EN summaries)
 
-```bash
-docker compose up --build
-```
+[ADR-001](docs/ADR-001-atlas-doc-quality.md) prompt quality fixes via paired
+A/B (incl. the LLM-judge instrument-bug post-mortem) ·
+[ADR-002](docs/ADR-002-langgraph.md) LangGraph deferred with explicit
+re-entry criteria ·
+[ADR-003](docs/ADR-003-multitenancy.md) multi-tenancy → PostgreSQL RLS ·
+[ADR-007](docs/ADR-007-per-tenant-csv-sqlite.md) per-tenant sqlite = physical
+SQL isolation now, RLS later ·
+[ADR-008](docs/ADR-008-exports-scoping.md) workspace-scoped exports +
+delete_workspace ·
+[all ADRs](docs/) (004–006: data isolation, background jobs, authn)
+
+## What's not verified (honest list)
+
+- **GPU / self-hosted inference** — never run: no NVIDIA GPU, no Docker, no
+  cloud credentials to rent with. Blocked and documented with a ready
+  unblock plan: [INFERENCE_BENCHMARK_GPU.md](docs/INFERENCE_BENCHMARK_GPU.md).
+  No GPU numbers exist anywhere in this repo.
+- **Prefix caching** on our own runtime — only a black-box probe on the
+  external API (consistent with server-side caching, unprovable); the vLLM
+  A/B experiment is scripted and waiting for hardware.
+- **Concurrency above 64** parallel ingests — not tested (64 was clean).
+- **Self-correction** — 0 repair rounds triggered across 250+ golden-set
+  requests (generated SQL always executed first try), so the repair rate is
+  unmeasurable on this set — stated, not claimed.
+- **RAG judge calibration** — unstable between runs (1/3…3/3); paired deltas
+  are the trustworthy signal, absolute faithfulness scores are not.
+- **Authentication/billing** — not implemented (P1); the workspace header is
+  a dev mechanism, production refuses it without authn.
+- Production deployment of this codebase — none; the HF demo runs the
+  offline mode.
+
+## Stack
+
+Python 3.13, FastAPI, SQLAlchemy 2, pydantic; React 19 + Vite; SQLite
+(app metadata + per-workspace analytics) / PostgreSQL / ClickHouse sources;
+Z.ai (default) / OpenAI / Anthropic / Ollama providers; pytest 317;
+Docker multi-stage with an embedded demo PostgreSQL.

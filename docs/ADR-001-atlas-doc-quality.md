@@ -1,5 +1,20 @@
 # ADR-001: Prompt-level quality fixes for Atlas (SQL) and Doc (RAG)
 
+## EN summary
+
+Prompt-level quality fixes validated by paired A/B runs on the project's own
+golden sets. Atlas planner: money-rounding + service-column minimalism +
+"total/all = no extra filters" calibration (added after a measured regression)
++ real-data-years grounding — paired v1 64.4%→73.3%, temporal 1/5→6/6.
+Doc: "answer thoroughly" rewritten into a grounding/abstention/citations/
+anti-injection contract — faithfulness 0.75→1.0, abstention 3/4→4/4 (LLM-judge
+with calibration; judge and answer model share a provider family — deltas
+directional). Critical instrument fix documented: the judge received EMPTY
+contexts due to a key-name bug; all stage-3 faith numbers were instrument
+artifacts. Lesson recorded: every LLM-judge run needs a known-good positive
+control.
+
+
 Дата: 2026-10-27 · Статус: candidate (результаты A/B — в BENCHMARK_RESULTS.md)
 Контекст: этап 4 quality engineering; наблюдения подтверждены артефактами
 этапа 3 (таксономия 141 ошибки; judge-прогон Дока).
