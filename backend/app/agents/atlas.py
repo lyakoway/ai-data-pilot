@@ -291,11 +291,12 @@ def _ok_response(
     warnings: list[str] | None = None,
     force_excel: bool = False,
     steps: list[dict[str, Any]] | None = None,
+    workspace_id: str | None = None,
 ) -> dict[str, Any]:
     wants_excel = bool(plan.get("wants_excel")) or force_excel or len(rows) >= 15
     excel_url = None
     if wants_excel and rows:
-        path = export_rows(columns, rows, name="atlas_report")
+        path = export_rows(columns, rows, name="atlas_report", workspace_id=workspace_id)
         excel_url = f"/api/exports/{path.name}"
 
     return {
@@ -1049,5 +1050,6 @@ async def run_atlas_streaming(
         warnings=warnings or None,
         force_excel=force_excel,
         steps=steps,
+        workspace_id=ws,
     )
 

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse
 from sqlalchemy import text
 
 from app.config import get_settings
+from app.tenancy import TenantContext, require_tenant
 from app.core.sql_guard import analytics_engine
 from app.db.seed import seed_analytics_db
 from app.llm.registry import list_models
@@ -106,11 +107,27 @@ def dashboard_kpis() -> dict:
 
 
 @router.get("/exports/{filename}")
-def get_export(filename: str):
-    path = get_settings().exports_dir / filename
-    if not path.exists() or ".." in filename or "/" in filename:
-        from fastapi import HTTPException
+def get_export(filename: str, ctx: TenantContext = Depends(require_tenant)):
+    """Workspace-scoped export download (P1.1, ADR-008): the file must live in
+    the CALLER's exports directory — a foreign workspace's file can never
+    resolve (name-as-id), so the refusal happens before any filesystem access.
+    Legacy flat exports resolve only for the default workspace."""
+    from fastapi import HTTPException
+    from fastapi.responses import FileResponse
 
+    from app.core.storage import StoragePathError, resolve_export_path
+    from app.observability import obs_span
+
+    try:
+        path = resolve_export_path(ctx.workspace_id, filename)
+    except StoragePathError as e:
+        # unsafe filename (traversal/extension) — rejected at the storage
+        # boundary, before any path is constructed or opened
+        raise HTTPException(400, "Invalid export filename") from e
+    if path is None:
+        with obs_span("export.not_found") as sp:
+            sp.set_metadata({"workspace_id": ctx.workspace_id, "filename": filename[:80],
+                             "reason": "not_in_workspace"})
         raise HTTPException(404, "File not found")
     return FileResponse(
         path,

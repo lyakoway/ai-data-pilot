@@ -10,11 +10,15 @@ from openpyxl import Workbook
 from app.config import get_settings
 
 
-def export_rows(columns: list[str], rows: list[list[Any]], name: str = "report") -> Path:
-    settings = get_settings()
-    settings.exports_dir.mkdir(parents=True, exist_ok=True)
-    safe_name = re_slug(name)[:40] or "report"
-    path = settings.exports_dir / f"{safe_name}_{uuid.uuid4().hex[:8]}.xlsx"
+def export_rows(columns: list[str], rows: list[Any], name: str = "report",
+                workspace_id: str | None = None) -> Path:
+    """Write an xlsx export into the WORKSPACE-scoped exports directory
+    (P1.1). Library callers may omit the workspace — the dev default applies
+    (same pattern as the agents); production always passes one."""
+    from app.core.storage import write_export
+    from app.tenancy import DEFAULT_WORKSPACE_ID
+
+    path = write_export(workspace_id or DEFAULT_WORKSPACE_ID, name)
 
     wb = Workbook()
     ws = wb.active

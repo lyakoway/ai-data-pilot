@@ -22,6 +22,7 @@ import re
 from pathlib import Path
 
 from app.config import get_settings
+from app.tenancy import DEFAULT_WORKSPACE_ID
 
 _DOC_ID_RE = re.compile(r"^[a-f0-9]{12}$")
 _WS_RE = re.compile(r"^[A-Za-z0-9_-]+$")
@@ -105,3 +106,59 @@ def write_upload(workspace_id: str, doc_id: str, ext: str, data: bytes) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(data)
     return path
+
+
+# --------------------------------------------------------------------------- #
+# Exports (P1.1) — same module, same rules: path built ONLY from validated
+# components; name-as-id (no metadata registry); workspace-scoped layout:
+#     data/exports/<workspace_id>/<slug>_<uuid8>.xlsx   — new (P1.1)
+#     data/exports/<filename>                           — legacy flat
+# Legacy flat exports carry NO owner information anywhere — they are readable
+# ONLY by ws_default (the pre-P0.x single tenant was de-facto the default
+# workspace). No flat fallback exists for any other workspace.
+# --------------------------------------------------------------------------- #
+
+_EXPORT_NAME_RE = re.compile(r"^[A-Za-z0-9_\-]{1,60}\.xlsx$")
+
+
+def exports_root() -> Path:
+    root = get_settings().exports_dir
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def workspace_export_dir(workspace_id: str) -> Path:
+    if not workspace_id or not _WS_RE.match(workspace_id):
+        raise StoragePathError(f"invalid workspace id: {workspace_id!r}")
+    d = exports_root() / workspace_id
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def write_export(workspace_id: str, slug: str) -> Path:
+    """Unique workspace-scoped path for a new export (caller saves into it)."""
+    if not workspace_id or not _WS_RE.match(workspace_id):
+        raise StoragePathError(f"invalid workspace id: {workspace_id!r}")
+    safe_slug = re.sub(r"[^\w\-]+", "_", slug.strip(), flags=re.UNICODE).strip("_")[:40] or "report"
+    import uuid as _uuid
+
+    return workspace_export_dir(workspace_id) / f"{safe_slug}_{_uuid.uuid4().hex[:8]}.xlsx"
+
+
+def resolve_export_path(workspace_id: str, filename: str) -> Path | None:
+    """Existing export file for an ownership-implied lookup: the file lives in
+    the workspace's directory (name-as-id — no foreign file can resolve).
+    Legacy flat fallback exists ONLY for ws_default (see module docstring).
+    Raises StoragePathError on unsafe filenames (→ HTTP 400)."""
+    if not workspace_id or not _WS_RE.match(workspace_id):
+        raise StoragePathError(f"invalid workspace id: {workspace_id!r}")
+    if not filename or not _EXPORT_NAME_RE.match(filename):
+        raise StoragePathError(f"invalid export filename: {filename!r}")
+    scoped = exports_root() / workspace_id / filename
+    if scoped.exists():
+        return scoped
+    if workspace_id == DEFAULT_WORKSPACE_ID:
+        legacy = exports_root() / filename
+        if legacy.exists():
+            return legacy
+    return None
